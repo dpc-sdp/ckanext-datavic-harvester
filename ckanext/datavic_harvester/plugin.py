@@ -21,7 +21,7 @@ class DataVicCKANHarvester(CKANHarvester):
     def info(self):
         return {
             'name': 'datavic_ckan_harvester',
-            'title': 'CKAN Data.Vic schema 2',
+            'title': 'CKAN Data.Vic schema',
             'description': 'Harvests remote CKAN instances using the Data.Vic custom schema',
             'form_config_interface': 'Text'
         }

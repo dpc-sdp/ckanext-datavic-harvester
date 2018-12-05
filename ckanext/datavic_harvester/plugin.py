@@ -3,6 +3,8 @@ from ckan.logic import ValidationError, NotFound, get_action
 from ckan.lib.helpers import json
 from ckan.plugins import toolkit
 
+from ckan.common import config
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -21,13 +23,13 @@ class DataVicCKANHarvester(CKANHarvester):
     def info(self):
         return {
             'name': 'datavic_ckan_harvester',
-            'title': 'CKAN Data.Vic schema',
-            'description': 'Harvests remote CKAN instances using the Data.Vic custom schema',
+            'title': 'CKAN Harvester for Data.Vic',
+            'description': 'Harvests remote CKAN instances using the Data.Vic custom schema and performs some post-processing',
             'form_config_interface': 'Text'
         }
 
     def import_stage(self, harvest_object):
-        log.debug('In CKANHarvester import_stage')
+        log.debug('In DataVicCKANHarvester import_stage')
 
         base_context = {'model': model, 'session': model.Session,
                         'user': self._get_user_name()}
@@ -188,6 +190,22 @@ class DataVicCKANHarvester(CKANHarvester):
 
                     package_dict['extras'].append({'key': key, 'value': value})
 
+            # This is partly SDM specific
+            # Convert some of the extra schema fields to extras
+            if 'anzlic_id' in package_dict:
+                # Determine if the dataset has a Resource Name
+                resource_name = get_extra('Resource Name', package_dict)
+                vicgislite_url = config.get('ckan.harvest.vicgislite_url', None)
+                if resource_name and vicgislite_url is not None:
+                    public_order_url = vicgislite_url.replace('[ANZLIC_ID]', package_dict['anzlic_id'])
+                    # public_order_url = vicgislite_url.replace('[RESOURCE_NAME]', resource_name)
+                else:
+                    log.error('No Resource Name extra set for dataset' + package_dict['name'])
+
+            else:
+                log.error('No ANZLIC ID found for dataset' + package_dict['name'])
+
+
             for resource in package_dict.get('resources', []):
                 # Clear remote url_type for resources (eg datastore, upload) as
                 # we are only creating normal resources with links to the
@@ -199,19 +217,36 @@ class DataVicCKANHarvester(CKANHarvester):
                 # key.
                 resource.pop('revision_id', None)
 
+                if public_order_url:
+                    resource['public_order_url'] = public_order_url
+
+                if resource['format'] in ['wms', 'WMS']:
+                    resource['wms_url'] = resource['url']
+
+
+            # DATAVIC-61: Add any additional schema fields not existing in Data.Vic schema as extras
+            # if identified within the harvest configuration
+            additional_fields_as_extras = self.config.get('additional_fields_as_extras', {})
+            if additional_fields_as_extras:
+                for key in additional_fields_as_extras:
+                    if package_dict[key]:
+                        package_dict['extras'].append({'key': key, 'value': package_dict[key]})
+
+
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
 
-            if result:
-                new_package = toolkit.get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
-
-                from ckanext.datavicmain.plugins import DatasetForm
-
-                for field in DatasetForm.DATASET_EXTRA_FIELDS:
-                    if field[0] in package_dict:
-                        new_package[field[0]] = package_dict[field[0]]
-
-                update = toolkit.get_action('package_update')(base_context.copy(), new_package)
+            # TODO: Re-enable this code later if required for DataVic harvesting
+            # if result:
+            #     new_package = toolkit.get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
+            #
+            #     from ckanext.datavicmain.plugins import DatasetForm
+            #
+            #     for field in DatasetForm.DATASET_EXTRA_FIELDS:
+            #         if field[0] in package_dict:
+            #             new_package[field[0]] = package_dict[field[0]]
+            #
+            #     update = toolkit.get_action('package_update')(base_context.copy(), new_package)
 
             return result
 

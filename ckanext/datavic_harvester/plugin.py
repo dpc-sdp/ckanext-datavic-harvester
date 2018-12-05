@@ -191,6 +191,8 @@ class DataVicCKANHarvester(CKANHarvester):
                     package_dict['extras'].append({'key': key, 'value': value})
 
             # This is partly SDM specific
+            public_order_url = None
+
             # Convert some of the extra schema fields to extras
             if 'anzlic_id' in package_dict:
                 # Determine if the dataset has a Resource Name
@@ -200,10 +202,10 @@ class DataVicCKANHarvester(CKANHarvester):
                     public_order_url = vicgislite_url.replace('[ANZLIC_ID]', package_dict['anzlic_id'])
                     # public_order_url = vicgislite_url.replace('[RESOURCE_NAME]', resource_name)
                 else:
-                    log.error('No Resource Name extra set for dataset' + package_dict['name'])
+                    log.error('No Resource Name extra set for dataset: ' + package_dict['name'])
 
             else:
-                log.error('No ANZLIC ID found for dataset' + package_dict['name'])
+                log.error('No ANZLIC ID found for dataset: ' + package_dict['name'])
 
 
             for resource in package_dict.get('resources', []):
@@ -217,7 +219,7 @@ class DataVicCKANHarvester(CKANHarvester):
                 # key.
                 resource.pop('revision_id', None)
 
-                if public_order_url:
+                if public_order_url is not None:
                     resource['public_order_url'] = public_order_url
 
                 if resource['format'] in ['wms', 'WMS']:

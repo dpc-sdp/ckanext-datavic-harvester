@@ -25,4 +25,16 @@ To install ``ckanext-datavic-harvester``:
 
          sudo service apache2 reload
 
-5. When creating a new harvest source via the standard ``ckanext-harvest`` admin UI, select ``CKAN Data.Vic schema`` as the harvest type.
+5. When creating a new harvest source via the standard ``ckanext-harvest`` admin UI, select ``CKAN Harvester for Data.Vic`` as the harvest type.
+
+## Additional Parameters
+
+This extension adds a new parameter to the harvest configuration options:
+
+        additional_fields_as_extras
+
+This setting can be used to spell out top level fields in the harvest source that should be added to the harvested dataset as additional extras, e.g.
+
+        "additional_fields_as_extras": ["anzlic_id", "package_scope"]
+
+...will scan the harvested source dataset for `anzlic_id` and `package_scope` and if they exist they will be added to the destination dataset as extras.

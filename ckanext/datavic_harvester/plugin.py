@@ -199,8 +199,7 @@ class DataVicCKANHarvester(CKANHarvester):
                 resource_name = get_extra('Resource Name', package_dict)
                 vicgislite_url = config.get('ckan.harvest.vicgislite_url', None)
                 if resource_name and vicgislite_url is not None:
-                    public_order_url = vicgislite_url.replace('[ANZLIC_ID]', package_dict['anzlic_id'])
-                    # public_order_url = vicgislite_url.replace('[RESOURCE_NAME]', resource_name)
+                    public_order_url = vicgislite_url.format(package_dict['anzlic_id'], package_dict['anzlic_id'], resource_name['value'])
                 else:
                     log.error('No Resource Name extra set for dataset: ' + package_dict['name'])
 

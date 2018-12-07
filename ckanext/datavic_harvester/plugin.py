@@ -140,11 +140,18 @@ class DataVicCKANHarvester(CKANHarvester):
                                     # this especially targets older versions of CKAN
                                     org = self._get_group(harvest_object.source.url, remote_org)
 
-                                for key in ['packages', 'created', 'users', 'groups', 'tags', 'extras', 'display_name', 'type']:
-                                    org.pop(key, None)
-                                get_action('organization_create')(base_context.copy(), org)
-                                log.info('Organization %s has been newly created', remote_org)
-                                validated_org = org['id']
+                                # DATAVIC-8: Try and find a local org with the same name first..
+                                try:
+                                    matching_local_org = get_action('organization_show')(base_context.copy(), {'id': org['name']})
+                                    log.info("Found local org matching name: " + org['name'])
+                                    validated_org = matching_local_org['id']
+                                except NotFound, e:
+                                    log.info("Did NOT find local org matching name: " + org['name'] + ' - attempting to create...')
+                                    for key in ['packages', 'created', 'users', 'groups', 'tags', 'extras', 'display_name', 'type']:
+                                        org.pop(key, None)
+                                    get_action('organization_create')(base_context.copy(), org)
+                                    log.info('Organization %s has been newly created', remote_org)
+                                    validated_org = org['id']
                             except (RemoteResourceError, ValidationError):
                                 log.error('Could not get remote org %s', remote_org)
 

@@ -244,17 +244,19 @@ class DataVicCKANHarvester(CKANHarvester):
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
 
-            # TODO: Re-enable this code later if required for DataVic harvesting
-            # if result:
-            #     new_package = toolkit.get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
-            #
-            #     from ckanext.datavicmain.plugins import DatasetForm
-            #
-            #     for field in DatasetForm.DATASET_EXTRA_FIELDS:
-            #         if field[0] in package_dict:
-            #             new_package[field[0]] = package_dict[field[0]]
-            #
-            #     update = toolkit.get_action('package_update')(base_context.copy(), new_package)
+            # Data.Vic specific around workflow status and organisation visibility
+            ignore_workflow_status = self.config.get('ignore_workflow_status', False)
+            if result and not ignore_workflow_status:
+                new_package = toolkit.get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
+
+                if toolkit.asbool(package_dict['private']) is True:
+                    new_package['workflow_status'] = 'draft'
+                    new_package['organization_visibility'] = 'current'
+                else:
+                    new_package['workflow_status'] = 'published'
+                    new_package['organization_visibility'] = 'all'
+
+                update = toolkit.get_action('package_update')(base_context.copy(), new_package)
 
             return result
 

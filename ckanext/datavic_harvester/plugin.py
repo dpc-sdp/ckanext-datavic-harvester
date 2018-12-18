@@ -213,6 +213,8 @@ class DataVicCKANHarvester(CKANHarvester):
             else:
                 log.error('No ANZLIC ID found for dataset: ' + package_dict['name'])
 
+            exclude_sdm_records = self.config.get('exclude_sdm_records', False)
+            skip_record = False
 
             for resource in package_dict.get('resources', []):
                 # Clear remote url_type for resources (eg datastore, upload) as
@@ -225,12 +227,18 @@ class DataVicCKANHarvester(CKANHarvester):
                 # key.
                 resource.pop('revision_id', None)
 
-                if public_order_url is not None:
-                    resource['public_order_url'] = public_order_url
+                if exclude_sdm_records and 'public_order_url' in resource:
+                    skip_record = True
+                else:
+                    if public_order_url is not None:
+                        resource['public_order_url'] = public_order_url
 
-                if resource['format'] in ['wms', 'WMS']:
-                    resource['wms_url'] = resource['url']
+                    if resource['format'] in ['wms', 'WMS']:
+                        resource['wms_url'] = resource['url']
 
+            if skip_record:
+                log.info('Ignoring SDM record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                return True
 
             # DATAVIC-61: Add any additional schema fields not existing in Data.Vic schema as extras
             # if identified within the harvest configuration

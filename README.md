@@ -45,3 +45,11 @@ This setting can be used to spell out top level fields in the harvest source tha
 ### ignore_workflow_status
 
 This setting can be used on the ODP harvester to ignore any post-harvest processing required to set the respective `workflow_status` and `organization_visibility` fields for the datasets.
+
+Default: False
+
+### exclude_sdm_records
+
+This setting can be used on the initial harvest from Data.Vic to exclude SDM records from being harvested, as they will eventually be harvested directly from the SDM CKAN instance.
+
+Default: False

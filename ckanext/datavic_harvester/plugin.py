@@ -252,17 +252,26 @@ class DataVicCKANHarvester(CKANHarvester):
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
 
-            # Data.Vic specific around workflow status and organisation visibility
+            # Use the same harvester for the different scenarios, e.g.
+            additional_fields = self.config.get('additional_fields', {})
             ignore_workflow_status = self.config.get('ignore_workflow_status', False)
-            if result and not ignore_workflow_status:
+
+            if result and additional_fields:
+
                 new_package = toolkit.get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
 
-                if toolkit.asbool(package_dict['private']) is True:
-                    new_package['workflow_status'] = 'draft'
-                    new_package['organization_visibility'] = 'current'
-                else:
-                    new_package['workflow_status'] = 'published'
-                    new_package['organization_visibility'] = 'all'
+                # Data.Vic specific around workflow status and organisation visibility
+                if not ignore_workflow_status:
+                    if toolkit.asbool(package_dict['private']) is True:
+                        new_package['workflow_status'] = 'draft'
+                        new_package['organization_visibility'] = 'current'
+                    else:
+                        new_package['workflow_status'] = 'published'
+                        new_package['organization_visibility'] = 'all'
+
+                for key in additional_fields:
+                    if package_dict[key]:
+                        new_package[key] = package_dict[key]
 
                 update = toolkit.get_action('package_update')(base_context.copy(), new_package)
 

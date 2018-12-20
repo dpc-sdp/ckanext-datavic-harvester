@@ -31,8 +31,18 @@ To install ``ckanext-datavic-harvester``:
 
 This extension adds a new parameter to the harvest configuration options:
 
+        additional_fields
         additional_fields_as_extras
         ignore_workflow_status
+        exclude_sdm_records
+
+### additional_fields
+
+This setting can be used to spell out top level fields in the harvest source that should be copied to the harvested dataset in matching top fields as defined in the custom schema, e.g.
+
+        "additional_fields": ["update_frequency", "extract"]
+
+...will scan the harvested source dataset for `update_frequency` and `extract` and if they exist they will be added to the destination dataset.
 
 ### additional_fields_as_extras
 

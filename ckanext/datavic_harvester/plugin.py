@@ -270,7 +270,7 @@ class DataVicCKANHarvester(CKANHarvester):
                         new_package['organization_visibility'] = 'all'
 
                 for key in additional_fields:
-                    if package_dict[key]:
+                    if key in package_dict:
                         new_package[key] = package_dict[key]
 
                 update = toolkit.get_action('package_update')(base_context.copy(), new_package)

@@ -236,6 +236,12 @@ class DataVicCKANHarvester(CKANHarvester):
                     if resource['format'] in ['wms', 'WMS']:
                         resource['wms_url'] = resource['url']
 
+                # Copy `citation` from the dataset to the resource (for Legacy Data.Vic records)
+                citation = package_dict.get('citation', None)
+                if citation is not None:
+                    resource['attribution'] = citation
+
+
             if skip_record:
                 log.info('Ignoring SDM record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
                 return True

@@ -48,6 +48,12 @@ class DataVicCKANHarvester(CKANHarvester):
         try:
             package_dict = json.loads(harvest_object.content)
 
+            ignore_private = self.config.get('ignore_private_datasets', False)
+
+            if toolkit.asbool(ignore_private) is True and toolkit.asbool(package_dict['private']) is True:
+                log.info('Ignoring Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                return True
+
             if package_dict.get('type') == 'harvest':
                 log.warn('Remote dataset is a harvest source, ignoring...')
                 return True

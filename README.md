@@ -63,3 +63,9 @@ Default: False
 This setting can be used on the initial harvest from Data.Vic to exclude SDM records from being harvested, as they will eventually be harvested directly from the SDM CKAN instance.
 
 Default: False
+
+### ignore_private_datasets
+
+This setting can be used on the Public data.vic harvest from the Data Directory to exclude Private records from being harvested.
+
+Default: False

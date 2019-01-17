@@ -204,23 +204,11 @@ class DataVicCKANHarvester(CKANHarvester):
                     package_dict['extras'].append({'key': key, 'value': value})
 
             # This is partly SDM specific
-            public_order_url = None
-
-            # Convert some of the extra schema fields to extras
-            if 'anzlic_id' in package_dict:
-                # Determine if the dataset has a Resource Name
-                resource_name = get_extra('Resource Name', package_dict)
-                vicgislite_url = config.get('ckan.harvest.vicgislite_url', None)
-                if resource_name and vicgislite_url is not None:
-                    public_order_url = vicgislite_url.format(package_dict['anzlic_id'], package_dict['anzlic_id'], resource_name['value'])
-                else:
-                    log.error('No Resource Name extra set for dataset: ' + package_dict['name'])
-
-            else:
-                log.error('No ANZLIC ID found for dataset: ' + package_dict['name'])
-
             exclude_sdm_records = self.config.get('exclude_sdm_records', False)
-            skip_record = False
+
+            if 'anzlic_id' in package_dict and exclude_sdm_records:
+                log.info('Ignoring SDM record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                return True
 
             for resource in package_dict.get('resources', []):
                 # Clear remote url_type for resources (eg datastore, upload) as
@@ -233,24 +221,14 @@ class DataVicCKANHarvester(CKANHarvester):
                 # key.
                 resource.pop('revision_id', None)
 
-                if exclude_sdm_records and 'public_order_url' in resource:
-                    skip_record = True
-                else:
-                    if public_order_url is not None:
-                        resource['public_order_url'] = public_order_url
-
-                    if resource['format'] in ['wms', 'WMS']:
-                        resource['wms_url'] = resource['url']
+                if resource['format'] in ['wms', 'WMS']:
+                    resource['wms_url'] = resource['url']
 
                 # Copy `citation` from the dataset to the resource (for Legacy Data.Vic records)
                 citation = package_dict.get('citation', None)
                 if citation is not None:
                     resource['attribution'] = citation
 
-
-            if skip_record:
-                log.info('Ignoring SDM record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
-                return True
 
             # DATAVIC-61: Add any additional schema fields not existing in Data.Vic schema as extras
             # if identified within the harvest configuration

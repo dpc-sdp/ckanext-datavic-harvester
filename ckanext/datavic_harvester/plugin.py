@@ -229,7 +229,6 @@ class DataVicCKANHarvester(CKANHarvester):
                 if citation is not None:
                     resource['attribution'] = citation
 
-
             # DATAVIC-61: Add any additional schema fields not existing in Data.Vic schema as extras
             # if identified within the harvest configuration
             additional_fields_as_extras = self.config.get('additional_fields_as_extras', {})
@@ -238,32 +237,20 @@ class DataVicCKANHarvester(CKANHarvester):
                     if package_dict[key]:
                         package_dict['extras'].append({'key': key, 'value': package_dict[key]})
 
+            # Use the same harvester for the different scenarios, e.g.
+            additional_fields = self.config.get('additional_fields', {})
+
+            if additional_fields:
+                for key in additional_fields:
+                    if key in package_dict:
+                        package_dict['extras'].append({'key': key, 'value': package_dict[key]})
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
 
-            # Use the same harvester for the different scenarios, e.g.
-            additional_fields = self.config.get('additional_fields', {})
-            ignore_workflow_status = self.config.get('ignore_workflow_status', False)
-
-            if result and additional_fields:
-
-                new_package = toolkit.get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
-
-                # Data.Vic specific around workflow status and organisation visibility
-                if not ignore_workflow_status:
-                    if toolkit.asbool(package_dict['private']) is True:
-                        new_package['workflow_status'] = 'draft'
-                        new_package['organization_visibility'] = 'current'
-                    else:
-                        new_package['workflow_status'] = 'published'
-                        new_package['organization_visibility'] = 'all'
-
-                for key in additional_fields:
-                    if key in package_dict:
-                        new_package[key] = package_dict[key]
-
-                update = toolkit.get_action('package_update')(base_context.copy(), new_package)
+            # DATAVIC: workflow_status and organization_visibility are now set in the ckanext-workflow extension:
+            # file: ckanext-workflow/ckanext/workflow/plugin.py
+            # function: create()
 
             return result
 

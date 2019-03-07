@@ -77,6 +77,10 @@ class DataVicCKANHarvester(CKANHarvester):
                 # check if remote groups exist locally, otherwise remove
                 validated_groups = []
 
+                # Only process the first group
+                if len(package_dict['groups']) > 1:
+                    package_dict['groups'] = package_dict['groups'][:1]
+
                 for group_ in package_dict['groups']:
                     try:
                         try:

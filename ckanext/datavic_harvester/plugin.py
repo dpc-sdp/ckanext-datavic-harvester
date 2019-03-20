@@ -77,9 +77,15 @@ class DataVicCKANHarvester(CKANHarvester):
                 # check if remote groups exist locally, otherwise remove
                 validated_groups = []
 
-                # Only process the first group
+                # Only process the first group that matches an existing group in CKAN
                 if len(package_dict['groups']) > 1:
-                    package_dict['groups'] = package_dict['groups'][:1]
+                    package_group_names = [x['name'] for x in package_dict['groups']]
+                    # Get all the groups in CKAN
+                    ckan_groups = get_action('group_list')(base_context.copy(), {})
+                    for group_name in package_group_names:
+                        if group_name in ckan_groups:
+                            package_dict['groups'] = [x for x in package_dict['groups'] if x['name'] == group_name]
+                            break
 
                 for group_ in package_dict['groups']:
                     try:
@@ -207,12 +213,8 @@ class DataVicCKANHarvester(CKANHarvester):
 
                     package_dict['extras'].append({'key': key, 'value': value})
 
-            # This is partly SDM specific
+            # This is SDM harvest specific
             exclude_sdm_records = self.config.get('exclude_sdm_records', False)
-
-            if 'anzlic_id' in package_dict and exclude_sdm_records:
-                log.info('Ignoring SDM record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
-                return True
 
             for resource in package_dict.get('resources', []):
                 # Clear remote url_type for resources (eg datastore, upload) as
@@ -232,6 +234,11 @@ class DataVicCKANHarvester(CKANHarvester):
                 citation = package_dict.get('citation', None)
                 if citation is not None:
                     resource['attribution'] = citation
+
+                # Only SDM records from the legacy harvest to current Data.Vic prod instance have 'public_order_url' field
+                if 'public_order_url' in resource and exclude_sdm_records:
+                    log.info('Ignoring SDM record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                    return True
 
             # DATAVIC-61: Add any additional schema fields not existing in Data.Vic schema as extras
             # if identified within the harvest configuration

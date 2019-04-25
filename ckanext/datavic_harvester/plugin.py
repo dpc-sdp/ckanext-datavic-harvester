@@ -48,6 +48,12 @@ class DataVicCKANHarvester(CKANHarvester):
         try:
             package_dict = json.loads(harvest_object.content)
 
+            ignore_private = self.config.get('ignore_private_datasets', False)
+
+            if toolkit.asbool(ignore_private) is True and toolkit.asbool(package_dict['private']) is True:
+                log.info('Ignoring Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                return True
+
             if package_dict.get('type') == 'harvest':
                 log.warn('Remote dataset is a harvest source, ignoring...')
                 return True
@@ -70,6 +76,16 @@ class DataVicCKANHarvester(CKANHarvester):
 
                 # check if remote groups exist locally, otherwise remove
                 validated_groups = []
+
+                # Only process the first group that matches an existing group in CKAN
+                if len(package_dict['groups']) > 1:
+                    package_group_names = [x['name'] for x in package_dict['groups']]
+                    # Get all the groups in CKAN
+                    ckan_groups = get_action('group_list')(base_context.copy(), {})
+                    for group_name in package_group_names:
+                        if group_name in ckan_groups:
+                            package_dict['groups'] = [x for x in package_dict['groups'] if x['name'] == group_name]
+                            break
 
                 for group_ in package_dict['groups']:
                     try:
@@ -140,11 +156,18 @@ class DataVicCKANHarvester(CKANHarvester):
                                     # this especially targets older versions of CKAN
                                     org = self._get_group(harvest_object.source.url, remote_org)
 
-                                for key in ['packages', 'created', 'users', 'groups', 'tags', 'extras', 'display_name', 'type']:
-                                    org.pop(key, None)
-                                get_action('organization_create')(base_context.copy(), org)
-                                log.info('Organization %s has been newly created', remote_org)
-                                validated_org = org['id']
+                                # DATAVIC-8: Try and find a local org with the same name first..
+                                try:
+                                    matching_local_org = get_action('organization_show')(base_context.copy(), {'id': org['name']})
+                                    log.info("Found local org matching name: " + org['name'])
+                                    validated_org = matching_local_org['id']
+                                except NotFound, e:
+                                    log.info("Did NOT find local org matching name: " + org['name'] + ' - attempting to create...')
+                                    for key in ['packages', 'created', 'users', 'groups', 'tags', 'extras', 'display_name', 'type']:
+                                        org.pop(key, None)
+                                    get_action('organization_create')(base_context.copy(), org)
+                                    log.info('Organization %s has been newly created', remote_org)
+                                    validated_org = org['id']
                             except (RemoteResourceError, ValidationError):
                                 log.error('Could not get remote org %s', remote_org)
 
@@ -190,21 +213,8 @@ class DataVicCKANHarvester(CKANHarvester):
 
                     package_dict['extras'].append({'key': key, 'value': value})
 
-            # This is partly SDM specific
-            # Convert some of the extra schema fields to extras
-            if 'anzlic_id' in package_dict:
-                # Determine if the dataset has a Resource Name
-                resource_name = get_extra('Resource Name', package_dict)
-                vicgislite_url = config.get('ckan.harvest.vicgislite_url', None)
-                if resource_name and vicgislite_url is not None:
-                    public_order_url = vicgislite_url.replace('[ANZLIC_ID]', package_dict['anzlic_id'])
-                    # public_order_url = vicgislite_url.replace('[RESOURCE_NAME]', resource_name)
-                else:
-                    log.error('No Resource Name extra set for dataset' + package_dict['name'])
-
-            else:
-                log.error('No ANZLIC ID found for dataset' + package_dict['name'])
-
+            # This is SDM harvest specific
+            exclude_sdm_records = self.config.get('exclude_sdm_records', False)
 
             for resource in package_dict.get('resources', []):
                 # Clear remote url_type for resources (eg datastore, upload) as
@@ -217,12 +227,15 @@ class DataVicCKANHarvester(CKANHarvester):
                 # key.
                 resource.pop('revision_id', None)
 
-                if public_order_url:
-                    resource['public_order_url'] = public_order_url
+                # Copy `citation` from the dataset to the resource (for Legacy Data.Vic records)
+                citation = package_dict.get('citation', None)
+                if citation is not None:
+                    resource['attribution'] = citation
 
-                if resource['format'] in ['wms', 'WMS']:
-                    resource['wms_url'] = resource['url']
-
+                # Only SDM records from the legacy harvest to current Data.Vic prod instance have 'public_order_url' field
+                if 'public_order_url' in resource and exclude_sdm_records:
+                    log.info('Ignoring SDM record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                    return True
 
             # DATAVIC-61: Add any additional schema fields not existing in Data.Vic schema as extras
             # if identified within the harvest configuration
@@ -232,21 +245,20 @@ class DataVicCKANHarvester(CKANHarvester):
                     if package_dict[key]:
                         package_dict['extras'].append({'key': key, 'value': package_dict[key]})
 
+            # Use the same harvester for the different scenarios, e.g.
+            additional_fields = self.config.get('additional_fields', {})
+
+            if additional_fields:
+                for key in additional_fields:
+                    if key in package_dict:
+                        package_dict['extras'].append({'key': key, 'value': package_dict[key]})
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
 
-            # TODO: Re-enable this code later if required for DataVic harvesting
-            # if result:
-            #     new_package = toolkit.get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
-            #
-            #     from ckanext.datavicmain.plugins import DatasetForm
-            #
-            #     for field in DatasetForm.DATASET_EXTRA_FIELDS:
-            #         if field[0] in package_dict:
-            #             new_package[field[0]] = package_dict[field[0]]
-            #
-            #     update = toolkit.get_action('package_update')(base_context.copy(), new_package)
+            # DATAVIC: workflow_status and organization_visibility are now set in the ckanext-workflow extension:
+            # file: ckanext-workflow/ckanext/workflow/plugin.py
+            # function: create()
 
             return result
 

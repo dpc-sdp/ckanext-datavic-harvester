@@ -249,6 +249,8 @@ class DataVicCKANHarvester(CKANHarvester):
             additional_fields = self.config.get('additional_fields', {})
 
             if additional_fields:
+                if not 'extras' in package_dict:
+                    package_dict['extras'] = []
                 for key in additional_fields:
                     if key in package_dict:
                         package_dict['extras'].append({'key': key, 'value': package_dict[key]})

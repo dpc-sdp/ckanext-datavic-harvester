@@ -1,6 +1,7 @@
 from ckan import model
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.lib.helpers import json
+from ckan.lib.search.index import PackageSearchIndex
 from ckan.plugins import toolkit
 
 from ckan.common import config
@@ -50,9 +51,24 @@ class DataVicCKANHarvester(CKANHarvester):
 
             ignore_private = self.config.get('ignore_private_datasets', False)
 
-            if toolkit.asbool(ignore_private) is True and toolkit.asbool(package_dict['private']) is True:
-                log.info('Ignoring Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
-                return True
+            # DATAVIC-94 - Even if a dataset is marked Private we need to check if it exists locally in CKAN
+            # If it exists then it needs to be removed
+            if toolkit.asbool(package_dict['private']) is True:
+                try:
+                    local_dataset = get_action('package_show')(base_context.copy(), {'id': harvest_object.source.id})
+                    if not local_dataset['state'] == 'deleted':
+                        get_action('package_delete')(base_context.copy(), {'id': local_dataset['id']})
+                        package_index = PackageSearchIndex()
+                        package_index.remove_dict(local_dataset)
+                except NotFound, e:
+                    log.error(e)
+                    if toolkit.asbool(ignore_private) is True:
+                        log.info('Ignoring Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                        return True
+
+            # if toolkit.asbool(ignore_private) is True and toolkit.asbool(package_dict['private']) is True:
+            #     log.info('Ignoring Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+            #     return True
 
             if package_dict.get('type') == 'harvest':
                 log.warn('Remote dataset is a harvest source, ignoring...')

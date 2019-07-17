@@ -60,11 +60,11 @@ class DataVicCKANHarvester(CKANHarvester):
                         get_action('package_delete')(base_context.copy(), {'id': local_dataset['id']})
                         package_index = PackageSearchIndex()
                         package_index.remove_dict(local_dataset)
-                        log.info('Removing now Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                        log.info('REMOVING now Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
                         return True
                 except NotFound, e:
                     log.error(e)
-                    log.info('Ignoring Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                    log.info('IGNORING Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
                     return True
 
             if package_dict.get('type') == 'harvest':

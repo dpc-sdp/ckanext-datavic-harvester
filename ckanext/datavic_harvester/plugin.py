@@ -61,7 +61,9 @@ class DataVicCKANHarvester(CKANHarvester):
                         package_index = PackageSearchIndex()
                         package_index.remove_dict(local_dataset)
                         log.info('REMOVING now Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
-                        return True
+                    # Return true regardless of if the local dataset is already deleted, because we need to avoid this
+                    # dataset harvest object from being processed any further.
+                    return True
                 except NotFound, e:
                     log.error(e)
                     log.info('IGNORING Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])

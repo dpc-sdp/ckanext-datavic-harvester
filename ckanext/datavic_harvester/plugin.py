@@ -1,6 +1,7 @@
 from ckan import model
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.lib.helpers import json
+from ckan.lib.search.index import PackageSearchIndex
 from ckan.plugins import toolkit
 
 from ckan.common import config
@@ -48,11 +49,25 @@ class DataVicCKANHarvester(CKANHarvester):
         try:
             package_dict = json.loads(harvest_object.content)
 
-            ignore_private = self.config.get('ignore_private_datasets', False)
+            ignore_private = toolkit.asbool(self.config.get('ignore_private_datasets', False))
 
-            if toolkit.asbool(ignore_private) is True and toolkit.asbool(package_dict['private']) is True:
-                log.info('Ignoring Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
-                return True
+            # DATAVIC-94 - Even if a dataset is marked Private we need to check if it exists locally in CKAN
+            # If it exists then it needs to be removed
+            if ignore_private and toolkit.asbool(package_dict['private']) is True:
+                try:
+                    local_dataset = get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
+                    if not local_dataset['state'] == 'deleted':
+                        get_action('package_delete')(base_context.copy(), {'id': local_dataset['id']})
+                        package_index = PackageSearchIndex()
+                        package_index.remove_dict(local_dataset)
+                        log.info('REMOVING now Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                    # Return true regardless of if the local dataset is already deleted, because we need to avoid this
+                    # dataset harvest object from being processed any further.
+                    return True
+                except NotFound, e:
+                    log.error(e)
+                    log.info('IGNORING Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
+                    return True
 
             if package_dict.get('type') == 'harvest':
                 log.warn('Remote dataset is a harvest source, ignoring...')
@@ -249,6 +264,8 @@ class DataVicCKANHarvester(CKANHarvester):
             additional_fields = self.config.get('additional_fields', {})
 
             if additional_fields:
+                if not 'extras' in package_dict:
+                    package_dict['extras'] = []
                 for key in additional_fields:
                     if key in package_dict:
                         package_dict['extras'].append({'key': key, 'value': package_dict[key]})

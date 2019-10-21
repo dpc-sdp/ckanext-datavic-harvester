@@ -1,8 +1,8 @@
 # Based on https://gist.github.com/revotu/21d52bd20a073546983985ba3bf55deb
-import re
 import requests
 
 from bs4 import BeautifulSoup
+
 
 # remove all attributes
 def _remove_all_attrs(soup):
@@ -50,7 +50,7 @@ def _extract_metadata_url(soup, base_url):
 
 
 def _fetch_update_frequency(full_metadata_url):
-    update_frequency = 'Unknown'
+    update_frequency = 'unknown'
     try:
         response = requests.get(full_metadata_url)
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -62,6 +62,9 @@ def _fetch_update_frequency(full_metadata_url):
                 break
             elif 'week ' in tag_text:
                 update_frequency = 'weekly'
+                break
+            elif 'twice' in tag_text:
+                update_frequency = 'biannually'
                 break
             elif 'year' in tag_text:
                 update_frequency = 'annually'

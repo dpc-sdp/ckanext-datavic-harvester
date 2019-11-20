@@ -1,5 +1,7 @@
 import json
-
+from ckan import model
+from ckan.logic import ValidationError, NotFound, get_action
+from ckan.plugins import toolkit
 from bs4 import BeautifulSoup
 from ckanext.datavic_harvester import bs4_helpers
 from ckanext.dcat import converters
@@ -16,6 +18,52 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             'description': 'DataVic Harvester for DCAT dataset descriptions ' +
                            'serialized as JSON'
         }
+
+    def validate_config(self, config):
+        '''
+        Harvesters can provide this method to validate the configuration
+        entered in the form. It should return a single string, which will be
+        stored in the database.  Exceptions raised will be shown in the form's
+        error messages.
+
+        Validates the default_group entered exists and creates default_group_dicts
+
+        :param harvest_object_id: Config string coming from the form
+        :returns: A string with the validated configuration options
+        '''
+        if not config:
+            return config
+
+        try:
+            config_obj = json.loads(config)
+
+            if 'default_groups' in config_obj:
+                if not isinstance(config_obj['default_groups'], list):
+                    raise ValueError('default_groups must be a *list* of group'
+                                     ' names/ids')
+                if config_obj['default_groups'] and \
+                        not isinstance(config_obj['default_groups'][0],
+                                       basestring):
+                    raise ValueError('default_groups must be a list of group '
+                                     'names/ids (i.e. strings)')
+
+                # Check if default groups exist
+                context = {'model': model, 'user': toolkit.c.user}
+                config_obj['default_group_dicts'] = []
+                for group_name_or_id in config_obj['default_groups']:
+                    try:
+                        group = get_action('group_show')(context, {'id': group_name_or_id})
+                        # save the dict to the config object, as we'll need it
+                        # in the set_default_group of every dataset
+                        config_obj['default_group_dicts'].append({'id': group['id'], 'name': group['name']})
+                    except NotFound, e:
+                        raise ValueError('Default group not found')
+                config = json.dumps(config_obj, indent=1)
+
+        except ValueError, e:
+            raise e
+
+        return config
 
     def fix_erroneous_tags(self, package_dict):
         '''
@@ -94,6 +142,23 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                 'value': full_metadata_url
             })
 
+    def set_default_group(self, harvest_config, package_dict):
+        '''
+        Set the default group from config
+        :param harvest_config:
+        :param package_dict:
+        :return:
+        '''
+        # Set default groups if needed
+        default_groups = harvest_config.get('default_groups', [])
+        if default_groups:
+            if not 'groups' in package_dict:
+                package_dict['groups'] = []
+            existing_group_ids = [g['id'] for g in package_dict['groups']]
+            package_dict['groups'].extend(
+                [g for g in harvest_config['default_group_dicts']
+                    if g['id'] not in existing_group_ids])
+
     def _get_package_dict(self, harvest_object):
         '''
         Converts a DCAT dataset into a CKAN dataset
@@ -125,5 +190,6 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
 
         # Groups (Categories)
         # Default group is set in the harvest source configuration, "default_groups" property.
+        self.set_default_group(harvest_config, package_dict)
 
         return package_dict, dcat_dict

@@ -22,14 +22,14 @@ def _remove_all_attrs_except(soup):
 
 # remove all attributes except some tags(only saving ['href','src'] attr)
 def _remove_all_attrs_except_saving(soup):
-    whitelist = ['a']
+    whitelist = ['a', 'br']
     for tag in soup.find_all(True):
         if tag.name not in whitelist:
             tag.attrs = {}
         else:
             attrs = dict(tag.attrs)
             for attr in attrs:
-                if attr not in ['target','href']:
+                if attr not in ['target', 'href']:
                     del tag.attrs[attr]
     return soup
 

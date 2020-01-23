@@ -101,7 +101,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             package_dict['notes'] = bs4_helpers._unwrap_all_except(
                 bs4_helpers._remove_all_attrs_except_saving(soup),
                 # allowed tags
-                ['a']
+                ['a', 'br']
             )
             if not extract:
                 extract = self.generate_extract(soup)
@@ -159,6 +159,66 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                 [g for g in harvest_config['default_group_dicts']
                     if g['id'] not in existing_group_ids])
 
+    def set_required_fields_defaults(self, dcat_dict, package_dict):
+        personal_information = [extra for extra in package_dict['extras'] if
+                                extra['key'] == 'personal_information']
+        if not personal_information:
+            package_dict['extras'].append({
+                'key': 'personal_information',
+                'value': 'no'
+            })
+
+        access = [extra for extra in package_dict['extras'] if
+                  extra['key'] == 'access']
+        if not access:
+            package_dict['extras'].append({
+                'key': 'access',
+                'value': 'yes'
+            })
+
+        protective_marking = [extra for extra in package_dict['extras'] if
+                              extra['key'] == 'protective_marking']
+        if not protective_marking:
+            package_dict['extras'].append({
+                'key': 'protective_marking',
+                'value': 'Public Domain'
+            })
+
+        update_frequency = [extra for extra in package_dict['extras'] if
+                            extra['key'] == 'update_frequency']
+        if not update_frequency:
+            package_dict['extras'].append({
+                'key': 'update_frequency',
+                'value': 'unknown'
+            })
+
+        issued = dcat_dict.get('issued')
+        date_created_data_asset = [extra for extra in package_dict['extras'] if
+                                   extra['key'] == 'date_created_data_asset']
+        if issued and not date_created_data_asset:
+            package_dict['extras'].append({
+                'key': 'date_created_data_asset',
+                'value': issued
+            })
+
+        modified = dcat_dict.get('modified')
+        date_modified_data_asset = [extra for extra in package_dict['extras'] if
+                                    extra['key'] == 'date_modified_data_asset']
+        if modified and not date_modified_data_asset:
+            package_dict['extras'].append({
+                'key': 'date_modified_data_asset',
+                'value': modified
+            })
+
+        landing_page = dcat_dict.get('landingPage')
+        full_metadata_url = [extra for extra in package_dict['extras'] if
+                             extra['key'] == 'full_metadata_url']
+        if landing_page and not full_metadata_url:
+            package_dict['extras'].append({
+                'key': 'full_metadata_url',
+                'value': landing_page
+            })
+
     def _get_package_dict(self, harvest_object):
         '''
         Converts a DCAT dataset into a CKAN dataset
@@ -191,5 +251,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         # Groups (Categories)
         # Default group is set in the harvest source configuration, "default_groups" property.
         self.set_default_group(harvest_config, package_dict)
+
+        self.set_required_fields_defaults(dcat_dict, package_dict)
 
         return package_dict, dcat_dict

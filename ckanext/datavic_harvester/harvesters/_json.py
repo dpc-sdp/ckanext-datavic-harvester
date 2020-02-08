@@ -159,7 +159,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                 [g for g in harvest_config['default_group_dicts']
                     if g['id'] not in existing_group_ids])
 
-    def set_required_fields_defaults(self, dcat_dict, package_dict):
+    def set_required_fields_defaults(self, harvest_config, dcat_dict, package_dict):
         personal_information = [extra for extra in package_dict['extras'] if
                                 extra['key'] == 'personal_information']
         if not personal_information:
@@ -219,6 +219,17 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                 'value': landing_page
             })
 
+        license_id = package_dict.get('license_id', None)
+        if not license_id and 'default_license' in harvest_config:
+            default_license = harvest_config.get('default_license')
+            if default_license:
+                default_license_id = default_license.get('id')
+                default_license_title = default_license.get('title')
+                if default_license_id:
+                    package_dict['license_id'] = default_license_id
+                if default_license_title:
+                    package_dict['license_title'] = default_license_title
+
     def _get_package_dict(self, harvest_object):
         '''
         Converts a DCAT dataset into a CKAN dataset
@@ -252,6 +263,6 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         # Default group is set in the harvest source configuration, "default_groups" property.
         self.set_default_group(harvest_config, package_dict)
 
-        self.set_required_fields_defaults(dcat_dict, package_dict)
+        self.set_required_fields_defaults(harvest_config, dcat_dict, package_dict)
 
         return package_dict, dcat_dict

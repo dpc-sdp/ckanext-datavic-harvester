@@ -10,6 +10,8 @@ import logging
 log = logging.getLogger(__name__)
 
 from ckanext.harvest.harvesters.ckanharvester import CKANHarvester
+import requests
+import os
 
 
 class DataVicCKANHarvester(CKANHarvester):
@@ -50,12 +52,11 @@ class DataVicCKANHarvester(CKANHarvester):
             package_dict = json.loads(harvest_object.content)
 
             ignore_private = toolkit.asbool(self.config.get('ignore_private_datasets', False))
-
+            local_dataset = get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
             # DATAVIC-94 - Even if a dataset is marked Private we need to check if it exists locally in CKAN
             # If it exists then it needs to be removed
             if ignore_private and toolkit.asbool(package_dict['private']) is True:
                 try:
-                    local_dataset = get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
                     if not local_dataset['state'] == 'deleted':
                         get_action('package_delete')(base_context.copy(), {'id': local_dataset['id']})
                         package_index = PackageSearchIndex()
@@ -231,11 +232,22 @@ class DataVicCKANHarvester(CKANHarvester):
             # This is SDM harvest specific
             exclude_sdm_records = self.config.get('exclude_sdm_records', False)
 
+            resources_to_download = []
             for resource in package_dict.get('resources', []):
-                # Clear remote url_type for resources (eg datastore, upload) as
-                # we are only creating normal resources with links to the
-                # remote ones
-                resource.pop('url_type', None)
+                if resource.get('url_type') == 'upload':
+                    # Check last modified date to see if resource file has been updated
+                    # Resource last_modifed date is only updated when a file has been uploaded
+                    local_resource = next((x for x in local_dataset.get('resources', []) if resource.get('id') == x.get('id')), None)
+                    if local_resource != None and resource.get('last_modified', None) > local_resource.get('last_modified', None):                                     
+                        # Set the url_type to xloader as we do not want the xLoader to submit a resource                    
+                        resource['url_type'] = 'xloader'
+                        # Until after we have downloaded the resource from the source
+                        resources_to_download.append({'id': resource.get('id'), 'format': resource.get('format'), 'url': resource.get('url')})
+                else:
+                    # Clear remote url_type for resources (eg datastore, upload) as
+                    # we are only creating normal resources with links to the
+                    # remote ones
+                    resource.pop('url_type', None)
 
                 # Clear revision_id as the revision won't exist on this CKAN
                 # and saving it will cause an IntegrityError with the foreign
@@ -273,6 +285,12 @@ class DataVicCKANHarvester(CKANHarvester):
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
 
+            if result:
+                for resource in resources_to_download:
+                    filepath = self.copy_remote_file_to_tmp(resource.get('url'), resource.get('url').split('/')[-1], self.config.get('api_key'))
+                    if filepath:
+                        self.update_resource(base_context.copy(), resource['id'], filepath)
+
             # DATAVIC: workflow_status and organization_visibility are now set in the ckanext-workflow extension:
             # file: ckanext-workflow/ckanext/workflow/plugin.py
             # function: create()
@@ -286,6 +304,23 @@ class DataVicCKANHarvester(CKANHarvester):
         except Exception, e:
             self._save_object_error('%s' % e, harvest_object, 'Import')
 
+    def copy_remote_file_to_tmp(self, url, filename, apikey=None):
+        filepath = '/tmp/' + filename
+        try:
+            headers = {}
+            if apikey:
+                headers["Authorization"] = apikey
+            r = requests.get(url, headers=headers)
+            open(filepath, 'wb').write(r.content)
+            log.info('Downloaded resource {0} to {1}'.format(url, filepath))
+            return filepath
+        except Exception as e:
+            log.error('Error copying remote file {0} to local {1}'.format(url, filename))
+            log.error('Exception: {0}'.format(e))
+            return None
+
+    def update_resource(self, context, resource_id, filepath):
+        get_action('resource_patch')(context, {'id':resource_id, 'upload':file(filepath)})
 
 class ContentFetchError(Exception):
     pass

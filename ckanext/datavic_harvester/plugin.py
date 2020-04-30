@@ -52,12 +52,17 @@ class DataVicCKANHarvester(CKANHarvester):
         try:
             package_dict = json.loads(harvest_object.content)
 
+            try:
+                local_dataset = get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
+            except NotFound, e:
+                local_dataset = {}
+                log.info('-- Package ID %s (%s) does not exist locally' % (package_dict['id'], package_dict['name']))
+
             ignore_private = toolkit.asbool(self.config.get('ignore_private_datasets', False))
             # DATAVIC-94 - Even if a dataset is marked Private we need to check if it exists locally in CKAN
             # If it exists then it needs to be removed
             if ignore_private and toolkit.asbool(package_dict['private']) is True:
-                try:
-                    local_dataset = get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
+                if local_dataset:
                     if not local_dataset['state'] == 'deleted':
                         get_action('package_delete')(base_context.copy(), {'id': local_dataset['id']})
                         package_index = PackageSearchIndex()
@@ -66,8 +71,7 @@ class DataVicCKANHarvester(CKANHarvester):
                     # Return true regardless of if the local dataset is already deleted, because we need to avoid this
                     # dataset harvest object from being processed any further.
                     return True
-                except NotFound, e:
-                    log.error(e)
+                else:
                     log.info('IGNORING Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
                     return True
 
@@ -235,13 +239,24 @@ class DataVicCKANHarvester(CKANHarvester):
 
             for resource in package_dict.get('resources', []):
                 if resource.get('url_type') == 'upload':
-                    filename = self.copy_remote_file_to_filestore(
-                        resource['id'],
-                        resource['url'],
-                        self.config.get('api_key')
-                    )
-                    if filename:
-                        resource['url'] = filename
+                    local_resource = next(
+                        (x for x in local_dataset.get('resources', []) if resource.get('id') == x.get('id')), None)
+
+                    # Check last modified date to see if resource file has been updated
+                    # Resource last_modified date is only updated when a file has been uploaded
+
+                    if not local_resource or (
+                            local_resource
+                            and resource.get('last_modified', None) > local_resource.get('last_modified', None)):
+
+                        filename = self.copy_remote_file_to_filestore(
+                            resource['id'],
+                            resource['url'],
+                            self.config.get('api_key')
+                        )
+
+                        if filename:
+                            resource['url'] = filename
                 else:
                     # Clear remote url_type for resources (eg datastore, upload) as
                     # we are only creating normal resources with links to the

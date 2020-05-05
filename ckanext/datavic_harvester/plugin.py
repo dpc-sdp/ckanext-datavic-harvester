@@ -7,9 +7,12 @@ from ckan.plugins import toolkit
 from ckan.common import config
 
 import logging
+
 log = logging.getLogger(__name__)
 
 from ckanext.harvest.harvesters.ckanharvester import CKANHarvester
+import requests
+import os
 
 
 class DataVicCKANHarvester(CKANHarvester):
@@ -49,13 +52,17 @@ class DataVicCKANHarvester(CKANHarvester):
         try:
             package_dict = json.loads(harvest_object.content)
 
-            ignore_private = toolkit.asbool(self.config.get('ignore_private_datasets', False))
+            try:
+                local_dataset = get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
+            except NotFound, e:
+                local_dataset = {}
+                log.info('-- Package ID %s (%s) does not exist locally' % (package_dict['id'], package_dict['name']))
 
+            ignore_private = toolkit.asbool(self.config.get('ignore_private_datasets', False))
             # DATAVIC-94 - Even if a dataset is marked Private we need to check if it exists locally in CKAN
             # If it exists then it needs to be removed
             if ignore_private and toolkit.asbool(package_dict['private']) is True:
-                try:
-                    local_dataset = get_action('package_show')(base_context.copy(), {'id': package_dict['id']})
+                if local_dataset:
                     if not local_dataset['state'] == 'deleted':
                         get_action('package_delete')(base_context.copy(), {'id': local_dataset['id']})
                         package_index = PackageSearchIndex()
@@ -64,8 +71,7 @@ class DataVicCKANHarvester(CKANHarvester):
                     # Return true regardless of if the local dataset is already deleted, because we need to avoid this
                     # dataset harvest object from being processed any further.
                     return True
-                except NotFound, e:
-                    log.error(e)
+                else:
                     log.info('IGNORING Private record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
                     return True
 
@@ -232,10 +238,30 @@ class DataVicCKANHarvester(CKANHarvester):
             exclude_sdm_records = self.config.get('exclude_sdm_records', False)
 
             for resource in package_dict.get('resources', []):
-                # Clear remote url_type for resources (eg datastore, upload) as
-                # we are only creating normal resources with links to the
-                # remote ones
-                resource.pop('url_type', None)
+                if resource.get('url_type') == 'upload':
+                    local_resource = next(
+                        (x for x in local_dataset.get('resources', []) if resource.get('id') == x.get('id')), None)
+
+                    # Check last modified date to see if resource file has been updated
+                    # Resource last_modified date is only updated when a file has been uploaded
+
+                    if not local_resource or (
+                            local_resource
+                            and resource.get('last_modified', None) > local_resource.get('last_modified', None)):
+
+                        filename = self.copy_remote_file_to_filestore(
+                            resource['id'],
+                            resource['url'],
+                            self.config.get('api_key')
+                        )
+
+                        if filename:
+                            resource['url'] = filename
+                else:
+                    # Clear remote url_type for resources (eg datastore, upload) as
+                    # we are only creating normal resources with links to the
+                    # remote ones
+                    resource.pop('url_type', None)
 
                 # Clear revision_id as the revision won't exist on this CKAN
                 # and saving it will cause an IntegrityError with the foreign
@@ -286,12 +312,56 @@ class DataVicCKANHarvester(CKANHarvester):
         except Exception, e:
             self._save_object_error('%s' % e, harvest_object, 'Import')
 
+    def copy_remote_file_to_filestore(self, resource_id, resource_url, apikey=None):
+        try:
+            resources_path, parent_dir, sub_dir, filename, full_path = self.get_paths_from_resource_id(resource_id)
+
+            # Check to see if the full path, i.e. file already exists - if so delete it
+            if os.path.exists(full_path):
+                os.remove(full_path)
+
+            # Check to see if the sub dir exist - if not create it
+            if not os.path.exists(sub_dir):
+                # Check to see if the parent dir exists - if not, create it
+                if not os.path.exists(parent_dir):
+                    os.mkdir(parent_dir)
+                os.mkdir(sub_dir)
+
+            headers = {}
+            if apikey:
+                headers["Authorization"] = apikey
+            r = requests.get(resource_url, headers=headers)
+            open(full_path, 'wb').write(r.content)
+            log.info('Downloaded resource {0} to {1}'.format(resource_url, full_path))
+
+            # Return the actual filename of the remote resource
+            return resource_url.split('/')[-1]
+        except Exception as e:
+            log.error('Error copying remote file {0} to local {1}'.format(resource_url, full_path))
+            log.error('Exception: {0}'.format(e))
+            return None
+
+    def get_paths_from_resource_id(self, resource_id):
+        # Our base path for storing resource files
+        resources_path = '/'.join([config.get('ckan.storage_path'), 'resources'])
+
+        # Separate the resource ID into the necessary chunks for filestore resource directory structure
+        parent_dir = '/'.join([resources_path, resource_id[0:3]])
+        sub_dir = '/'.join([parent_dir, resource_id[3:6]])
+        filename = resource_id[6:]
+
+        full_path = '/'.join([sub_dir, filename])
+
+        return resources_path, parent_dir, sub_dir, filename, full_path
+
 
 class ContentFetchError(Exception):
     pass
 
+
 class ContentNotFoundError(ContentFetchError):
     pass
+
 
 class RemoteResourceError(Exception):
     pass
@@ -299,4 +369,3 @@ class RemoteResourceError(Exception):
 
 class SearchError(Exception):
     pass
-

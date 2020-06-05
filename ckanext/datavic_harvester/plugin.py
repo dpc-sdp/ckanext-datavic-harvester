@@ -320,19 +320,17 @@ class DataVicCKANHarvester(CKANHarvester):
             if os.path.exists(full_path):
                 os.remove(full_path)
 
-            # Check to see if the sub dir exist - if not create it
-            if not os.path.exists(sub_dir):
-                # Check to see if the parent dir exists - if not, create it
-                if not os.path.exists(parent_dir):
-                    os.mkdir(parent_dir)
-                os.mkdir(sub_dir)
+            resource_dir_exists = self.resource_directory_exists(parent_dir, sub_dir)
 
-            headers = {}
-            if apikey:
-                headers["Authorization"] = apikey
-            r = requests.get(resource_url, headers=headers)
-            open(full_path, 'wb').write(r.content)
-            log.info('Downloaded resource {0} to {1}'.format(resource_url, full_path))
+            if resource_dir_exists:
+                headers = {}
+                if apikey:
+                    headers["Authorization"] = apikey
+                r = requests.get(resource_url, headers=headers)
+                open(full_path, 'wb').write(r.content)
+                log.info('Downloaded resource {0} to {1}'.format(resource_url, full_path))
+            else:
+                log.error('Directory for local resource {0} {1} does not exist'.format(parent_dir, sub_dir))
 
             # Return the actual filename of the remote resource
             return resource_url.split('/')[-1]
@@ -340,6 +338,27 @@ class DataVicCKANHarvester(CKANHarvester):
             log.error('Error copying remote file {0} to local {1}'.format(resource_url, full_path))
             log.error('Exception: {0}'.format(e))
             return None
+
+    def resource_directory_exists(self, parent_dir, sub_dir):
+        try:
+            # Check to see if the sub dir exist - if not create it
+            if not os.path.exists(sub_dir):
+                # Check to see if the parent dir exists - if not, create it
+                if not os.path.exists(parent_dir):
+                    self.create_resource_directory(parent_dir)
+                self.create_resource_directory(sub_dir)
+        except Exception as e:
+            log.error('`resource_directory_exists` Exception: {0}'.format(e))
+        return False
+
+    def create_resource_directory(self, directory):
+        try:
+            os.mkdir(directory)
+            return True
+        except Exception as e:
+            log.error('`create_resource_directory` Error creating directory: {0}'.format(directory))
+            log.error('`create_resource_directory` Exception: {0}'.format(e))
+        return False
 
     def get_paths_from_resource_id(self, resource_id):
         # Our base path for storing resource files

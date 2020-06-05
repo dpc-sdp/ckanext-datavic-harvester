@@ -330,7 +330,7 @@ class DataVicCKANHarvester(CKANHarvester):
                 open(full_path, 'wb').write(r.content)
                 log.info('Downloaded resource {0} to {1}'.format(resource_url, full_path))
             else:
-                log.error('Directory for local resource {0} {1} does not exist'.format(parent_dir, sub_dir))
+                log.error('Directory for local resource {0} does not exist'.format(sub_dir))
 
             # Return the actual filename of the remote resource
             return resource_url.split('/')[-1]
@@ -347,6 +347,7 @@ class DataVicCKANHarvester(CKANHarvester):
                 if not os.path.exists(parent_dir):
                     self.create_resource_directory(parent_dir)
                 self.create_resource_directory(sub_dir)
+            return True
         except Exception as e:
             log.error('`resource_directory_exists` Exception: {0}'.format(e))
         return False

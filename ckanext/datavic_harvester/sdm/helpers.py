@@ -157,7 +157,7 @@ def construct_dataset_dict(record, datavic_update_frequencies):
     # Create a single resource for the dataset
     dataset_dict['resources'] = [
         {
-            'url': 'http://sdm.com',
+            'url': 'https://datashare.maps.vic.gov.au/search?md=' + uuid,
             'name': record.get('title', None),
             'format': 'csv',
             'period_start': process_date(record.get('tempExtentBegin', None)),

@@ -1,0 +1,498 @@
+from datetime import datetime
+import json
+import logging
+import requests
+import traceback
+import uuid
+
+from ckan import logic
+from ckan import model
+from ckan import plugins as p
+from ckanext.datavicmain.schema import DATASET_EXTRA_FIELDS
+from ckanext.harvest.harvesters import HarvesterBase
+from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
+from hashlib import sha1
+
+log = logging.getLogger(__name__)
+
+
+def _get_start_end(page, datasets_per_page):
+    # if ... else expanded for readability
+    if page == 1:
+        start = 1
+        end = page * datasets_per_page
+    else:
+        start = (page * datasets_per_page) + 1
+        end = ((page + 1) * datasets_per_page) + 1
+
+    return start, end
+
+
+def get_tags(value):
+    tags = []
+    if isinstance(value, list):
+        for tag in value:
+            tags.append({
+                'name': tag
+            })
+    else:
+        tags.append({
+            'name': value
+        })
+
+    return tags
+
+
+def process_date(value):
+    """
+    Example dates:
+        '2020-10-13t05:00:11'
+        u'2006-12-31t13:00:00.000z'
+    :param value:
+    :return:
+    """
+    # Remove any microseconds
+    value = value.split('.')[0]
+    if 't' in value:
+        return datetime.strptime(value, "%Y-%m-%dt%H:%M:%S").isoformat()
+
+
+def get_datavic_update_frequencies():
+    # DATASET_EXTRA_FIELDS is a list of tuples - where the first element
+    # is the name of the metadata schema field
+    # The second element contains the configuration for the field
+    update_frequency_options = [x[1]['options'] for x in DATASET_EXTRA_FIELDS if x[0] == 'update_frequency']
+
+    return update_frequency_options[0]
+
+
+def map_update_frequency(datavic_update_frequencies, value):
+    # Check if the value from SDM matches one of those, if so just return original value
+    for frequency in datavic_update_frequencies:
+        if frequency['text'].lower() == value.lower():
+            return frequency['value']
+
+    # Otherwise return the default of 'unknown'
+    return 'unknown'
+
+
+class MetaShareHarvester(HarvesterBase):
+
+    force_import = False
+
+    # @TODO: This will come from the harvest source config
+    BASE_URL = 'https://dev-metashare.maps.vic.gov.au/geonetwork/srv/en/q?from={0}&to={1}&_content_type=json&fast=index'
+
+    # Copied from `ckanext/dcat/harvesters/base.py`
+    def _get_object_extra(self, harvest_object, key):
+        '''
+        Helper function for retrieving the value from a harvest object extra,
+        given the key
+        '''
+        for extra in harvest_object.extras:
+            if extra.key == key:
+                return extra.value
+        return None
+
+    # Copied from `ckanext/dcat/harvesters/base.py`
+    def _get_package_name(self, harvest_object, title):
+
+        package = harvest_object.package
+        if package is None or package.title != title:
+            name = self._gen_new_name(title)
+            if not name:
+                raise Exception(
+                    'Could not generate a unique name from the title or the '
+                    'GUID. Please choose a more unique title.')
+        else:
+            name = package.name
+
+        return name
+
+    def info(self):
+        return {
+            'name': 'metashare',
+            'title': 'MetaShare Harvester',
+            'description': 'Harvester for MetaShare dataset descriptions ' +
+                           'serialized as JSON'
+        }
+
+    def _get_page_of_records(self, url, page, datasets_per_page=100):
+        start, end = _get_start_end(page, datasets_per_page)
+
+        try:
+            r = requests.get(url.format(start, end))
+
+            if r.status_code == 200:
+                data = json.loads(r.text)
+
+                # Records are contained in the "metadata" element of the response JSON
+                # see example: https://dev-metashare.maps.vic.gov.au/geonetwork/srv/en/q?from=1&to=1&_content_type=json&fast=index
+                return data.get('metadata', None)
+        except Exception as e:
+            print(str(e))
+
+    def _get_guids_and_datasets(self, datasets):
+        """
+        Copied & adapted from ckanext/dcat/harvesters/_json.py
+        - don't json.loads the `datasets` input - it already be a list of dicts
+        - get `uuid` from `geonet:info` property
+        :param content:
+        :return:
+        """
+
+        if not isinstance(datasets, list):
+            raise ValueError('Wrong JSON object')
+
+        for dataset in datasets:
+
+            as_string = json.dumps(dataset)
+
+            # Get identifier
+            geonet_info = dataset.get('geonet:info', None)
+            guid = geonet_info.get('uuid')
+            if not guid:
+                # This is bad, any ideas welcomed
+                guid = sha1(as_string).hexdigest()
+
+            yield guid, as_string
+
+    def _get_package_dict(self, harvest_object):
+
+        content = harvest_object.content
+
+        metashare_dict = json.loads(content)
+
+        uuid = harvest_object.guid
+
+        package_dict = {}
+
+        extras = [
+            # Mandatory fields where no value exists in MetaShare
+            # So we set them to Data.Vic defaults
+            {'key': 'personal_information', 'value': 'no'},
+            {'key': 'protective_marking', 'value': 'Public Domain'},
+            {'key': 'access', 'value': 'yes'},
+        ]
+
+        package_dict['title'] = metashare_dict.get('title', None)
+        package_dict['notes'] = metashare_dict.get('abstract', None)
+
+        # @TODO: Get this from the harvest source config
+        package_dict['owner_org'] = 'department-of-environment-land-water-planning'
+
+        # @TODO: Get this from the harvest source config
+        # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
+        package_dict['groups'] = [{
+            'name': 'spatial-data'
+        }]
+
+        # @TODO: Get this from the harvest source config
+        # Default as discussed with SDM
+        package_dict['license_id'] = 'cc-by'
+
+        # Tags / Keywords
+        # `topicCat` can either be a single tag as a string or a list of tags
+        topic_cat = metashare_dict.get('topicCat', None)
+        if topic_cat:
+            package_dict['tags'] = get_tags(topic_cat)
+
+        # @TODO; truncate the notes for the abstract
+        extras.append({
+            'key': 'extract',
+            'value': package_dict['notes']
+        })
+
+        # There is no field in Data.Vic schema to store the source UUID of the harvested record
+        # Therefore, we are using the `primary_purpose_of_collection` field
+        if uuid:
+            extras.append({
+                'key': 'primary_purpose_of_collection',
+                'value': uuid
+            })
+
+        # @TODO: Consider this - in the field mapping spreadsheet:
+        # https://docs.google.com/spreadsheets/d/112hzp6ZrTnp3fl_ZdmT6oHldUGf36LvEpLswAJDLdr0/edit#gid=1669999637
+        # The response from SDM was:
+        #       "We could either add Custodian to the Q Search results or just use resource owner. Given that it is
+        #       not publically displayed in DV, not sure it's worth the effort of adding the custodian"
+        res_owner = metashare_dict.get('resOwner', None)
+        if res_owner:
+            extras.append({
+                'key': 'data_owner',
+                'value': res_owner
+            })
+
+        # @TODO: Get this from the harvest source config
+        # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
+        # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
+        extras.append({
+            'key': 'category',
+            'value': 'spatial-data'
+        })
+
+        # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
+        # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
+        # might need to run some regex on this
+        temp_extent_begin = metashare_dict.get('tempExtentBegin', None)
+        if temp_extent_begin:
+            extras.append({
+                'key': 'date_created_data_asset',
+                'value': process_date(temp_extent_begin)
+            })
+        else:
+            print('WHAT DO WE DO HERE? tempExtentBegin does not exist for {}'.format(uuid))
+
+        # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting
+        extras.append({
+            'key': 'date_modified_data_asset',
+            'value': metashare_dict.get('revisionDate', None)
+        })
+
+        # @TODO: Convert `maintenanceAndUpdateFrequency_text` value from SDM to Data.Vic options
+        extras.append({
+            'key': 'update_frequency',
+            'value': map_update_frequency(get_datavic_update_frequencies(),
+                                          metashare_dict.get('maintenanceAndUpdateFrequency_text', None))
+        })
+
+        # Create a single resource for the dataset
+        package_dict['resources'] = [
+            {
+                'url': 'http://sdm.com',
+                'name': metashare_dict.get('title', None),
+                'format': 'csv',
+                'period_start': process_date(metashare_dict.get('tempExtentBegin', None)),
+                'period_end': process_date(metashare_dict.get('tempExtentEnd', None)),
+                'attribution': 'Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning',
+            }
+        ]
+
+        # @TODO: What about these ones?
+        # full_metadata_url (optional)
+        # responsibleParty
+
+        # Add all the `extras` to our compiled dict
+        package_dict['extras'] = extras
+
+        return package_dict
+
+    def gather_stage(self, harvest_job):
+
+        log.debug('In MetaShareHarvester gather_stage')
+
+        #
+        # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
+        # @TODO: Move this into a separate function for readability
+        # (except the `ids = []` & `guids_in_source = []` lines)
+        #
+        ids = []
+
+        # Get the previous guids for this source
+        query = \
+            model.Session.query(HarvestObject.guid, HarvestObject.package_id) \
+            .filter(HarvestObject.current == True) \
+            .filter(HarvestObject.harvest_source_id == harvest_job.source.id)
+
+        guid_to_package_id = {}
+
+        for guid, package_id in query:
+            guid_to_package_id[guid] = package_id
+
+        guids_in_db = list(guid_to_package_id.keys())
+
+        guids_in_source = []
+        #
+        # END: This section is copied from ckanext/dcat/harvesters/_json.py
+        #
+
+        previous_guids = []
+        page = 1
+        records_per_page = 10
+
+        # @TODO: Change this to exit on proper condition of no more records to harvest
+        while page < 2:
+            records = self._get_page_of_records(self.BASE_URL, page, records_per_page)
+
+            if records:
+                batch_guids = []
+                #
+                # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
+                #
+                for guid, as_string in self._get_guids_and_datasets(records):
+
+                    log.debug('Got identifier: {0}'
+                              .format(guid.encode('utf8')))
+                    batch_guids.append(guid)
+
+                    if guid not in previous_guids:
+
+                        if guid in guids_in_db:
+                            # Dataset needs to be udpated
+                            obj = HarvestObject(
+                                guid=guid, job=harvest_job,
+                                package_id=guid_to_package_id[guid],
+                                content=as_string,
+                                extras=[HarvestObjectExtra(key='status',
+                                                           value='change')])
+                        else:
+                            # Dataset needs to be created
+                            obj = HarvestObject(
+                                guid=guid, job=harvest_job,
+                                content=as_string,
+                                extras=[HarvestObjectExtra(key='status',
+                                                           value='new')])
+                        obj.save()
+                        ids.append(obj.id)
+
+                if len(batch_guids) > 0:
+                    guids_in_source.extend(set(batch_guids)
+                                           - set(previous_guids))
+                else:
+                    log.debug('Empty document, no more records')
+                    # Empty document, no more ids
+                    break
+                #
+                # END: This section is copied from ckanext/dcat/harvesters/_json.py
+                #
+
+            #
+            # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
+            #
+            page = page + 1
+            previous_guids = batch_guids
+            #
+            # END: This section is copied from ckanext/dcat/harvesters/_json.py
+            #
+
+        #
+        # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
+        # @TODO: Can probably be moved into its own function
+        #
+        # Check datasets that need to be deleted
+        guids_to_delete = set(guids_in_db) - set(guids_in_source)
+        for guid in guids_to_delete:
+            obj = HarvestObject(
+                guid=guid, job=harvest_job,
+                package_id=guid_to_package_id[guid],
+                extras=[HarvestObjectExtra(key='status', value='delete')])
+            ids.append(obj.id)
+            model.Session.query(HarvestObject).\
+                filter_by(guid=guid).\
+                update({'current': False}, False)
+            obj.save()
+
+        return ids
+        #
+        # END: This section is copied from ckanext/dcat/harvesters/_json.py
+        #
+
+    def fetch_stage(self, harvest_object):
+        return True
+
+    def import_stage(self, harvest_object):
+        """
+        Mostly copied from `ckanext/dcat/harvesters/_json.py`
+        :param harvest_object:
+        :return:
+        """
+        log.debug('In MetaShareHarvester import_stage')
+
+        if not harvest_object:
+            log.error('No harvest object received')
+            return False
+
+        if self.force_import:
+            status = 'change'
+        else:
+            status = self._get_object_extra(harvest_object, 'status')
+
+        if status == 'delete':
+            # Delete package
+            context = {'model': model, 'session': model.Session,
+                       'user': self._get_user_name()}
+
+            p.toolkit.get_action('package_delete')(
+                context, {'id': harvest_object.package_id})
+            log.info('Deleted package {0} with guid {1}'
+                     .format(harvest_object.package_id, harvest_object.guid))
+
+            return True
+
+        if harvest_object.content is None:
+            self._save_object_error(
+                'Empty content for object %s' % harvest_object.id,
+                harvest_object, 'Import')
+            return False
+
+        # Get the last harvested object (if any)
+        previous_object = model.Session.query(HarvestObject) \
+            .filter(HarvestObject.guid == harvest_object.guid) \
+            .filter(HarvestObject.current == True) \
+            .first()
+
+        # Flag previous object as not current anymore
+        if previous_object and not self.force_import:
+            previous_object.current = False
+            previous_object.add()
+
+        package_dict = self._get_package_dict(harvest_object)
+
+        if not package_dict:
+            return False
+
+        if not package_dict.get('name'):
+            package_dict['name'] = \
+                self._get_package_name(harvest_object, package_dict['title'])
+
+        # Flag this object as the current one
+        harvest_object.current = True
+        harvest_object.add()
+
+        context = {
+            'user': self._get_user_name(),
+            'return_id_only': True,
+            'ignore_auth': True,
+        }
+
+        try:
+            if status == 'new':
+                package_schema = logic.schema.default_create_package_schema()
+                context['schema'] = package_schema
+
+                # We need to explicitly provide a package ID
+                package_dict['id'] = str(uuid.uuid4())
+                package_schema['id'] = [str]
+
+                # Save reference to the package on the object
+                harvest_object.package_id = package_dict['id']
+                harvest_object.add()
+
+                # Defer constraints and flush so the dataset can be indexed with
+                # the harvest object id (on the after_show hook from the harvester
+                # plugin)
+                model.Session.execute(
+                    'SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
+                model.Session.flush()
+
+            elif status == 'change':
+                package_dict['id'] = harvest_object.package_id
+
+            if status in ['new', 'change']:
+                action = 'package_create' if status == 'new' else 'package_update'
+                message_status = 'Created' if status == 'new' else 'Updated'
+
+                package_id = p.toolkit.get_action(action)(context, package_dict)
+                log.info('%s dataset with id %s', message_status, package_id)
+
+        except Exception as e:
+            dataset = json.loads(harvest_object.content)
+            dataset_name = dataset.get('name', '')
+
+            self._save_object_error('Error importing dataset %s: %r / %s' % (dataset_name, e, traceback.format_exc()), harvest_object, 'Import')
+            return False
+
+        finally:
+            model.Session.commit()
+
+        return True

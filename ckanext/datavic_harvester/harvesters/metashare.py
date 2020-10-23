@@ -16,16 +16,16 @@ from hashlib import sha1
 log = logging.getLogger(__name__)
 
 
-def _get_start_end(page, datasets_per_page):
+def _get_from_to(page, datasets_per_page):
     # if ... else expanded for readability
     if page == 1:
-        start = 1
-        end = page * datasets_per_page
+        _from = 1
+        _to = page * datasets_per_page
     else:
-        start = (page * datasets_per_page) + 1
-        end = ((page + 1) * datasets_per_page) + 1
+        _from = (page * datasets_per_page) + 1
+        _to = ((page + 1) * datasets_per_page) + 1
 
-    return start, end
+    return _from, _to
 
 
 def get_tags(value):
@@ -78,10 +78,19 @@ def map_update_frequency(datavic_update_frequencies, value):
 
 class MetaShareHarvester(HarvesterBase):
 
+    config = None
     force_import = False
 
-    # @TODO: This will come from the harvest source config
-    BASE_URL = 'https://dev-metashare.maps.vic.gov.au/geonetwork/srv/en/q?from={0}&to={1}&_content_type=json&fast=index'
+    # Copied from `ckanext/harvest/harvesters/ckanharvester.py`
+    def _set_config(self, config_str):
+        if config_str:
+            self.config = json.loads(config_str)
+            if 'api_version' in self.config:
+                self.api_version = int(self.config['api_version'])
+
+            log.debug('Using config: %r', self.config)
+        else:
+            self.config = {}
 
     # Copied from `ckanext/dcat/harvesters/base.py`
     def _get_object_extra(self, harvest_object, key):
@@ -118,10 +127,10 @@ class MetaShareHarvester(HarvesterBase):
         }
 
     def _get_page_of_records(self, url, page, datasets_per_page=100):
-        start, end = _get_start_end(page, datasets_per_page)
+        _from, _to = _get_from_to(page, datasets_per_page)
 
         try:
-            r = requests.get(url.format(start, end))
+            r = requests.get('{0}?from={1}&to={2}&_content_type=json&fast=index'.format(url, _from, _to))
 
             if r.status_code == 200:
                 data = json.loads(r.text)
@@ -158,12 +167,20 @@ class MetaShareHarvester(HarvesterBase):
             yield guid, as_string
 
     def _get_package_dict(self, harvest_object):
-
+        """
+        Convert the string based content from the harvest_object
+        into a package_dict for a CKAN dataset
+        :param harvest_object:
+        :return:
+        """
         content = harvest_object.content
 
         metashare_dict = json.loads(content)
 
         uuid = harvest_object.guid
+
+        full_metadata_url_prefix = self.config.get('full_metadata_url_prefix', None)
+        full_metadata_url = '{0}{1}'.format(full_metadata_url_prefix, uuid) if full_metadata_url_prefix else None
 
         package_dict = {}
 
@@ -179,17 +196,16 @@ class MetaShareHarvester(HarvesterBase):
         package_dict['notes'] = metashare_dict.get('abstract', None)
 
         # @TODO: Get this from the harvest source config
+        #owner_org
         package_dict['owner_org'] = 'department-of-environment-land-water-planning'
 
-        # @TODO: Get this from the harvest source config
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
-        package_dict['groups'] = [{
-            'name': 'spatial-data'
-        }]
+        default_groups = self.config.get('default_groups', None)
+        if default_groups and isinstance(default_groups, list):
+            package_dict['groups'] = [{"name": group} for group in default_groups]
 
-        # @TODO: Get this from the harvest source config
         # Default as discussed with SDM
-        package_dict['license_id'] = 'cc-by'
+        package_dict['license_id'] = self.config.get('license_id', 'cc-by')
 
         # Tags / Keywords
         # `topicCat` can either be a single tag as a string or a list of tags
@@ -197,10 +213,10 @@ class MetaShareHarvester(HarvesterBase):
         if topic_cat:
             package_dict['tags'] = get_tags(topic_cat)
 
-        # @TODO; truncate the notes for the abstract
         extras.append({
             'key': 'extract',
-            'value': package_dict['notes']
+            # Get the first sentence
+            'value': '{}...'.format(package_dict['notes'].split('.')[0])
         })
 
         # There is no field in Data.Vic schema to store the source UUID of the harvested record
@@ -218,18 +234,16 @@ class MetaShareHarvester(HarvesterBase):
         #       not publically displayed in DV, not sure it's worth the effort of adding the custodian"
         res_owner = metashare_dict.get('resOwner', None)
         if res_owner:
-            extras.append({
-                'key': 'data_owner',
-                'value': res_owner
-            })
+            package_dict['maintainer'] = res_owner[0] if isinstance(res_owner, list) else res_owner
 
-        # @TODO: Get this from the harvest source config
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
-        extras.append({
-            'key': 'category',
-            'value': 'spatial-data'
-        })
+        category = default_groups[0] if default_groups else None
+        if category:
+            extras.append({
+                'key': 'category',
+                'value': category
+            })
 
         # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
@@ -243,33 +257,43 @@ class MetaShareHarvester(HarvesterBase):
         else:
             print('WHAT DO WE DO HERE? tempExtentBegin does not exist for {}'.format(uuid))
 
-        # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting
+        # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
+        # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
         extras.append({
             'key': 'date_modified_data_asset',
             'value': metashare_dict.get('revisionDate', None)
         })
 
-        # @TODO: Convert `maintenanceAndUpdateFrequency_text` value from SDM to Data.Vic options
         extras.append({
             'key': 'update_frequency',
             'value': map_update_frequency(get_datavic_update_frequencies(),
                                           metashare_dict.get('maintenanceAndUpdateFrequency_text', None))
         })
 
+        if full_metadata_url:
+            extras.append({
+                'key': 'full_metadata_url',
+                'value': full_metadata_url
+            })
+
         # Create a single resource for the dataset
-        package_dict['resources'] = [
-            {
-                'url': 'http://sdm.com',
-                'name': metashare_dict.get('title', None),
-                'format': 'csv',
-                'period_start': process_date(metashare_dict.get('tempExtentBegin', None)),
-                'period_end': process_date(metashare_dict.get('tempExtentEnd', None)),
-                'attribution': 'Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning',
-            }
-        ]
+        resource = {
+            'name': metashare_dict.get('title', None),
+            'format': metashare_dict.get('spatialRepresentationType_text', None),
+            'period_start': process_date(metashare_dict.get('tempExtentBegin', None)),
+            'period_end': process_date(metashare_dict.get('tempExtentEnd', None)),
+        }
+
+        if full_metadata_url:
+            resource['url'] = full_metadata_url
+
+        attribution = self.config.get('resource_attribution', None)
+        if attribution:
+            resource['attribution'] = attribution
+
+        package_dict['resources'] = [resource]
 
         # @TODO: What about these ones?
-        # full_metadata_url (optional)
         # responsibleParty
 
         # Add all the `extras` to our compiled dict
@@ -310,12 +334,14 @@ class MetaShareHarvester(HarvesterBase):
         page = 1
         records_per_page = 10
 
+        harvest_source_url = harvest_job.source.url[:-1] if harvest_job.source.url.endswith('?') else harvest_job.source.url
+
         # @TODO: Change this to exit on proper condition of no more records to harvest
         while page < 2:
-            records = self._get_page_of_records(self.BASE_URL, page, records_per_page)
+            records = self._get_page_of_records(harvest_source_url, page, records_per_page)
 
+            batch_guids = []
             if records:
-                batch_guids = []
                 #
                 # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
                 #
@@ -424,6 +450,8 @@ class MetaShareHarvester(HarvesterBase):
                 'Empty content for object %s' % harvest_object.id,
                 harvest_object, 'Import')
             return False
+
+        self._set_config(harvest_object.job.source.config)
 
         # Get the last harvested object (if any)
         previous_object = model.Session.query(HarvestObject) \

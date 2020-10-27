@@ -13,6 +13,7 @@ from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
 
+
 log = logging.getLogger(__name__)
 
 
@@ -22,8 +23,8 @@ def _get_from_to(page, datasets_per_page):
         _from = 1
         _to = page * datasets_per_page
     else:
-        _from = (page * datasets_per_page) + 1
-        _to = ((page + 1) * datasets_per_page) + 1
+        _from = ((page - 1) * datasets_per_page) + 1
+        _to = (page * datasets_per_page)
 
     return _from, _to
 
@@ -128,18 +129,22 @@ class MetaShareHarvester(HarvesterBase):
 
     def _get_page_of_records(self, url, page, datasets_per_page=100):
         _from, _to = _get_from_to(page, datasets_per_page)
-
+        records = None
         try:
-            r = requests.get('{0}?from={1}&to={2}&_content_type=json&fast=index'.format(url, _from, _to))
+            request_url = '{0}?from={1}&to={2}&_content_type=json&fast=index'.format(url, _from, _to)
+            log.debug('Getting page of records {}'.format(request_url))
+            r = requests.get(request_url)
 
             if r.status_code == 200:
                 data = json.loads(r.text)
 
                 # Records are contained in the "metadata" element of the response JSON
                 # see example: https://dev-metashare.maps.vic.gov.au/geonetwork/srv/en/q?from=1&to=1&_content_type=json&fast=index
-                return data.get('metadata', None)
+                records = data.get('metadata', None)
         except Exception as e:
-            print(str(e))
+            log.error(e)
+
+        return records
 
     def _get_guids_and_datasets(self, datasets):
         """
@@ -151,7 +156,11 @@ class MetaShareHarvester(HarvesterBase):
         """
 
         if not isinstance(datasets, list):
-            raise ValueError('Wrong JSON object')
+            if isinstance(datasets, dict):
+                datasets = [datasets]
+            else:
+                log.debug('Datasets data is not a list: {}'.format(type(datasets)))
+                raise ValueError('Wrong JSON object')
 
         for dataset in datasets:
 
@@ -159,10 +168,7 @@ class MetaShareHarvester(HarvesterBase):
 
             # Get identifier
             geonet_info = dataset.get('geonet:info', None)
-            guid = geonet_info.get('uuid')
-            if not guid:
-                # This is bad, any ideas welcomed
-                guid = sha1(as_string).hexdigest()
+            guid = geonet_info.get('uuid', None)
 
             yield guid, as_string
 
@@ -180,7 +186,7 @@ class MetaShareHarvester(HarvesterBase):
         uuid = harvest_object.guid
 
         full_metadata_url_prefix = self.config.get('full_metadata_url_prefix', None)
-        full_metadata_url = '{0}{1}'.format(full_metadata_url_prefix, uuid) if full_metadata_url_prefix else None
+        full_metadata_url = '{0}{1}'.format(full_metadata_url_prefix, uuid) if full_metadata_url_prefix else ''
 
         package_dict = {}
 
@@ -193,11 +199,22 @@ class MetaShareHarvester(HarvesterBase):
         ]
 
         package_dict['title'] = metashare_dict.get('title', None)
-        package_dict['notes'] = metashare_dict.get('abstract', None)
+        # TODO: Some datasets have non ascii data in abstract
+        # We have a few options to handle the error:
+        # A String specifying the error method. Legal values are:
+        # 'backslashreplace'	- uses a backslash instead of the character that could not be encoded
+        # 'ignore'	- ignores the characters that cannot be encoded
+        # 'namereplace'	- replaces the character with a text explaining the character
+        # 'strict'	- Default, raises an error on failure
+        # 'replace'	- replaces the character with a questionmark
+        # 'xmlcharrefreplace'	- replaces the character with an xml character
+        package_dict['notes'] = metashare_dict.get('abstract', '').encode('ascii', 'xmlcharrefreplace')
 
-        # @TODO: Get this from the harvest source config
-        #owner_org
-        package_dict['owner_org'] = 'department-of-environment-land-water-planning'
+        # Get organisation from the harvest source organisation dropdown
+        context = {'model': model, 'session': model.Session, 'user': self._get_user_name()}
+        harvest_source = p.toolkit.get_action('harvest_source_show')(context, {'id': harvest_object.harvest_source_id})
+        # Set default value of 'department-of-environment-land-water-planning' if owner_org is not set in harvest source
+        package_dict['owner_org'] = harvest_source.get('owner_org', 'department-of-environment-land-water-planning')
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         default_groups = self.config.get('default_groups', None)
@@ -267,7 +284,7 @@ class MetaShareHarvester(HarvesterBase):
         extras.append({
             'key': 'update_frequency',
             'value': map_update_frequency(get_datavic_update_frequencies(),
-                                          metashare_dict.get('maintenanceAndUpdateFrequency_text', None))
+                                          metashare_dict.get('maintenanceAndUpdateFrequency_text', 'unknown'))
         })
 
         if full_metadata_url:
@@ -282,10 +299,8 @@ class MetaShareHarvester(HarvesterBase):
             'format': metashare_dict.get('spatialRepresentationType_text', None),
             'period_start': process_date(metashare_dict.get('tempExtentBegin', None)),
             'period_end': process_date(metashare_dict.get('tempExtentEnd', None)),
+            'url': full_metadata_url
         }
-
-        if full_metadata_url:
-            resource['url'] = full_metadata_url
 
         attribution = self.config.get('resource_attribution', None)
         if attribution:
@@ -332,12 +347,14 @@ class MetaShareHarvester(HarvesterBase):
 
         previous_guids = []
         page = 1
-        records_per_page = 10
+        # CKAN harvest default is 100, in testing 500 works pretty fast and is more efficient as it only needs 5 API calls instead of 19 for 1701 test datasets
+        records_per_page = 500
 
         harvest_source_url = harvest_job.source.url[:-1] if harvest_job.source.url.endswith('?') else harvest_job.source.url
 
-        # @TODO: Change this to exit on proper condition of no more records to harvest
-        while page < 2:
+        # _get_page_of_records will return None if there are no more records
+        records = True
+        while records:
             records = self._get_page_of_records(harvest_source_url, page, records_per_page)
 
             batch_guids = []
@@ -346,9 +363,9 @@ class MetaShareHarvester(HarvesterBase):
                 # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
                 #
                 for guid, as_string in self._get_guids_and_datasets(records):
-
-                    log.debug('Got identifier: {0}'
-                              .format(guid.encode('utf8')))
+                    # Only add back for debugging as it pollutes the logs with 1700+ guids
+                    # log.debug('Got identifier: {0}'
+                    #           .format(guid.encode('utf8')))
                     batch_guids.append(guid)
 
                     if guid not in previous_guids:
@@ -448,6 +465,12 @@ class MetaShareHarvester(HarvesterBase):
         if harvest_object.content is None:
             self._save_object_error(
                 'Empty content for object %s' % harvest_object.id,
+                harvest_object, 'Import')
+            return False
+
+        if harvest_object.guid is None:
+            self._save_object_error(
+                'Empty guid for object %s' % harvest_object.id,
                 harvest_object, 'Import')
             return False
 

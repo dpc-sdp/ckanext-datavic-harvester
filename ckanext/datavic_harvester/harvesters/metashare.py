@@ -127,6 +127,49 @@ class MetaShareHarvester(HarvesterBase):
                            'serialized as JSON'
         }
 
+    def validate_config(self, config):
+        '''
+        Harvesters can provide this method to validate the configuration
+        entered in the form. It should return a single string, which will be
+        stored in the database.  Exceptions raised will be shown in the form's
+        error messages.
+
+        Validates the default_group entered exists and creates default_group_dicts
+
+        :param harvest_object_id: Config string coming from the form
+        :returns: A string with the validated configuration options
+        '''
+        if not config:
+            raise ValueError('No config options set')
+        {
+            "default_groups": ["spatial-data"],
+            "full_metadata_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
+            "attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
+            "license_id": "cc-by"
+        }
+        try:
+            config_obj = json.loads(config)
+
+            if 'default_groups' in config_obj:
+                if not isinstance(config_obj['default_groups'], list):
+                    raise ValueError('default_groups must be a *list* of group'
+                                     ' names/ids')
+            else:
+                raise ValueError('default_groups must be set')
+
+            if 'full_metadata_url_prefix' not in config_obj:
+                raise ValueError('full_metadata_url_prefix must be set')
+
+            if 'license_id' not in config_obj:
+                raise ValueError('license_id must be set')
+
+            if 'resource_attribution' not in config_obj:
+                raise ValueError('resource_attribution must be set')
+        except ValueError, e:
+            raise e
+
+        return config
+
     def _get_page_of_records(self, url, page, datasets_per_page=100):
         _from, _to = _get_from_to(page, datasets_per_page)
         records = None
@@ -211,10 +254,8 @@ class MetaShareHarvester(HarvesterBase):
         package_dict['notes'] = metashare_dict.get('abstract', '').encode('ascii', 'xmlcharrefreplace')
 
         # Get organisation from the harvest source organisation dropdown
-        context = {'model': model, 'session': model.Session, 'user': self._get_user_name()}
-        harvest_source = p.toolkit.get_action('harvest_source_show')(context, {'id': harvest_object.harvest_source_id})
-        # Set default value of 'department-of-environment-land-water-planning' if owner_org is not set in harvest source
-        package_dict['owner_org'] = harvest_source.get('owner_org', 'department-of-environment-land-water-planning')
+        source_dict = logic.get_action('package_show')({}, {'id': harvest_object.harvest_source_id})
+        package_dict['owner_org'] = source_dict.get('owner_org')
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         default_groups = self.config.get('default_groups', None)

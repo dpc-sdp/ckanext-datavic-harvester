@@ -12,7 +12,7 @@ from ckanext.datavicmain.schema import DATASET_EXTRA_FIELDS
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
-
+from ckan.lib.munge import munge_title_to_name
 
 log = logging.getLogger(__name__)
 
@@ -491,10 +491,16 @@ class MetaShareHarvester(HarvesterBase):
         else:
             status = self._get_object_extra(harvest_object, 'status')
 
+        context = {
+            'user': self._get_user_name(),
+            'return_id_only': True,
+            'ignore_auth': True,
+            'model': model,
+            'session': model.Session
+        }
+
         if status == 'delete':
             # Delete package
-            context = {'model': model, 'session': model.Session,
-                       'user': self._get_user_name()}
 
             p.toolkit.get_action('package_delete')(
                 context, {'id': harvest_object.package_id})
@@ -533,19 +539,20 @@ class MetaShareHarvester(HarvesterBase):
         if not package_dict:
             return False
 
-        if not package_dict.get('name'):
-            package_dict['name'] = \
-                self._get_package_name(harvest_object, package_dict['title'])
-
+        # Check if dataset name exists
+        try:
+            name = munge_title_to_name(package_dict['title'])
+            existing_package_id = p.toolkit.get_converter('convert_package_name_or_id_to_id')(name, context)
+            log.debug('Existing package found for name {0}. Changing status to update package {1}'.format(name, existing_package_id))
+            harvest_object.package_id = existing_package_id
+            status = 'change'
+        except p.toolkit.Invalid:
+            # Package name does not exists.
+            status = 'new'
+            package_dict['name'] = self._get_package_name(harvest_object, package_dict['title'])
         # Flag this object as the current one
         harvest_object.current = True
         harvest_object.add()
-
-        context = {
-            'user': self._get_user_name(),
-            'return_id_only': True,
-            'ignore_auth': True,
-        }
 
         try:
             if status == 'new':

@@ -44,7 +44,7 @@ def get_tags(value):
     return tags
 
 
-def process_date(value):
+def convert_date_to_isoformat(value):
     """
     Example dates:
         '2020-10-13t05:00:11'
@@ -52,10 +52,16 @@ def process_date(value):
     :param value:
     :return:
     """
-    # Remove any microseconds
-    value = value.split('.')[0]
-    if 't' in value:
-        return datetime.strptime(value, "%Y-%m-%dt%H:%M:%S").isoformat()
+    date = None
+    try:
+        # Remove any microseconds
+        value = value.split('.')[0]
+        if 't' in value:
+            date = p.toolkit.get_converter('isodate')(value, {})
+    except p.toolkit.Invalid as ex:
+        log.debug('Date format incorrect {0}'.format(value))
+    # TODO: Do we return None or value if date string cannot be converted?
+    return date.isoformat() if date else None
 
 
 def get_datavic_update_frequencies():
@@ -143,7 +149,8 @@ class MetaShareHarvester(HarvesterBase):
             raise ValueError('No config options set')
         {
             "default_groups": ["spatial-data"],
-            "full_metadata_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
+            "full_metadata_url_prefix": "https://dev-metashare.maps.vic.gov.au/geonetwork/srv/eng/catalog.search#/metadata/",
+            "resource_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
             "attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
             "license_id": "cc-by"
         }
@@ -160,12 +167,15 @@ class MetaShareHarvester(HarvesterBase):
             if 'full_metadata_url_prefix' not in config_obj:
                 raise ValueError('full_metadata_url_prefix must be set')
 
+            if 'resource_url_prefix' not in config_obj:
+                raise ValueError('resource_url_prefix must be set')
+
             if 'license_id' not in config_obj:
                 raise ValueError('license_id must be set')
 
             if 'resource_attribution' not in config_obj:
                 raise ValueError('resource_attribution must be set')
-        except ValueError, e:
+        except ValueError as e:
             raise e
 
         return config
@@ -230,6 +240,8 @@ class MetaShareHarvester(HarvesterBase):
 
         full_metadata_url_prefix = self.config.get('full_metadata_url_prefix', None)
         full_metadata_url = '{0}{1}'.format(full_metadata_url_prefix, uuid) if full_metadata_url_prefix else ''
+        resource_url_prefix = self.config.get('resource_url_prefix', None)
+        resource_url = '{0}{1}'.format(resource_url_prefix, uuid) if resource_url_prefix else ''
 
         package_dict = {}
 
@@ -242,14 +254,7 @@ class MetaShareHarvester(HarvesterBase):
         ]
 
         package_dict['title'] = metashare_dict.get('title', None)
-        # TODO: Some datasets have non ascii data in abstract
-        # We have a few options to handle the error:
-        # A String specifying the error method. Legal values are:
-        # 'backslashreplace'	- uses a backslash instead of the character that could not be encoded
-        # 'ignore'	- ignores the characters that cannot be encoded
-        # 'namereplace'	- replaces the character with a text explaining the character
-        # 'strict'	- Default, raises an error on failure
-        # 'replace'	- replaces the character with a questionmark
+
         # 'xmlcharrefreplace'	- replaces the character with an xml character
         package_dict['notes'] = metashare_dict.get('abstract', '').encode('ascii', 'xmlcharrefreplace')
 
@@ -310,7 +315,7 @@ class MetaShareHarvester(HarvesterBase):
         if temp_extent_begin:
             extras.append({
                 'key': 'date_created_data_asset',
-                'value': process_date(temp_extent_begin)
+                'value': convert_date_to_isoformat(temp_extent_begin)
             })
         else:
             print('WHAT DO WE DO HERE? tempExtentBegin does not exist for {}'.format(uuid))
@@ -319,7 +324,7 @@ class MetaShareHarvester(HarvesterBase):
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
         extras.append({
             'key': 'date_modified_data_asset',
-            'value': metashare_dict.get('revisionDate', None)
+            'value': convert_date_to_isoformat(metashare_dict.get('revisionDate', None))
         })
 
         extras.append({
@@ -336,11 +341,11 @@ class MetaShareHarvester(HarvesterBase):
 
         # Create a single resource for the dataset
         resource = {
-            'name': metashare_dict.get('title', None),
+            'name': metashare_dict.get('altTitle') or metashare_dict.get('title'),
             'format': metashare_dict.get('spatialRepresentationType_text', None),
-            'period_start': process_date(metashare_dict.get('tempExtentBegin', None)),
-            'period_end': process_date(metashare_dict.get('tempExtentEnd', None)),
-            'url': full_metadata_url
+            'period_start': convert_date_to_isoformat(metashare_dict.get('tempExtentBegin', None)),
+            'period_end': convert_date_to_isoformat(metashare_dict.get('tempExtentEnd', None)),
+            'url': resource_url
         }
 
         attribution = self.config.get('resource_attribution', None)
@@ -540,16 +545,36 @@ class MetaShareHarvester(HarvesterBase):
             return False
 
         # Check if dataset name exists
+        existing_resource_found = False
+        existing_package = None
         try:
+            # TODO: Update resource_id and owner_org
             name = munge_title_to_name(package_dict['title'])
-            existing_package_id = p.toolkit.get_converter('convert_package_name_or_id_to_id')(name, context)
-            log.debug('Existing package found for name {0}. Changing status to update package {1}'.format(name, existing_package_id))
-            harvest_object.package_id = existing_package_id
+            existing_package = p.toolkit.get_action('package_show')(context, {"id":name})
+            metashare_dict = json.loads(harvest_object.content)
+            for existing_resource in existing_package.get('resources', []):
+                for resource in package_dict.get('resources', []):
+                    if metashare_dict.get('anzlicid') in existing_resource.get('url', '') and 'order?email=:emailAddress' in existing_resource.get('url', ''):
+                        existing_resource_found = True
+                        log.debug('Resouce: {}'.format(resource))
+                        log.debug('existing_resource: {}'.format(existing_resource.get('id')))
+                        resource['id'] = existing_resource.get('id')
+                        log.debug('Existing resource found {0} for package {1}.'.format(existing_resource.get('id'), existing_resource.get('package_id')))
+                        
+        except p.toolkit.ObjectNotFound:
+           existing_resource_found = False
+
+        if existing_resource_found:
+            # If existing resource was found, update package_id and owner_org
+            log.debug('harvest_object.package_id {0}.'.format(existing_package['id']))
+            harvest_object.package_id = existing_package['id']
+            package_dict['owner_org'] = existing_package['owner_org']
             status = 'change'
-        except p.toolkit.Invalid:
-            # Package name does not exists.
+        else:
+            # Must be a duplicate package title but different resource name from metashare, create new package for new resource name
             status = 'new'
             package_dict['name'] = self._get_package_name(harvest_object, package_dict['title'])
+
         # Flag this object as the current one
         harvest_object.current = True
         harvest_object.add()
@@ -585,8 +610,8 @@ class MetaShareHarvester(HarvesterBase):
                 log.info('%s dataset with id %s', message_status, package_id)
 
         except Exception as e:
-            dataset = json.loads(harvest_object.content)
-            dataset_name = dataset.get('name', '')
+            # dataset = json.loads(harvest_object.content)
+            dataset_name = package_dict.get('name', '')
 
             self._save_object_error('Error importing dataset %s: %r / %s' % (dataset_name, e, traceback.format_exc()), harvest_object, 'Import')
             return False

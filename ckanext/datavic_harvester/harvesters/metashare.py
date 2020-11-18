@@ -550,14 +550,12 @@ class MetaShareHarvester(HarvesterBase):
         try:
             # TODO: Update resource_id and owner_org
             name = munge_title_to_name(package_dict['title'])
-            existing_package = p.toolkit.get_action('package_show')(context, {"id":name})
+            existing_package = p.toolkit.get_action('package_show')({}, {"id":name})
             metashare_dict = json.loads(harvest_object.content)
             for existing_resource in existing_package.get('resources', []):
                 for resource in package_dict.get('resources', []):
                     if metashare_dict.get('anzlicid') in existing_resource.get('url', '') and 'order?email=:emailAddress' in existing_resource.get('url', ''):
                         existing_resource_found = True
-                        log.debug('Resouce: {}'.format(resource))
-                        log.debug('existing_resource: {}'.format(existing_resource.get('id')))
                         resource['id'] = existing_resource.get('id')
                         log.debug('Existing resource found {0} for package {1}.'.format(existing_resource.get('id'), existing_resource.get('package_id')))
                         
@@ -566,7 +564,6 @@ class MetaShareHarvester(HarvesterBase):
 
         if existing_resource_found:
             # If existing resource was found, update package_id and owner_org
-            log.debug('harvest_object.package_id {0}.'.format(existing_package['id']))
             harvest_object.package_id = existing_package['id']
             package_dict['owner_org'] = existing_package['owner_org']
             status = 'change'

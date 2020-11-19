@@ -82,6 +82,7 @@ setup(
         [ckan.plugins]
         datavic_ckan_harvester=ckanext.datavic_harvester.plugin:DataVicCKANHarvester
         datavic_dcat_json_harvester=ckanext.datavic_harvester.harvesters:DataVicDCATJSONHarvester
+        metashare_harvester=ckanext.datavic_harvester.harvesters:MetaShareHarvester
 
         [babel.extractors]
         ckan = ckan.lib.extract:extract_ckan

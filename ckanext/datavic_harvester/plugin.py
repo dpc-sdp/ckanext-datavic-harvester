@@ -273,6 +273,7 @@ class DataVicCKANHarvester(CKANHarvester):
                 if citation is not None:
                     resource['attribution'] = citation
 
+                #TODO: Remove all references to exclude_sdm_records and public_order_url in the CKAN 2.9 upgrade
                 # Only SDM records from the legacy harvest to current Data.Vic prod instance have 'public_order_url' field
                 if 'public_order_url' in resource and exclude_sdm_records:
                     log.info('Ignoring SDM record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])

@@ -181,7 +181,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         if not protective_marking:
             package_dict['extras'].append({
                 'key': 'protective_marking',
-                'value': 'Public Domain'
+                'value': 'official'
             })
 
         update_frequency = [extra for extra in package_dict['extras'] if

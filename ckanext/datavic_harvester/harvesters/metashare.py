@@ -4,6 +4,7 @@ import logging
 import requests
 import traceback
 import uuid
+import re
 
 from ckan import logic
 from ckan import model
@@ -12,7 +13,7 @@ from ckanext.datavicmain.schema import DATASET_EXTRA_FIELDS
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
-from ckan.lib.munge import munge_title_to_name
+
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +83,22 @@ def map_update_frequency(datavic_update_frequencies, value):
     # Otherwise return the default of 'unknown'
     return 'unknown'
 
+def munge_title_to_name(name):
+    '''Munge a package title into a package name.
+        Copied from vicmaps-harvest.py to use the same code to create name from title
+        This is required to match existing pacakge names 
+    '''
+    # convert spaces and separators
+    name = re.sub('[ .:/,]', '-', name)
+    # take out not-allowed characters
+    name = re.sub('[^a-zA-Z0-9-_]', '', name).lower()
+    # remove doubles
+    name = re.sub('---', '-', name)
+    name = re.sub('--', '-', name)
+    name = re.sub('--', '-', name)
+    # remove leading or trailing hyphens
+    name = name.strip('-')[:99]
+    return name
 
 class MetaShareHarvester(HarvesterBase):
 

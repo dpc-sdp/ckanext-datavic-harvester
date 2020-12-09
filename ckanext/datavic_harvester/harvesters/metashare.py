@@ -578,7 +578,8 @@ class MetaShareHarvester(HarvesterBase):
                 existing_packages = p.toolkit.get_action('package_search')({}, {"q": "urls:*order?email=:emailAddress&productId={}*".format(anzlicid)}).get('results', [])
                 if len(existing_packages) == 1:
                     existing_package = existing_packages[0]
-                    self._save_object_error("Existing package {0} found for ANZLICID: {1}".format(existing_package.get('name'), anzlicid), harvest_object, 'Existing ANZLICID')
+                    # Uncomment for local dev if needed
+                    # self._save_object_error("Existing package {0} found for ANZLICID: {1}".format(existing_package.get('name'), anzlicid), harvest_object, 'Existing ANZLICID')
                 elif len(existing_packages) > 1:
                     message = "More then 1 package found for ANZLICID: {0}".format(anzlicid)
                     for package in existing_packages:

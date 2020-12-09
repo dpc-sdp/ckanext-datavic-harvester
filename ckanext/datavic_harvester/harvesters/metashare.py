@@ -83,6 +83,7 @@ def map_update_frequency(datavic_update_frequencies, value):
     # Otherwise return the default of 'unknown'
     return 'unknown'
 
+
 def munge_title_to_name(name):
     '''Munge a package title into a package name.
         Copied from vicmaps-harvest.py to use the same code to create name from title
@@ -99,6 +100,7 @@ def munge_title_to_name(name):
     # remove leading or trailing hyphens
     name = name.strip('-')[:99]
     return name
+
 
 class MetaShareHarvester(HarvesterBase):
 
@@ -561,33 +563,45 @@ class MetaShareHarvester(HarvesterBase):
         if not package_dict:
             return False
 
-        # Check if dataset name exists
-        existing_resource_found = False
-        existing_package = None
-        try:
-            # TODO: Update resource_id and owner_org
-            name = munge_title_to_name(package_dict['title'])
-            existing_package = p.toolkit.get_action('package_show')({}, {"id":name})
-            metashare_dict = json.loads(harvest_object.content)
-            for existing_resource in existing_package.get('resources', []):
-                for resource in package_dict.get('resources', []):
-                    if metashare_dict.get('anzlicid') in existing_resource.get('url', '') and 'order?email=:emailAddress' in existing_resource.get('url', ''):
-                        existing_resource_found = True
-                        resource['id'] = existing_resource.get('id')
-                        log.debug('Existing resource found {0} for package {1}.'.format(existing_resource.get('id'), existing_resource.get('package_id')))
-                        
-        except p.toolkit.ObjectNotFound:
-           existing_resource_found = False
+        # We only need to check for existing packages when the status is new
+        # After the initial harvest the packages will be using the new SDM identifier
+        if status == 'new':
+            try:
+                # Check if dataset resource contains ANZLICID in URL
+                metashare_dict = json.loads(harvest_object.content)
+                anzlicid = metashare_dict.get('anzlicid', None)
+                if not anzlicid:
+                    self._save_object_error("No ANZLICID found for metashare dataset {0}".format(metashare_dict.get('title')), harvest_object, 'No ANZLICID')
+                    return False
 
-        if existing_resource_found:
-            # If existing resource was found, update package_id and owner_org
-            harvest_object.package_id = existing_package['id']
-            package_dict['owner_org'] = existing_package['owner_org']
-            status = 'change'
-        else:
-            # Must be a duplicate package title but different resource name from metashare, create new package for new resource name
-            status = 'new'
-            package_dict['name'] = self._get_package_name(harvest_object, package_dict['title'])
+                existing_package = None
+                existing_packages = p.toolkit.get_action('package_search')({}, {"q": "urls:*order?email=:emailAddress&productId={}*".format(anzlicid)}).get('results', [])
+                if len(existing_packages) == 1:
+                    existing_package = existing_packages[0]
+                    self._save_object_error("Existing package {0} found for ANZLICID: {1}".format(existing_package.get('name'), anzlicid), harvest_object, 'Existing ANZLICID')
+                elif len(existing_packages) > 1:
+                    message = "More then 1 package found for ANZLICID: {0}".format(anzlicid)
+                    for package in existing_packages:
+                        message += "\nPackage: {0}".format(package.get('name'))
+                    self._save_object_error(message, harvest_object, 'Duplicate ANZLICID')
+                    # Exit import_stage as we do not know which package to update
+                    return False
+
+                if existing_package:
+                    # If existing resource was found, update package_id and owner_org
+                    harvest_object.package_id = existing_package['id']
+                    package_dict['owner_org'] = existing_package['owner_org']
+                    # TODO: We assume there is only one resource???
+                    package_dict['resources'][0]['id'] = existing_package['resources'][0]['id']
+                    status = 'change'
+                else:
+                    # No existing package found, must be a new package
+                    package_dict['name'] = self._get_package_name(harvest_object, package_dict['title'])
+
+            except Exception as ex:
+                log.error('Metashare Import Stage Exception: {}'.format(ex))
+                self._save_object_error(ex, harvest_object, 'Error ANZLICID')
+                return False
 
         # Flag this object as the current one
         harvest_object.current = True

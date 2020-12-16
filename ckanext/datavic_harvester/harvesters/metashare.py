@@ -563,10 +563,12 @@ class MetaShareHarvester(HarvesterBase):
         if not package_dict:
             return False
 
-        # We only need to check for existing packages when the status is new
-        # After the initial harvest the packages will be using the new SDM identifier
-        if status == 'new':
+        # We only need to check for existing packages when the status is new and anzlicid_mappings config is setup
+        # After the initial harvest the packages will be using the new SDM identifier and then we should disable this by removing the config for anzlicid_mappings
+        anzlicid_mappings = self.config.get('anzlicid_mappings', None)
+        if status == 'new' and anzlicid_mappings:
             try:
+                package_dict['name'] = self._get_package_name(harvest_object, package_dict['title'])
                 # Check if dataset resource contains ANZLICID in URL
                 metashare_dict = json.loads(harvest_object.content)
                 anzlicid = metashare_dict.get('anzlicid', None)
@@ -574,34 +576,52 @@ class MetaShareHarvester(HarvesterBase):
                     self._save_object_error("No ANZLICID found for metashare dataset {0}".format(metashare_dict.get('title')), harvest_object, 'No ANZLICID')
                     return False
 
-                existing_package = None
+                package_to_update = None
                 existing_packages = p.toolkit.get_action('package_search')({}, {"q": "urls:*order?email=:emailAddress&productId={}*".format(anzlicid)}).get('results', [])
                 if len(existing_packages) == 1:
-                    existing_package = existing_packages[0]
+                    package_to_update = existing_packages[0]
                     # Uncomment for local dev if needed
                     # self._save_object_error("Existing package {0} found for ANZLICID: {1}".format(existing_package.get('name'), anzlicid), harvest_object, 'Existing ANZLICID')
                 elif len(existing_packages) > 1:
-                    message = "More then 1 package found for ANZLICID: {0}".format(anzlicid)
-                    for package in existing_packages:
-                        message += "\nPackage: {0}".format(package.get('name'))
-                    self._save_object_error(message, harvest_object, 'Duplicate ANZLICID')
-                    # Exit import_stage as we do not know which package to update
-                    return False
+                    if anzlicid in anzlicid_mappings:
+                        dataset_name = anzlicid_mappings[anzlicid]
+                        log.debug('Found anzlicid_mapping for anzlicid {0} and dataset {1}'.format(anzlicid, dataset_name))
+                        if dataset_name:
+                            if dataset_name == 'create_record':
+                                log.debug('create_record found for anzlicid {0}'.format(anzlicid))
+                                for package in existing_packages:
+                                    # Delete existing packages as this record will be created
+                                    log.debug('Deleting dataset {0}'.format(package.get('id')))
+                                    p.toolkit.get_action('package_delete')(context, {"id": package.get('id')})
+                            else:
+                                package_to_update = next((existing_package for existing_package in existing_packages if existing_package.get('name') == dataset_name), None)
+                                if package_to_update:
+                                    log.debug('Found dataset anzlicid {0} mapping for {1}'.format(anzlicid, package_to_update.get('name', '')))
+                                    for package in existing_packages:
+                                        # Delete the packages with the same anzlicid and keep the package_to_update
+                                        if package.get('id') != package_to_update.get('id'):
+                                            log.debug('Deleting dataset {0}'.format(package.get('id')))
+                                            p.toolkit.get_action('package_delete')(context, {"id": package.get('id')})
 
-                if existing_package:
+                    if not package_to_update:
+                        message = "No mapping found for ANZLICID: {0}".format(anzlicid)
+                        for package in existing_packages:
+                            message += "\nPackage: {0}".format(package.get('name'))
+                        self._save_object_error(message, harvest_object, 'Duplicate ANZLICID')
+                        # Exit import_stage as we do not know which package to update
+                        return False
+
+                if package_to_update:
                     # If existing resource was found, update package_id and owner_org
-                    harvest_object.package_id = existing_package['id']
-                    package_dict['owner_org'] = existing_package['owner_org']
+                    harvest_object.package_id = package_to_update['id']
+                    package_dict['owner_org'] = package_to_update['owner_org']
                     # TODO: We assume there is only one resource???
-                    package_dict['resources'][0]['id'] = existing_package['resources'][0]['id']
+                    package_dict['resources'][0]['id'] = package_to_update['resources'][0]['id']
                     status = 'change'
-                else:
-                    # No existing package found, must be a new package
-                    package_dict['name'] = self._get_package_name(harvest_object, package_dict['title'])
 
             except Exception as ex:
                 log.error('Metashare Import Stage Exception: {}'.format(ex))
-                self._save_object_error(ex, harvest_object, 'Error ANZLICID')
+                self._save_object_error(str(ex), harvest_object, 'Error ANZLICID')
                 return False
 
         # Flag this object as the current one
@@ -610,6 +630,8 @@ class MetaShareHarvester(HarvesterBase):
 
         try:
             if status == 'new':
+                if not package_dict.get('name'):
+                    package_dict['name'] = self._get_package_name(harvest_object, package_dict['title'])
                 package_schema = logic.schema.default_create_package_schema()
                 context['schema'] = package_schema
 

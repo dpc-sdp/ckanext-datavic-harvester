@@ -1,0 +1,240 @@
+,Comments,Dataset DataVic url title name,VSDL Object Name:,
+"More then 1 package found for ANZLICID: ANZVI0803002490
+Package: vicmap-hydro-watercourse-rivers
+Package: vicmap-hydro-watercourse-streams
+Package: vicmap-hydro-watercourse-drains
+Package: vicmap-hydro-connector-watercourse
+Package: vicmap-hydro-watercourse-channels
+Package: watercourse-network-1-25-000-vicmap-hydro",WMS for features of datasets for,watercourse-network-1-25-000-vicmap-hydro,VMHYDRO.HY_WATERCOURSE,
+"More then 1 package found for ANZLICID: ANZVI0803002498
+Package: vicmap-hydro-water-structure-marina
+Package: vicmap-hydro-water-structure-dam-batter
+Package: vicmap-hydro-water-structure-spillway
+Package: vicmap-hydro-water-structure-tank-water-polygon
+Package: water-structure-area-polygon-1-25-000-vicmap-hydro",WMS for features of datasets for,water-structure-area-polygon-1-25-000-vicmap-hydro,VMHYDRO.HY_WATER_STRUCT_AREA_POLYGON,
+"More then 1 package found for ANZLICID: ANZVI0803002491
+Package: vicmap-hydro-swamps
+Package: pondages-water-area-polygon-1-25-000-vicmap-hydro
+Package: lakes-and-dams-water-area-polygon-1-25-000-vicmap-hydro
+Package: vicmap-hydro-sewage-filtration-beds
+Package: vicmap-hydro-salt-pans
+Package: vicmap-hydro-salt-lakes
+Package: water-area-polygon-1-25-000-vicmap-hydro
+Package: area-subject-to-innundation-water-area-polygon-1-25-000-vicmap-hydro",WMS for features of datasets for,water-area-polygon-1-25-000-vicmap-hydro,VMHYDRO.HY_WATER_AREA_POLYGON,
+"More then 1 package found for ANZLICID: ANZVI0803002630
+Package: victorian-lower-house-electoral-boundaries-2001
+Package: victorian-lower-house-electoral-boundaries-2001-vicmap-admin","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+victorian-lower-house-electoral-boundaries-2001-vicmap-admin",VMADMIN.STATE_ASSEMBLY_2001,
+"More then 1 package found for ANZLICID: ANZVI0803004650
+Package: public-land-management-overlays-plm25
+Package: public-land-management-overlay-wilderness-zone
+Package: public-land-management-overlay-remote-and-natural-areas
+Package: public-land-management-overlay-heritage-river
+Package: public-land-management-overlay-remote-and-natural-catchment-areas
+Package: public-land-management-overlay-reference-areas
+Package: plm25-overlays-including-reference-areas-heritage-rivers-wilderness-zones-remote-natural-areas-and-",WMS for features of datasets for,plm25-overlays-including-reference-areas-heritage-rivers-wilderness-zones-remote-natural-areas-and-,CROWNLAND.PLM25_OVERLAYS,
+"More then 1 package found for ANZLICID: ANZVI0803005649
+Package: ward-boundaries-2016
+Package: ward-boundaries-2016-polygon
+Package: ward-boundaries-2016-polygon-vicmap-admin","Dataset title was renamed, creating a new DataVic record, delete please","Delete these records.
+ward-boundaries-2016
+ward-boundaries-2016-polygon-vicmap-admin",VMADMIN.WARD_2016,
+"More then 1 package found for ANZLICID: ANZVI0803008619
+Package: planned-burns-2020-21-2022-23
+Package: planned-burns-2019-20-2021-22-only","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+planned-burns-2019-20-2021-22-only",FIRE.BURNPLAN_PUBLIC,
+"More then 1 package found for ANZLICID: ANZVI0803003529
+Package: vicmap-lite-public-land-softwood-plantation-1-1-million-to-1-5-million
+Package: statewide-public-land-classification-boundaries-polygon-1-1-million-to-1-5-million-vicmap-lite
+Package: vicmap-lite-public-land-marine-parks-and-reserves-1-1-million-to-1-5-million
+Package: vicmap-lite-public-land-other-public-lands-1-1-million-to-1-5-million
+Package: vicmap-lite-public-land-parks-and-reserves-1-1-million-to-1-5-million
+Package: vicmap-lite-public-land-coastal-waters-1-1-million-to-1-5-million
+Package: vicmap-lite-public-land-state-forest-1-1-million-to-1-5-million",WMS for features of datasets for,statewide-public-land-classification-boundaries-polygon-1-1-million-to-1-5-million-vicmap-lite,VMLITE_PUBLIC_LAND_SU3,
+"More then 1 package found for ANZLICID: ANZVI0803002444
+Package: vicmap-transport-roundabout-points
+Package: vicmap-transport-gates
+Package: vicmap-transport-level-crossing-points
+Package: vicmap-transport-bicycle-bridges-point
+Package: road-infrastructure-vicmap-transport",WMS for features of datasets for,road-infrastructure-vicmap-transport,VMTRANS.TR_ROAD_INFRASTRUCTURE,
+"More then 1 package found for ANZLICID: ANZVI0803003978
+Package: public-land-management-plm25
+Package: water-production-public-land-management
+Package: alpine-resort-public-land-management
+Package: coastal-reserve-public-land-management
+Package: commonwealth-land-public-land-management
+Package: essentially-natural-catchment-public-land-management
+Package: forest-park-public-land-management
+Package: historic-reserve-public-land-management
+Package: marine-sanctuary-public-land-management
+Package: natural-features-reserve-public-land-management",WMS for features of datasets for,public-land-management-plm25,CROWNLAND.PLM25,
+"More then 1 package found for ANZLICID: ANZVI0803002496
+Package: vicmap-hydro-water-structure-pipe-water
+Package: vicmap-hydro-water-structure-lock
+Package: vicmap-hydro-water-structure-launching-ramp
+Package: vicmap-hydro-water-structure-breakwater
+Package: vicmap-hydro-water-structure-dam-wall-road
+Package: vicmap-hydro-water-structure-causeway
+Package: vicmap-hydro-water-structure-wharf
+Package: vicmap-hydro-water-structure-dam-wall
+Package: vicmap-hydro-water-structure-underground-pipe-water
+Package: water-structure-line-1-25-000-vicmap-hydro",WMS for features of datasets for,water-structure-line-1-25-000-vicmap-hydro,VMHYDRO.HY_WATER_STRUCT_LINE,
+"More then 1 package found for ANZLICID: ANZVI0803002777
+Package: vicmap-crown-land-tenure-agricultural
+Package: vicmap-crown-land-tenure-lease
+Package: vicmap-crown-land-tenure-pipelines
+Package: vicmap-crown-land-tenure-government-road-polygon
+Package: vicmap-crown-land-tenure-apiary-or-bee-farm
+Package: vicmap-crown-land-tenure-reserve-management
+Package: vicmap-crown-land-tenure-general-licences-miscellaneous
+Package: vicmap-crown-land-tenure-reserve-status
+Package: vicmap-crown-land-tenure",WMS for features of datasets for,vicmap-crown-land-tenure,Product of VICMAP_CLTENURE (contains multiple datasets),
+"More then 1 package found for ANZLICID: ANZVI0803002489
+Package: vicmap-hydro-pondages
+Package: vicmap-hydro-lakes-and-dams
+Package: vicmap-hydro-areas-subject-to-inundation
+Package: vicmap-hydro-1-25-000",WMS for features of datasets for,vicmap-hydro-1-25-000,Product of VICMAP_HYDRO,
+"More then 1 package found for ANZLICID: ANZVI0803004720
+Package: ward-boundaries-2012
+Package: ward-boundaries-2012-polygon-vicmap-admin","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+ward-boundaries-2012-polygon-vicmap-admin",VMADMIN.WARD_2012,
+"More then 1 package found for ANZLICID: ANZVI0803002595
+Package: vicmap-transport-highways
+Package: vicmap-transport-freeways
+Package: road-network-vicmap-transport
+Package: vicmap-transport-fords
+Package: vicmap-transport-road-network
+Package: vicmap-transport-walking-tracks
+Package: vicmap-transport-tracks
+Package: road-network-vicmap-transport-ferry-route
+Package: vicmap-transport-local-roads
+Package: vicmap-transport-sub-arterial-roads",WMS for features of datasets for,road-network-vicmap-transport,VMTRANS.TR_ROAD,
+"More then 1 package found for ANZLICID: ANZVI0803002776
+Package: petroleum-wells-from-geological-survey-of-victorias-dbmap-database
+Package: petroleum-wells-from-minerals-and-petroleums-dbmap-database","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+petroleum-wells-from-minerals-and-petroleums-dbmap-database",MINERALS.PET_WELLS,
+"More then 1 package found for ANZLICID: ANZVI0803004341
+Package: victoria-flood-database
+Package: victoria-flood-database-flood-height-contours-5-year
+Package: victoria-flood-database-flood-height-contours-10-year
+Package: victoria-flood-database-flood-height-contour-20-year
+Package: victoria-flood-database-flood-height-contour-50-year
+Package: victoria-flood-database-flood-height-contours-100-year
+Package: victoria-flood-database-flood-height-contours-200-year
+Package: victoria-flood-database-flood-height-contours-500-years
+Package: victoria-flood-database-flood-flow-directions
+Package: victoria-flood-database-statistical-extents-for-1-to-5-years-floods",WMS for features of datasets for,victoria-flood-database,Product of VICTORIA FLOOD DATABASE,
+"More then 1 package found for ANZLICID: ANZVI0803004213
+Package: water-production-generalised-public-land-management
+Package: alpine-resort-generalised-public-land-management
+Package: coastal-reserve-generalised-public-land-management
+Package: community-use-area-generalised-public-land-management
+Package: essentially-natural-catchment-generalised-public-land-management
+Package: forest-park-generalised-public-land-management
+Package: marine-sanctuary-generalised-public-land-management
+Package: national-park-generalised-public-land-management
+Package: natural-features-reserve-generalised-public-land-management
+Package: nature-conservation-reserve-generalised-public-land-management",WMS for features of datasets for,,CROWNLAND.PLMGEN,
+"More then 1 package found for ANZLICID: ANZVI0803002457
+Package: vicmap-transport-rail-station-non-operational-dismantled
+Package: vicmap-transport-rail-station-non-operational-disused
+Package: vicmap-transport-rail-station-operational
+Package: rail-infrastructure-vicmap-transport",WMS for features of datasets for,rail-infrastructure-vicmap-transport,VMTRANS.TR_RAIL_INFRASTRUCTURE,
+"More then 1 package found for ANZLICID: ANZVI0803005279
+Package: delwp-land-and-fire-district-boundaries
+Package: depi-land-and-fire-district-boundaries","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+depi-land-and-fire-district-boundaries",FIRE.LF_DISTRICT,
+"More then 1 package found for ANZLICID: ANZVI0803003582
+Package: vicmap-elevation-dem-10m
+Package: vicmap-elevation-dtm-10m","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+vicmap-elevation-dtm-10m",VICMAP_ELEV_DEM_10M,
+"More then 1 package found for ANZLICID: ANZVI0803008676
+Package: ward-boundaries-2020
+Package: ward-boundaries-2020-polygon-vicmap-admin","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+ward-boundaries-2020",VMADMIN.WARD_2020,
+"More then 1 package found for ANZLICID: ANZVI0803005314
+Package: geomark-point
+Package: police-station-vmfeat-geomark_point
+Package: cfa-fire-station-vmfeat-geomark_point",WMS for features of datasets for,geomark-point,VMFEAT.GEOMARK_POINT,
+"More then 1 package found for ANZLICID: ANZVI0803002493
+Package: vicmap-hydro-waterfalls
+Package: vicmap-hydro-water-well
+Package: vicmap-hydro-watering-place
+Package: vicmap-hydro-water-tank-points
+Package: water-point-1-25-000-vicmap-hydro",WMS for features of datasets for,water-point-1-25-000-vicmap-hydro,	VMHYDRO.HY_WATER_POINT,
+"More then 1 package found for ANZLICID: ANZVI0803005830
+Package: melbourne-water-corporation
+Package: melbourne-water-corporations","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+melbourne-water-corporations",WATER.MELBOURNE_WATER_CORP,
+"More then 1 package found for ANZLICID: ANZVI0803002442
+Package: rail-network-vicmap-transport
+Package: vicmap-transport-rail-network
+Package: vicmap-transport-rail-trail
+Package: vicmap-transport-rail-underground
+Package: vicmap-transport-tram-way
+Package: vicmap-transport-light-rail
+Package: vicmap-transport-rail-disused
+Package: vicmap-transport-rail-dismantled
+Package: vicmap-transport-rail-siding
+Package: vicmap-transport-rail-bridges",WMS for features of datasets for,rail-network-vicmap-transport,	VMTRANS.TR_RAIL,
+"More then 1 package found for ANZLICID: ANZVI0803002893
+Package: vicmap-elevation-ground-type-sand
+Package: vicmap-elevation-ground-type-rock-outcrop
+Package: ground-type-area-polygon-1-25-000-vicmap-elevation",WMS for features of datasets for,ground-type-area-polygon-1-25-000-vicmap-elevation,	VMELEV.EL_GRND_TYPE_AREA_POLYGON,
+"More then 1 package found for ANZLICID: ANZVI0803002766
+Package: seismic-survey-lines-for-petroleum-industry-exploration
+Package: petroleum-wells-from-minerals-and-petroleums-dbmap","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+petroleum-wells-from-minerals-and-petroleums-dbmap",MINERALS.SEISMIC_ARC,
+"More then 1 package found for ANZLICID: ANZVI0803003351
+Package: petroleum-wells-that-are-available-to-the-public-from-geological-survey-of-victorias-dbmap-database
+Package: petroleum-wells-that-are-available-to-the-public-from-minerals-and-petroleums-dbmap-database","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+petroleum-wells-that-are-available-to-the-public-from-minerals-and-petroleums-dbmap-database",	MINERALS.PET_WELLS_V_PUBLIC,
+"More then 1 package found for ANZLICID: ANZVI0803003496
+Package: coastal-scrubs-grasslands-and-woodlands
+Package: heathy-woodlands-dry-andjor-better-drained
+Package: heathy-woodlands-damp-andjor-less-well-drained
+Package: lowland-forests
+Package: lower-slopes-or-hills-woodlands-seasonally-inundated-andjor-shrubby
+Package: lower-slopes-or-hills-woodlands-grassy
+Package: lower-slopes-or-hills-woodlands-herb-rich
+Package: dry-forests-sheltered-and-or-higher-altitude
+Package: wet-or-damp-forests-damp
+Package: rainforests",WMS for features of datasets for,,	FLORAFAUNA1.NV1750_EVCBCS,
+"More then 1 package found for ANZLICID: ANZVI0803005786
+Package: ward-boundaries-2017
+Package: ward-boundaries-2017-polygon-vicmap-admin",WMS for features of datasets for,ward-boundaries-2017-polygon-vicmap-admin,VMADMIN.WARD_2017,
+"More then 1 package found for ANZLICID: ANZVI0803004311
+Package: defined-and-declared-floodways
+Package: victoria-flood-database-defined-and-declared-floodways",WMS for features of datasets for,,FLOOD.FLOODWAY,
+"More then 1 package found for ANZLICID: ANZVI0803003303
+Package: vicmap-property-simplified-2
+Package: vicmap-property-simplified-2-vicmap-property","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+vicmap-property-simplified-2-vicmap-property",Product of VICMAP_PROPERTY_SIMPLIFIED_2,
+"More then 1 package found for ANZLICID: ANZVI0803003297
+Package: vicmap-property-simplified-1
+Package: vicmap-property-simplified-1-vicmap-property","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+vicmap-property-simplified-1-vicmap-property",Product of VICMAP_PROPERTY_SIMPLIFIED_1,
+"More then 1 package found for ANZLICID: ANZVI0803003590
+Package: ward-boundaries-2008
+Package: ward-boundaries-2008-polygon","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+ward-boundaries-2008",VMADMIN.WARD_2008,
+"More then 1 package found for ANZLICID: ANZVI0803002618
+Package: vicmap-vegetation-tree-density-dense
+Package: vicmap-vegetation-tree-density-medium
+Package: vicmap-vegetation-tree-density-scattered
+Package: vicmap-vegetation-1-25-000",WMS for features of datasets for,vicmap-vegetation-1-25-000,Product of VICMAP_VEGETATION,
+"More then 1 package found for ANZLICID: ANZVI0803003063
+Package: victorian-upper-house-electoral-boundaries-2005
+Package: victorian-upper-house-electoral-boundaries-2005-vicmap-admin","Dataset title was renamed, creating a new DataVic record, delete please","Delete this record.
+victorian-upper-house-electoral-boundaries-2005-vicmap-admin",VMADMIN.STATE_COUNCIL_2005,
+"More then 1 package found for ANZLICID: ANZVI0803003495
+Package: bioregional-conservation-status-endangered-native-vegetation-evcbcs_2005
+Package: bioregional-conservation-status-vulnerable-native-vegetation-evcbcs_2005
+Package: bioregional-conservation-status-rare-native-vegetation-evcbcs_2005
+Package: bioregional-conservation-status-depleted-native-vegetation-evcbcs_2005
+Package: bioregional-conservation-status-least-concern-native-vegetation-evcbcs_2005
+Package: coastal-scrubs-grasslands-and-woodlands-native-vegetation-evcbcs_2005
+Package: heathy-woodlands-dry-and-or-better-drained-native-vegetation-evcbcs_2005
+Package: heathy-woodlands-damp-and-or-less-well-drained-native-vegetation-evcbcs_2005
+Package: lowland-forests-native-vegetation-evcbcs_2005
+Package: box-ironbark-forests-or-dry-lower-fertility-woodlands-native-vegetation-evcbcs_2005",WMS for features of datasets for,,	FLORAFAUNA1.NV2005_EVCBCS,

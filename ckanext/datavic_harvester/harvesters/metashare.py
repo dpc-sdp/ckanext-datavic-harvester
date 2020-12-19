@@ -268,7 +268,7 @@ class MetaShareHarvester(HarvesterBase):
             # Mandatory fields where no value exists in MetaShare
             # So we set them to Data.Vic defaults
             {'key': 'personal_information', 'value': 'no'},
-            {'key': 'protective_marking', 'value': 'Public Domain'},
+            {'key': 'protective_marking', 'value': 'official'},
             {'key': 'access', 'value': 'yes'},
         ]
 

@@ -75,7 +75,7 @@ def _fetch_update_frequency(full_metadata_url):
             elif 'quarter' in tag_text:
                 update_frequency = 'quarterly'
                 break
-    except Exception, e:
+    except Exception as e:
         print("An error occured: %s" % str(e))
 
     return update_frequency

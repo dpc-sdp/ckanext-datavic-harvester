@@ -1,4 +1,6 @@
 import json
+import six
+
 from ckan import model
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.plugins import toolkit
@@ -43,7 +45,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                                      ' names/ids')
                 if config_obj['default_groups'] and \
                         not isinstance(config_obj['default_groups'][0],
-                                       basestring):
+                                       six.string_types):
                     raise ValueError('default_groups must be a list of group '
                                      'names/ids (i.e. strings)')
 
@@ -56,11 +58,11 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                         # save the dict to the config object, as we'll need it
                         # in the set_default_group of every dataset
                         config_obj['default_group_dicts'].append({'id': group['id'], 'name': group['name']})
-                    except NotFound, e:
+                    except NotFound as e:
                         raise ValueError('Default group not found')
                 config = json.dumps(config_obj, indent=1)
 
-        except ValueError, e:
+        except ValueError as e:
             raise e
 
         return config

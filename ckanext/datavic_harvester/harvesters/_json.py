@@ -1,5 +1,6 @@
 import json
 import six
+import logging
 
 from ckan import model
 from ckan.logic import ValidationError, NotFound, get_action
@@ -10,7 +11,7 @@ from ckanext.dcat import converters
 from ckanext.dcat.harvesters._json import DCATJSONHarvester
 from ckanext.harvest.model import HarvestSource
 
-
+log = logging.getLogger(__name__)
 class DataVicDCATJSONHarvester(DCATJSONHarvester):
 
     def info(self):
@@ -268,3 +269,23 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         self.set_required_fields_defaults(harvest_config, dcat_dict, package_dict)
 
         return package_dict, dcat_dict
+
+    def _get_existing_dataset(self, guid):
+        '''
+        Checks if a dataset with a certain guid extra already exists
+
+        Returns a dict as the ones returned by package_show
+        '''
+
+        datasets = self._read_datasets_from_db(guid)
+
+        if not datasets:
+            return None
+        elif len(datasets) > 1:
+            log.error('Found more than one dataset with the same guid: {0}'
+                      .format(guid))
+        context = {
+            'user': self._get_user_name(),
+            'ignore_auth': True
+        }
+        return toolkit.get_action('package_show')(context, {'id': datasets[0][0]})

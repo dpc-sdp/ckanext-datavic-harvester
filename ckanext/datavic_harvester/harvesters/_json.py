@@ -99,7 +99,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         if 'default.description' in package_dict['notes']:
             package_dict['notes'] = 'No description has been entered for this dataset.'
             if not extract:
-                package_dict['extras'].append({'key': 'extract', 'value': 'No abstract has been entered for this dataset.'})
+                package_dict['notes'] = 'No abstract has been entered for this dataset.'
         else:
             package_dict['notes'] = bs4_helpers._unwrap_all_except(
                 bs4_helpers._remove_all_attrs_except_saving(soup),
@@ -109,7 +109,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             if not extract:
                 extract = self.generate_extract(soup)
                 if extract:
-                    package_dict['extras'].append({'key': 'extract', 'value': extract})
+                    package_dict['notes'] = extract
 
     def set_full_metadata_url_and_update_frequency(self, harvest_config, package_dict, soup):
         '''
@@ -166,61 +166,40 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         personal_information = [extra for extra in package_dict['extras'] if
                                 extra['key'] == 'personal_information']
         if not personal_information:
-            package_dict['extras'].append({
-                'key': 'personal_information',
-                'value': 'no'
-            })
+            package_dict['personal_information'] = 'no'
 
         access = [extra for extra in package_dict['extras'] if
                   extra['key'] == 'access']
         if not access:
-            package_dict['extras'].append({
-                'key': 'access',
-                'value': 'yes'
-            })
+            package_dict['access'] = 'yes'
 
         protective_marking = [extra for extra in package_dict['extras'] if
                               extra['key'] == 'protective_marking']
         if not protective_marking:
-            package_dict['extras'].append({
-                'key': 'protective_marking',
-                'value': 'Public Domain'
-            })
+            package_dict['protective_marking'] = 'Public Domain'
 
         update_frequency = [extra for extra in package_dict['extras'] if
                             extra['key'] == 'update_frequency']
         if not update_frequency:
-            package_dict['extras'].append({
-                'key': 'update_frequency',
-                'value': 'unknown'
-            })
+            package_dict['update_frequency'] = 'unknown'
 
         issued = dcat_dict.get('issued')
         date_created_data_asset = [extra for extra in package_dict['extras'] if
                                    extra['key'] == 'date_created_data_asset']
         if issued and not date_created_data_asset:
-            package_dict['extras'].append({
-                'key': 'date_created_data_asset',
-                'value': issued
-            })
+            package_dict['date_created_data_asset'] = issued
 
         modified = dcat_dict.get('modified')
         date_modified_data_asset = [extra for extra in package_dict['extras'] if
                                     extra['key'] == 'date_modified_data_asset']
         if modified and not date_modified_data_asset:
-            package_dict['extras'].append({
-                'key': 'date_modified_data_asset',
-                'value': modified
-            })
+            package_dict['date_modified_data_asset'] = modified
 
         landing_page = dcat_dict.get('landingPage')
         full_metadata_url = [extra for extra in package_dict['extras'] if
                              extra['key'] == 'full_metadata_url']
         if landing_page and not full_metadata_url:
-            package_dict['extras'].append({
-                'key': 'full_metadata_url',
-                'value': landing_page
-            })
+            package_dict['full_metadata_url'] = landing_page
 
         license_id = package_dict.get('license_id', None)
         if not license_id and 'default_license' in harvest_config:
@@ -231,7 +210,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                 if default_license_id:
                     package_dict['license_id'] = default_license_id
                 if default_license_title:
-                    package_dict['license_title'] = default_license_title
+                    package_dict['custom_licence_text'] = default_license_title
 
     def _get_package_dict(self, harvest_object):
         '''

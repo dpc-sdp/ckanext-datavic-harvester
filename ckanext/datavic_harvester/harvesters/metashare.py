@@ -497,7 +497,6 @@ class MetaShareHarvester(HarvesterBase):
         #
 
     def fetch_stage(self, harvest_object):
-        # import ipdb; ipdb.set_trace()
         return True
 
     def import_stage(self, harvest_object):

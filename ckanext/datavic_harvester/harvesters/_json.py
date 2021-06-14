@@ -135,15 +135,9 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                 if desc_full_metadata_url:
                     full_metadata_url = desc_full_metadata_url
                     # Attempt to extract the update frequency from the full metadata page
-                    package_dict['extras'].append({
-                        'key': 'update_frequency',
-                        'value': bs4_helpers._fetch_update_frequency(full_metadata_url)
-                    })
+                    package_dict['update_frequency'] = bs4_helpers._fetch_update_frequency(full_metadata_url)
         if full_metadata_url:
-            package_dict['extras'].append({
-                'key': 'full_metadata_url',
-                'value': full_metadata_url
-            })
+            package_dict['full_metadata_url'] = full_metadata_url
 
     def set_default_group(self, harvest_config, package_dict):
         '''
@@ -163,6 +157,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                     if g['id'] not in existing_group_ids])
 
     def set_required_fields_defaults(self, harvest_config, dcat_dict, package_dict):
+        breakpoint()
         personal_information = [extra for extra in package_dict['extras'] if
                                 extra['key'] == 'personal_information']
         if not personal_information:

@@ -6,7 +6,7 @@ from ckan import model
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.plugins import toolkit
 from bs4 import BeautifulSoup
-from ckanext.datavic_harvester import bs4_helpers
+from ckanext.datavic_harvester import bs4_helpers, helpers
 from ckanext.dcat import converters
 from ckanext.dcat.harvesters._json import DCATJSONHarvester
 from ckanext.harvest.model import HarvestSource
@@ -97,11 +97,11 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         extract = [extra for extra in package_dict['extras'] if extra['key'] == 'extract']
 
         if 'default.description' in package_dict['notes']:
-            package_dict['notes'] = 'No description has been entered for this dataset.'
+            package_dict['extract'] = 'No description has been entered for this dataset.'
             if not extract:
-                package_dict['notes'] = 'No abstract has been entered for this dataset.'
+                package_dict['extract'] = 'No abstract has been entered for this dataset.'
         else:
-            package_dict['notes'] = bs4_helpers._unwrap_all_except(
+            package_dict['extract'] = bs4_helpers._unwrap_all_except(
                 bs4_helpers._remove_all_attrs_except_saving(soup),
                 # allowed tags
                 ['a', 'br']
@@ -109,7 +109,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             if not extract:
                 extract = self.generate_extract(soup)
                 if extract:
-                    package_dict['notes'] = extract
+                    package_dict['extract'] = extract
 
     def set_full_metadata_url_and_update_frequency(self, harvest_config, package_dict, soup):
         '''
@@ -149,15 +149,16 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         # Set default groups if needed
         default_groups = harvest_config.get('default_groups', [])
         if default_groups:
+            package_dict['category'] = default_groups[0]
             if not 'groups' in package_dict:
                 package_dict['groups'] = []
             existing_group_ids = [g['id'] for g in package_dict['groups']]
             package_dict['groups'].extend(
                 [g for g in harvest_config['default_group_dicts']
                     if g['id'] not in existing_group_ids])
+            
 
     def set_required_fields_defaults(self, harvest_config, dcat_dict, package_dict):
-        breakpoint()
         personal_information = [extra for extra in package_dict['extras'] if
                                 extra['key'] == 'personal_information']
         if not personal_information:
@@ -178,17 +179,28 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         if not update_frequency:
             package_dict['update_frequency'] = 'unknown'
 
+        organization_visibility = [extra for extra in package_dict['extras'] if
+                                   extra ['key'] == 'organization_visibility']
+        if not organization_visibility:
+            package_dict['organization_visibility'] = 'current'
+
+        workflow_status = [extra for extra in package_dict['extras'] if
+                                   extra ['key'] == 'workflow_status']
+        if not workflow_status:
+            package_dict['workflow_status'] = 'draft'
+
         issued = dcat_dict.get('issued')
         date_created_data_asset = [extra for extra in package_dict['extras'] if
                                    extra['key'] == 'date_created_data_asset']
         if issued and not date_created_data_asset:
-            package_dict['date_created_data_asset'] = issued
+            package_dict['date_created_data_asset'] = helpers.convert_date_to_isoformat(issued)
 
         modified = dcat_dict.get('modified')
+        
         date_modified_data_asset = [extra for extra in package_dict['extras'] if
                                     extra['key'] == 'date_modified_data_asset']
         if modified and not date_modified_data_asset:
-            package_dict['date_modified_data_asset'] = modified
+            package_dict['date_modified_data_asset'] = helpers.convert_date_to_isoformat(modified)
 
         landing_page = dcat_dict.get('landingPage')
         full_metadata_url = [extra for extra in package_dict['extras'] if
@@ -206,6 +218,9 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                     package_dict['license_id'] = default_license_id
                 if default_license_title:
                     package_dict['custom_licence_text'] = default_license_title
+
+        keywords = dcat_dict.get('keyword')
+        package_dict['tag_string'] = keywords if keywords else []
 
     def _get_package_dict(self, harvest_object):
         '''

@@ -59,8 +59,9 @@ def convert_date_to_isoformat(value):
         value = value.split('.')[0]
         if 't' in value:
             date = p.toolkit.get_converter('isodate')(value, {})
-    except p.toolkit.Invalid as ex:
+    except Exception as ex:
         log.debug('Date format incorrect {0}'.format(value))
+        log.debug(ex)
     # TODO: Do we return None or value if date string cannot be converted?
     return date.isoformat() if date else None
 

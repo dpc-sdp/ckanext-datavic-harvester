@@ -19,7 +19,6 @@ log = logging.getLogger(__name__)
 from ckanext.harvest.harvesters.ckanharvester import CKANHarvester
 
 
-
 class DataVicCKANHarvester(CKANHarvester):
     '''
     A Harvester for CKAN Data.Vic instances

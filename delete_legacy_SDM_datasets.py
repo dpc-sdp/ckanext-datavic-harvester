@@ -2,15 +2,10 @@ from datetime import datetime
 from ckanapi import RemoteCKAN, NotFound
 
 # TODO: Update URLS to the correct environment 
-# PROD
 # dd_url = "https://ckan-datavic-ckan-master.au.amazee.io"
 # odp_url = "https://ckan-datavic-ckan-odp-master.au.amazee.io"
-# Develop
-# dd_url = "https://ckan-datavic-ckan-develop.au.amazee.io"
-# odp_url = "https://ckan-datavic-ckan-odp-develop.au.amazee.io"
-# Local
-dd_url = "http://datavic-ckan.docker.amazee.io"
-odp_url = "http://datavic-ckan-odp.docker.amazee.io"
+dd_url = "https://ckan-datavic-ckan-develop.au.amazee.io"
+odp_url = "https://ckan-datavic-ckan-odp-develop.au.amazee.io"
 
 # Update Authorization api key per environment. The below is the same keys for prod & develop
 dd_apikey = 'c8a89820-a159-4c84-947d-3cb55c5a6156'
@@ -33,7 +28,7 @@ with open('delete_legacy_SDM_datasets_log-{}.csv'.format(datetime.now().isoforma
                     for dataset in results:
                         try:
                             # TODO: Change package_delete to dataset_purge?
-                            dd_ckan.action.dataset_purge(id=dataset.get('name'))
+                            dd_ckan.action.package_delete(id=dataset.get('name'))
                             row = "Success,DD,{0},{1},{2}/dataset/{3},\n".format(dataset.get('title'),  dataset.get('name'), dd_url, dataset.get('name'))
                             log_file.write(row)
                         except Exception as ex:
@@ -42,7 +37,7 @@ with open('delete_legacy_SDM_datasets_log-{}.csv'.format(datetime.now().isoforma
 
                         try:
                             # TODO: Change package_delete to dataset_purge?
-                            odp_ckan.action.dataset_purge(id=dataset.get('name'))
+                            odp_ckan.action.package_delete(id=dataset.get('name'))
                             row = "Success,ODP,{0},{1},{2}/dataset/{3},\n".format(dataset.get('title'),  dataset.get('name'), odp_url, dataset.get('name'))
                             log_file.write(row)
                         except Exception as ex:

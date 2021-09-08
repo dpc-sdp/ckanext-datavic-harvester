@@ -169,7 +169,7 @@ class MetaShareHarvester(HarvesterBase):
             raise ValueError('No config options set')
         {
             "default_groups": ["spatial-data"],
-            "full_metadata_url_prefix": "https://dev-metashare.maps.vic.gov.au/geonetwork/srv/eng/catalog.search#/metadata/",
+            "full_metadata_url_prefix": "https://metashare.maps.vic.gov.au/geonetwork/srv/api/records/{UUID}/formatters/sdm-html?root=html&output=html",
             "resource_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
             "attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
             "license_id": "cc-by"
@@ -186,6 +186,9 @@ class MetaShareHarvester(HarvesterBase):
 
             if 'full_metadata_url_prefix' not in config_obj:
                 raise ValueError('full_metadata_url_prefix must be set')
+
+            if '{UUID}' not in config_obj.get('full_metadata_url_prefix', ''):
+                raise ValueError('full_metadata_url_prefix must have the {UUID} identifier in the URL')
 
             if 'resource_url_prefix' not in config_obj:
                 raise ValueError('resource_url_prefix must be set')
@@ -259,7 +262,7 @@ class MetaShareHarvester(HarvesterBase):
         uuid = harvest_object.guid
 
         full_metadata_url_prefix = self.config.get('full_metadata_url_prefix', None)
-        full_metadata_url = '{0}{1}'.format(full_metadata_url_prefix, uuid) if full_metadata_url_prefix else ''
+        full_metadata_url = full_metadata_url_prefix.format(**{'UUID':uuid}) if full_metadata_url_prefix else ''
         resource_url_prefix = self.config.get('resource_url_prefix', None)
         resource_url = '{0}{1}'.format(resource_url_prefix, uuid) if resource_url_prefix else ''
 

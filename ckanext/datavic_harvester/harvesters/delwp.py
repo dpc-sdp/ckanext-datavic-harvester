@@ -200,6 +200,12 @@ class DelwpHarvester(HarvesterBase):
 
             if 'resource_attribution' not in config_obj:
                 raise ValueError('resource_attribution must be set')
+
+            if 'dataset_type' not in config_obj:
+                raise ValueError('dataset_type must be set')
+
+            if 'api_auth' not in config_obj:
+                raise ValueError('api_auth must be set')
         except ValueError as e:
             raise e
 

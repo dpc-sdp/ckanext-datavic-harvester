@@ -32,6 +32,7 @@ def _get_from_to(page, datasets_per_page):
 
 def get_tags(value):
     tags = []
+    value = re.split(';|,', value)
     if isinstance(value, list):
         for tag in value:
             tags.append({
@@ -147,8 +148,8 @@ class DelwpHarvester(HarvesterBase):
 
     def info(self):
         return {
-            'name': 'DELWP',
-            'title': 'DELWP Harvester',
+            'name': 'delwp',
+            'title': 'delwp Harvester',
             'description': 'Harvester for DELWP dataset descriptions ' +
                            'serialized as JSON'
         }

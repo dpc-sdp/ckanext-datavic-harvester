@@ -238,9 +238,6 @@ class DataVicCKANHarvester(CKANHarvester):
 
                     package_dict['extras'].append({'key': key, 'value': value})
 
-            # This is SDM harvest specific
-            exclude_sdm_records = self.config.get('exclude_sdm_records', False)
-
             for resource in package_dict.get('resources', []):
                 if resource.get('url_type') == 'upload':
                     local_resource = next(
@@ -276,12 +273,6 @@ class DataVicCKANHarvester(CKANHarvester):
                 citation = package_dict.get('citation', None)
                 if citation is not None:
                     resource['attribution'] = citation
-
-                #TODO: Remove all references to exclude_sdm_records and public_order_url in the CKAN 2.9 upgrade
-                # Only SDM records from the legacy harvest to current Data.Vic prod instance have 'public_order_url' field
-                if 'public_order_url' in resource and exclude_sdm_records:
-                    log.info('Ignoring SDM record: ' + package_dict['name'] + ' - ID: ' + package_dict['id'])
-                    return True
 
             # DATAVIC-61: Add any additional schema fields not existing in Data.Vic schema as extras
             # if identified within the harvest configuration

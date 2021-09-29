@@ -33,7 +33,6 @@ This extension adds a new parameter to the harvest configuration options:
 
         additional_fields
         additional_fields_as_extras
-        exclude_sdm_records
 
 ### additional_fields
 
@@ -50,12 +49,6 @@ This setting can be used to spell out top level fields in the harvest source tha
         "additional_fields_as_extras": ["anzlic_id", "package_scope"]
 
 ...will scan the harvested source dataset for `anzlic_id` and `package_scope` and if they exist they will be added to the destination dataset as extras.
-
-### exclude_sdm_records
-
-This setting can be used on the initial harvest from Data.Vic to exclude SDM records from being harvested, as they will eventually be harvested directly from the SDM CKAN instance.
-
-Default: False
 
 ### ignore_private_datasets
 

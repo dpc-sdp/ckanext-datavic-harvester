@@ -32,6 +32,7 @@ def _get_from_to(page, datasets_per_page):
 
 def get_tags(value):
     tags = []
+    value = re.split(';|,', value)
     if isinstance(value, list):
         for tag in value:
             tags.append({
@@ -103,7 +104,7 @@ def munge_title_to_name(name):
     return name
 
 
-class MetaShareHarvester(HarvesterBase):
+class DelwpHarvester(HarvesterBase):
 
     config = None
     force_import = False
@@ -147,9 +148,9 @@ class MetaShareHarvester(HarvesterBase):
 
     def info(self):
         return {
-            'name': 'metashare',
-            'title': 'MetaShare Harvester',
-            'description': 'Harvester for MetaShare dataset descriptions ' +
+            'name': 'delwp',
+            'title': 'delwp Harvester',
+            'description': 'Harvester for DELWP dataset descriptions ' +
                            'serialized as JSON'
         }
 
@@ -171,8 +172,10 @@ class MetaShareHarvester(HarvesterBase):
             "default_groups": ["spatial-data"],
             "full_metadata_url_prefix": "https://metashare.maps.vic.gov.au/geonetwork/srv/api/records/{UUID}/formatters/sdm-html?root=html&output=html",
             "resource_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
-            "attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
-            "license_id": "cc-by"
+            "resource_attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
+            "license_id": "cc-by",
+            "dataset_type": "uat-datashare-metadata",
+            "api_auth": "Apikey 9f42499563025e767dd53147787ca636d3958f7d20c0cf25e81b01a9"
         }
         try:
             config_obj = json.loads(config)
@@ -198,25 +201,31 @@ class MetaShareHarvester(HarvesterBase):
 
             if 'resource_attribution' not in config_obj:
                 raise ValueError('resource_attribution must be set')
+
+            if 'dataset_type' not in config_obj:
+                raise ValueError('dataset_type must be set')
+
+            if 'api_auth' not in config_obj:
+                raise ValueError('api_auth must be set')
         except ValueError as e:
             raise e
 
         return config
 
-    def _get_page_of_records(self, url, page, datasets_per_page=100):
+    def _get_page_of_records(self, url, dataset_type, api_auth, page, datasets_per_page=100):
         _from, _to = _get_from_to(page, datasets_per_page)
         records = None
         try:
-            request_url = '{0}?from={1}&to={2}&_content_type=json&fast=index'.format(url, _from, _to)
+            request_url = '{0}?dataset={1}&start={2}&rows={3}&format=json'.format(url, dataset_type, _from, _to)
             log.debug('Getting page of records {}'.format(request_url))
-            r = requests.get(request_url)
+            r = requests.get(request_url, headers={'Authorization': api_auth })
 
             if r.status_code == 200:
                 data = json.loads(r.text)
 
                 # Records are contained in the "metadata" element of the response JSON
                 # see example: https://dev-metashare.maps.vic.gov.au/geonetwork/srv/en/q?from=1&to=1&_content_type=json&fast=index
-                records = data.get('metadata', None)
+                records = data.get('records', None)
         except Exception as e:
             log.error(e)
 
@@ -230,7 +239,6 @@ class MetaShareHarvester(HarvesterBase):
         :param content:
         :return:
         """
-
         if not isinstance(datasets, list):
             if isinstance(datasets, dict):
                 datasets = [datasets]
@@ -239,12 +247,11 @@ class MetaShareHarvester(HarvesterBase):
                 raise ValueError('Wrong JSON object')
 
         for dataset in datasets:
-
-            as_string = json.dumps(dataset)
+            fields = dataset.get('fields', {})
+            as_string = json.dumps(fields)
 
             # Get identifier
-            geonet_info = dataset.get('geonet:info', None)
-            guid = geonet_info.get('uuid', None)
+            guid = fields.get('uuid', None)
 
             yield guid, as_string
 
@@ -295,9 +302,12 @@ class MetaShareHarvester(HarvesterBase):
 
         # Tags / Keywords
         # `topicCat` can either be a single tag as a string or a list of tags
-        topic_cat = metashare_dict.get('topicCat', None)
+        topic_cat = metashare_dict.get('topiccat', None)
         if topic_cat:
             package_dict['tags'] = get_tags(topic_cat)
+
+        # Las Updated  corelates to geonet_info_changedate
+        package_dict['last_updated'] = metashare_dict.get('geonet_info_changedate', None)
 
         extras.append({
             'key': 'extract',
@@ -318,7 +328,7 @@ class MetaShareHarvester(HarvesterBase):
         # The response from SDM was:
         #       "We could either add Custodian to the Q Search results or just use resource owner. Given that it is
         #       not publically displayed in DV, not sure it's worth the effort of adding the custodian"
-        res_owner = metashare_dict.get('resOwner', None)
+        res_owner = metashare_dict.get('resowner', None)
         if res_owner:
             package_dict['maintainer'] = res_owner[0] if isinstance(res_owner, list) else res_owner
 
@@ -334,26 +344,27 @@ class MetaShareHarvester(HarvesterBase):
         # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
         # might need to run some regex on this
-        temp_extent_begin = metashare_dict.get('tempExtentBegin', None)
-        if temp_extent_begin:
+        #temp_extent_begin = metashare_dict.get('tempextentbegin', None)
+        publicaion_date = metashare_dict.get('publicationdate', None)
+        if publicaion_date:
             extras.append({
                 'key': 'date_created_data_asset',
-                'value': convert_date_to_isoformat(temp_extent_begin)
+                'value': convert_date_to_isoformat(publicaion_date)
             })
         else:
-            print('WHAT DO WE DO HERE? tempExtentBegin does not exist for {}'.format(uuid))
+            print('WHAT DO WE DO HERE? publicaion_date does not exist for {}'.format(uuid))
 
         # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
         extras.append({
             'key': 'date_modified_data_asset',
-            'value': convert_date_to_isoformat(metashare_dict.get('revisionDate', None))
+            'value': convert_date_to_isoformat(metashare_dict.get('revisiondate', None))
         })
 
         extras.append({
             'key': 'update_frequency',
             'value': map_update_frequency(get_datavic_update_frequencies(),
-                                          metashare_dict.get('maintenanceAndUpdateFrequency_text', 'unknown'))
+                                          metashare_dict.get('maintenanceandupdatefrequency_text', 'unknown'))
         })
 
         if full_metadata_url:
@@ -364,10 +375,10 @@ class MetaShareHarvester(HarvesterBase):
 
         # Create a single resource for the dataset
         resource = {
-            'name': metashare_dict.get('altTitle') or metashare_dict.get('title'),
-            'format': metashare_dict.get('spatialRepresentationType_text', None),
-            'period_start': convert_date_to_isoformat(metashare_dict.get('tempExtentBegin', None)),
-            'period_end': convert_date_to_isoformat(metashare_dict.get('tempExtentEnd', None)),
+            'name': metashare_dict.get('alttitle') or metashare_dict.get('title'),
+            'format': metashare_dict.get('spatialrepresentationtype_text', None),
+            'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', None)),
+            'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', None)),
             'url': resource_url
         }
 
@@ -420,11 +431,14 @@ class MetaShareHarvester(HarvesterBase):
         records_per_page = 500
 
         harvest_source_url = harvest_job.source.url[:-1] if harvest_job.source.url.endswith('?') else harvest_job.source.url
+        self._set_config(harvest_job.source.config)
 
         # _get_page_of_records will return None if there are no more records
         records = True
         while records:
-            records = self._get_page_of_records(harvest_source_url, page, records_per_page)
+            dataset_type = self.config.get('dataset_type')
+            api_auth = self.config.get('api_auth')
+            records = self._get_page_of_records(harvest_source_url,dataset_type , api_auth, page, records_per_page)
 
             batch_guids = []
             if records:
@@ -476,8 +490,7 @@ class MetaShareHarvester(HarvesterBase):
             #
             # END: This section is copied from ckanext/dcat/harvesters/_json.py
             #
-
-        #
+            
         # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
         # @TODO: Can probably be moved into its own function
         #

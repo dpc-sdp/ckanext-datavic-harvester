@@ -5,15 +5,15 @@ import requests
 import traceback
 import uuid
 import re
+import six
 
 from ckan import logic
 from ckan import model
-from ckan import plugins as p
 from ckanext.datavicmain.schema import DATASET_EXTRA_FIELDS
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
-
+from ckan.plugins import toolkit as toolkit
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def get_tags(value):
     return tags
 
 
-def convert_date_to_isoformat(value):
+def convert_date_to_isoformat(value, key, dataset_name):
     """
     Example dates:
         '2020-10-13t05:00:11'
@@ -56,12 +56,11 @@ def convert_date_to_isoformat(value):
     """
     date = None
     try:
-        # Remove any microseconds
-        value = value.split('.')[0]
-        if 't' in value:
-            date = p.toolkit.get_converter('isodate')(value, {})
+        # Remove any timezone with time
+        value = value.lower().split('t')[0]        
+        date = toolkit.get_converter('isodate')(value, {})
     except Exception as ex:
-        log.debug('Date format incorrect {0}'.format(value))
+        log.debug('{0}: Date format incorrect {1} for key {2}'.format(dataset_name, value, key))
         log.debug(ex)
     # TODO: Do we return None or value if date string cannot be converted?
     return date.isoformat() if date else None
@@ -184,6 +183,25 @@ class DelwpHarvester(HarvesterBase):
                 if not isinstance(config_obj['default_groups'], list):
                     raise ValueError('default_groups must be a *list* of group'
                                      ' names/ids')
+                if config_obj['default_groups'] and \
+                        not isinstance(config_obj['default_groups'][0],
+                                       six.string_types):
+                    raise ValueError('default_groups must be a list of group '
+                                     'names/ids (i.e. strings)')
+
+                # Check if default groups exist
+                context = {'model': model, 'user': toolkit.g.user}
+                config_obj['default_group_dicts'] = []
+                for group_name_or_id in config_obj['default_groups']:
+                    try:
+                        group = toolkit.get_action('group_show')(
+                            context, {'id': group_name_or_id})
+                        # save the dict to the config object, as we'll need it
+                        # in the import_stage of every dataset
+                        config_obj['default_group_dicts'].append(group)
+                    except toolkit.ObjectNotFound:
+                        raise ValueError('Default group not found')
+                config = json.dumps(config_obj)
             else:
                 raise ValueError('default_groups must be set')
 
@@ -255,7 +273,7 @@ class DelwpHarvester(HarvesterBase):
 
             yield guid, as_string
 
-    def _get_package_dict(self, harvest_object):
+    def _get_package_dict(self, harvest_object, context):
         """
         Convert the string based content from the harvest_object
         into a package_dict for a CKAN dataset
@@ -289,13 +307,13 @@ class DelwpHarvester(HarvesterBase):
         package_dict['notes'] = metashare_dict.get('abstract', '').encode('ascii', 'xmlcharrefreplace')
 
         # Get organisation from the harvest source organisation dropdown
-        source_dict = logic.get_action('package_show')({}, {'id': harvest_object.harvest_source_id})
+        source_dict = logic.get_action('package_show')(context, {'id': harvest_object.harvest_source_id})
         package_dict['owner_org'] = source_dict.get('owner_org')
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
-        default_groups = self.config.get('default_groups', None)
-        if default_groups and isinstance(default_groups, list):
-            package_dict['groups'] = [{"name": group} for group in default_groups]
+        default_group_dicts = self.config.get('default_group_dicts', None)
+        if default_group_dicts and isinstance(default_group_dicts, list):
+            package_dict['groups'] = [{"id": group.get('id')} for group in default_group_dicts]
 
         # Default as discussed with SDM
         package_dict['license_id'] = self.config.get('license_id', 'cc-by')
@@ -306,13 +324,14 @@ class DelwpHarvester(HarvesterBase):
         if topic_cat:
             package_dict['tags'] = get_tags(topic_cat)
 
+        # TODO: Is this the right metadata field? Should it be at the resource?
         # Las Updated  corelates to geonet_info_changedate
         package_dict['last_updated'] = metashare_dict.get('geonet_info_changedate', None)
 
         extras.append({
             'key': 'extract',
             # Get the first sentence
-            'value': '{}...'.format(package_dict['notes'].split('.')[0])
+            'value': '{}...'.format(package_dict['notes'].split(b'.')[0])
         })
 
         # There is no field in Data.Vic schema to store the source UUID of the harvested record
@@ -334,22 +353,22 @@ class DelwpHarvester(HarvesterBase):
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
-        category = default_groups[0] if default_groups else None
+        category = default_group_dicts[0] if default_group_dicts else None
         if category:
             extras.append({
                 'key': 'category',
-                'value': category
+                'value': category.get('id')
             })
 
         # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
         # might need to run some regex on this
         #temp_extent_begin = metashare_dict.get('tempextentbegin', None)
-        publicaion_date = metashare_dict.get('publicationdate', None)
-        if publicaion_date:
+        publication_date = metashare_dict.get('publicationdate', None)
+        if publication_date:
             extras.append({
                 'key': 'date_created_data_asset',
-                'value': convert_date_to_isoformat(publicaion_date)
+                'value': convert_date_to_isoformat(publication_date, 'publicationdate', metashare_dict.get('name')),
             })
         else:
             print('WHAT DO WE DO HERE? publicaion_date does not exist for {}'.format(uuid))
@@ -358,7 +377,7 @@ class DelwpHarvester(HarvesterBase):
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
         extras.append({
             'key': 'date_modified_data_asset',
-            'value': convert_date_to_isoformat(metashare_dict.get('revisiondate', None))
+            'value': convert_date_to_isoformat(metashare_dict.get('revisiondate'), 'revisiondate', metashare_dict.get('name')),
         })
 
         extras.append({
@@ -377,8 +396,8 @@ class DelwpHarvester(HarvesterBase):
         resource = {
             'name': metashare_dict.get('alttitle') or metashare_dict.get('title'),
             'format': metashare_dict.get('spatialrepresentationtype_text', None),
-            'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', None)),
-            'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', None)),
+            'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin'), 'tempextentbegin', metashare_dict.get('name')),
+            'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend'), 'tempextentend', metashare_dict.get('name')),
             'url': resource_url
         }
 
@@ -543,7 +562,7 @@ class DelwpHarvester(HarvesterBase):
         if status == 'delete':
             # Delete package
 
-            p.toolkit.get_action('package_delete')(
+            toolkit.get_action('package_delete')(
                 context, {'id': harvest_object.package_id})
             log.info('Deleted package {0} with guid {1}'
                      .format(harvest_object.package_id, harvest_object.guid))
@@ -575,7 +594,7 @@ class DelwpHarvester(HarvesterBase):
             previous_object.current = False
             previous_object.add()
 
-        package_dict = self._get_package_dict(harvest_object)
+        package_dict = self._get_package_dict(harvest_object, context)
 
         if not package_dict:
             return False
@@ -614,7 +633,7 @@ class DelwpHarvester(HarvesterBase):
                 action = 'package_create' if status == 'new' else 'package_update'
                 message_status = 'Created' if status == 'new' else 'Updated'
 
-                package_id = p.toolkit.get_action(action)(context, package_dict)
+                package_id = toolkit.get_action(action)(context, package_dict)
                 log.info('%s dataset with id %s', message_status, package_id)
 
         except Exception as e:

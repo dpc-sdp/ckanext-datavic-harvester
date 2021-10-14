@@ -72,7 +72,7 @@ def get_datavic_update_frequencies():
     # DATASET_EXTRA_FIELDS is a list of tuples - where the first element
     # is the name of the metadata schema field
     # The second element contains the configuration for the field
-    update_frequency_options = [x[1]['options'] for x in helpers.dataset_fields() if x[0] == 'update_frequency']
+    update_frequency_options = [x['choices'] for x in helpers.dataset_fields() if x['field_name'] == 'update_frequency']
 
     return update_frequency_options[0]
 
@@ -80,7 +80,7 @@ def get_datavic_update_frequencies():
 def map_update_frequency(datavic_update_frequencies, value):
     # Check if the value from SDM matches one of those, if so just return original value
     for frequency in datavic_update_frequencies:
-        if frequency['text'].lower() == value.lower():
+        if frequency['label'].lower() == value.lower():
             return frequency['value']
 
     # Otherwise return the default of 'unknown'

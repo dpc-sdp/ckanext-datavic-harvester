@@ -9,10 +9,12 @@ import re
 from ckan import logic
 from ckan import model
 from ckan import plugins as p
-from ckanext.datavicmain.schema import DATASET_EXTRA_FIELDS
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
+
+import ckanext.datavicmain.helpers as helpers
+
 
 
 log = logging.getLogger(__name__)
@@ -70,7 +72,7 @@ def get_datavic_update_frequencies():
     # DATASET_EXTRA_FIELDS is a list of tuples - where the first element
     # is the name of the metadata schema field
     # The second element contains the configuration for the field
-    update_frequency_options = [x[1]['options'] for x in DATASET_EXTRA_FIELDS if x[0] == 'update_frequency']
+    update_frequency_options = [x[1]['options'] for x in helpers.dataset_fields() if x[0] == 'update_frequency']
 
     return update_frequency_options[0]
 
@@ -268,13 +270,11 @@ class MetaShareHarvester(HarvesterBase):
 
         package_dict = {}
 
-        extras = [
-            # Mandatory fields where no value exists in MetaShare
-            # So we set them to Data.Vic defaults
-            {'key': 'personal_information', 'value': 'no'},
-            {'key': 'protective_marking', 'value': 'official'},
-            {'key': 'access', 'value': 'yes'},
-        ]
+         # Mandatory fields where no value exists in MetaShare
+        # So we set them to Data.Vic defaults
+        package_dict['personal_information'] = 'no'
+        package_dict['protective_marking'] = 'official'
+        package_dict['access'] = 'yes'
 
         package_dict['title'] = metashare_dict.get('title', None)
 
@@ -299,19 +299,12 @@ class MetaShareHarvester(HarvesterBase):
         if topic_cat:
             package_dict['tags'] = get_tags(topic_cat)
 
-        extras.append({
-            'key': 'extract',
-            # Get the first sentence
-            'value': '{}...'.format(package_dict['notes'].split('.')[0])
-        })
+        package_dict['extract'] = '{}...'.format(package_dict['notes'].split(b'.')[0])
 
         # There is no field in Data.Vic schema to store the source UUID of the harvested record
         # Therefore, we are using the `primary_purpose_of_collection` field
         if uuid:
-            extras.append({
-                'key': 'primary_purpose_of_collection',
-                'value': uuid
-            })
+            package_dict['primary_purpose_of_collection'] = uuid
 
         # @TODO: Consider this - in the field mapping spreadsheet:
         # https://docs.google.com/spreadsheets/d/112hzp6ZrTnp3fl_ZdmT6oHldUGf36LvEpLswAJDLdr0/edit#gid=1669999637
@@ -326,41 +319,27 @@ class MetaShareHarvester(HarvesterBase):
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
         category = default_groups[0] if default_groups else None
         if category:
-            extras.append({
-                'key': 'category',
-                'value': category
-            })
+            package_dict['category'] = category.get('id')
 
         # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
         # might need to run some regex on this
         temp_extent_begin = metashare_dict.get('tempExtentBegin', None)
         if temp_extent_begin:
-            extras.append({
-                'key': 'date_created_data_asset',
-                'value': convert_date_to_isoformat(temp_extent_begin)
-            })
+            package_dict['date_created_data_asset'] =  convert_date_to_isoformat(temp_extent_begin)
         else:
             print('WHAT DO WE DO HERE? tempExtentBegin does not exist for {}'.format(uuid))
 
         # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
-        extras.append({
-            'key': 'date_modified_data_asset',
-            'value': convert_date_to_isoformat(metashare_dict.get('revisionDate', None))
-        })
 
-        extras.append({
-            'key': 'update_frequency',
-            'value': map_update_frequency(get_datavic_update_frequencies(),
-                                          metashare_dict.get('maintenanceAndUpdateFrequency_text', 'unknown'))
-        })
+        package_dict['date_modified_data_asset'] =  convert_date_to_isoformat(metashare_dict.get('revisionDate', None))
+
+        package_dict['update_frequency'] = map_update_frequency(get_datavic_update_frequencies(),
+                                            metashare_dict.get('maintenanceAndUpdateFrequency_text', 'unknown'))
 
         if full_metadata_url:
-            extras.append({
-                'key': 'full_metadata_url',
-                'value': full_metadata_url
-            })
+            package_dict['full_metadata_url'] = full_metadata_url
 
         # Create a single resource for the dataset
         resource = {
@@ -381,7 +360,6 @@ class MetaShareHarvester(HarvesterBase):
         # responsibleParty
 
         # Add all the `extras` to our compiled dict
-        package_dict['extras'] = extras
 
         return package_dict
 

@@ -9,14 +9,16 @@ import six
 
 from ckan import logic
 from ckan import model
-from ckanext.datavicmain.schema import DATASET_EXTRA_FIELDS
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
 from ckan.plugins import toolkit as toolkit
 
+import ckanext.datavicmain.helpers as helpers 
+
 log = logging.getLogger(__name__)
 
+dataset_errors = []
 
 def _get_from_to(page, datasets_per_page):
     # if ... else expanded for readability
@@ -62,6 +64,8 @@ def convert_date_to_isoformat(value, key, dataset_name):
     except Exception as ex:
         log.debug('{0}: Date format incorrect {1} for key {2}'.format(dataset_name, value, key))
         log.debug(ex)
+        dataset_errors.append({"dataset_name": dataset_name, "value": value, "key":key})
+        _save_csv(dataset_errors)
     # TODO: Do we return None or value if date string cannot be converted?
     return date.isoformat() if date else None
 
@@ -70,7 +74,7 @@ def get_datavic_update_frequencies():
     # DATASET_EXTRA_FIELDS is a list of tuples - where the first element
     # is the name of the metadata schema field
     # The second element contains the configuration for the field
-    update_frequency_options = [x[1]['options'] for x in DATASET_EXTRA_FIELDS if x[0] == 'update_frequency']
+    update_frequency_options = [x[1]['options'] for x in helpers.dataset_fields() if x[0] == 'update_frequency']
 
     return update_frequency_options[0]
 
@@ -291,15 +295,14 @@ class DelwpHarvester(HarvesterBase):
         resource_url_prefix = self.config.get('resource_url_prefix', None)
         resource_url = '{0}{1}'.format(resource_url_prefix, uuid) if resource_url_prefix else ''
 
+        # Set the package_dict
         package_dict = {}
 
-        extras = [
-            # Mandatory fields where no value exists in MetaShare
-            # So we set them to Data.Vic defaults
-            {'key': 'personal_information', 'value': 'no'},
-            {'key': 'protective_marking', 'value': 'official'},
-            {'key': 'access', 'value': 'yes'},
-        ]
+        # Mandatory fields where no value exists in MetaShare
+        # So we set them to Data.Vic defaults
+        package_dict['personal_information'] = 'no'
+        package_dict['protective_marking'] = 'official'
+        package_dict['access'] = 'yes'
 
         package_dict['title'] = metashare_dict.get('title', None)
 
@@ -328,19 +331,13 @@ class DelwpHarvester(HarvesterBase):
         # Las Updated  corelates to geonet_info_changedate
         package_dict['last_updated'] = metashare_dict.get('geonet_info_changedate', None)
 
-        extras.append({
-            'key': 'extract',
-            # Get the first sentence
-            'value': '{}...'.format(package_dict['notes'].split(b'.')[0])
-        })
+        # TODO: Remove extras to package_dict
+        package_dict['extract'] = '{}...'.format(package_dict['notes'].split(b'.')[0])
 
         # There is no field in Data.Vic schema to store the source UUID of the harvested record
         # Therefore, we are using the `primary_purpose_of_collection` field
         if uuid:
-            extras.append({
-                'key': 'primary_purpose_of_collection',
-                'value': uuid
-            })
+            package_dict['primary_purpose_of_collection'] = uuid
 
         # @TODO: Consider this - in the field mapping spreadsheet:
         # https://docs.google.com/spreadsheets/d/112hzp6ZrTnp3fl_ZdmT6oHldUGf36LvEpLswAJDLdr0/edit#gid=1669999637
@@ -354,11 +351,9 @@ class DelwpHarvester(HarvesterBase):
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
         category = default_group_dicts[0] if default_group_dicts else None
+        
         if category:
-            extras.append({
-                'key': 'category',
-                'value': category.get('id')
-            })
+            package_dict['category'] = category.get('id')
 
         # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
@@ -366,31 +361,22 @@ class DelwpHarvester(HarvesterBase):
         #temp_extent_begin = metashare_dict.get('tempextentbegin', None)
         publication_date = metashare_dict.get('publicationdate', None)
         if publication_date:
-            extras.append({
-                'key': 'date_created_data_asset',
-                'value': convert_date_to_isoformat(publication_date, 'publicationdate', metashare_dict.get('name')),
-            })
+            package_dict['date_created_data_asset'] = convert_date_to_isoformat(publication_date, 'publicationdate', metashare_dict.get('name'))
+
         else:
             print('WHAT DO WE DO HERE? publicaion_date does not exist for {}'.format(uuid))
 
         # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
-        extras.append({
-            'key': 'date_modified_data_asset',
-            'value': convert_date_to_isoformat(metashare_dict.get('revisiondate'), 'revisiondate', metashare_dict.get('name')),
-        })
+        package_dict['date_modified_data_asset'] = convert_date_to_isoformat(metashare_dict.get('revisiondate'), 'revisiondate', 
+                                                    metashare_dict.get('name'))
 
-        extras.append({
-            'key': 'update_frequency',
-            'value': map_update_frequency(get_datavic_update_frequencies(),
-                                          metashare_dict.get('maintenanceandupdatefrequency_text', 'unknown'))
-        })
+
+        package_dict['update_frequency'] = map_update_frequency(get_datavic_update_frequencies(), 
+                                            metashare_dict.get('maintenanceandupdatefrequency_text', 'unknown'))
 
         if full_metadata_url:
-            extras.append({
-                'key': 'full_metadata_url',
-                'value': full_metadata_url
-            })
+             package_dict['full_metadata_url'] = full_metadata_url
 
         # Create a single resource for the dataset
         resource = {
@@ -411,7 +397,6 @@ class DelwpHarvester(HarvesterBase):
         # responsibleParty
 
         # Add all the `extras` to our compiled dict
-        package_dict['extras'] = extras
 
         return package_dict
 
@@ -636,6 +621,7 @@ class DelwpHarvester(HarvesterBase):
                 package_id = toolkit.get_action(action)(context, package_dict)
                 log.info('%s dataset with id %s', message_status, package_id)
 
+
         except Exception as e:
             # dataset = json.loads(harvest_object.content)
             dataset_name = package_dict.get('name', '')
@@ -647,3 +633,11 @@ class DelwpHarvester(HarvesterBase):
             model.Session.commit()
 
         return True
+
+def _save_csv(datasets):
+    with open('datasets_errors.csv', 'w') as csv:
+        header = "dataset_name,value,key\n"
+        csv.write(header)
+        for dataset in dataset_errors:
+            row = "{0},{1},{2}\n".format(dataset.get('dataset_name').replace(',',''), dataset.get('value'), dataset.get('key'))
+            csv.write(row)

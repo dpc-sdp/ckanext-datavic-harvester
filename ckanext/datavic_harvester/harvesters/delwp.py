@@ -317,6 +317,7 @@ class DelwpHarvester(HarvesterBase):
         package_dict['owner_org'] = source_dict.get('owner_org')
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
+
         default_group_dicts = self.config.get('default_group_dicts', None)
         if default_group_dicts and isinstance(default_group_dicts, list):
             package_dict['groups'] = [{"id": group.get('id')} for group in default_group_dicts]

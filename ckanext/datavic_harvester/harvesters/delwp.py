@@ -362,21 +362,21 @@ class DelwpHarvester(HarvesterBase):
         # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
         # might need to run some regex on this
-        #temp_extent_begin = metashare_dict.get('tempextentbegin', None)
+        temp_extent_begin = metashare_dict.get('tempextentbegin', None)
         publication_date = metashare_dict.get('publicationdate', None)
         if publication_date:
             package_dict['date_created_data_asset'] = convert_date_to_isoformat(publication_date, 'publicationdate', metashare_dict.get('name'))
 
         else:
             print('WHAT DO WE DO HERE? publicaion_date does not exist for {}'.format(uuid))
+            package_dict['date_created_data_asset'] = convert_date_to_isoformat(temp_extent_begin, 'publicationdate', metashare_dict.get('name'))
 
         # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
         package_dict['date_modified_data_asset'] = convert_date_to_isoformat(metashare_dict.get('revisiondate'), 'revisiondate', 
                                                     metashare_dict.get('name'))
 
-
-        package_dict['update_frequency'] = map_update_frequency(get_datavic_update_frequencies(), 
+        package_dict['update_frequency'] = map_update_frequency(get_datavic_update_frequencies(),
                                             metashare_dict.get('maintenanceandupdatefrequency_text', 'unknown'))
 
         if full_metadata_url:
@@ -406,7 +406,7 @@ class DelwpHarvester(HarvesterBase):
 
     def gather_stage(self, harvest_job):
 
-        log.debug('In MetaShareHarvester gather_stage')
+        log.debug('In Delwp Harvester gather_stage')
 
         #
         # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
@@ -529,7 +529,7 @@ class DelwpHarvester(HarvesterBase):
         :param harvest_object:
         :return:
         """
-        log.debug('In MetaShareHarvester import_stage')
+        log.debug('In Delwp Harvester import_stage')
 
         if not harvest_object:
             log.error('No harvest object received')

@@ -9,11 +9,12 @@ import six
 
 from ckan import logic
 from ckan import model
-from ckanext.datavicmain.schema import DATASET_EXTRA_FIELDS
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
 from ckan.plugins import toolkit as toolkit
+
+import ckanext.datavicmain.helpers as helpers
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ def convert_date_to_isoformat(value, key, dataset_name):
     date = None
     try:
         # Remove any timezone with time
-        value = value.lower().split('t')[0]        
+        value = value.lower().split('t')[0]
         date = toolkit.get_converter('isodate')(value, {})
     except Exception as ex:
         log.debug('{0}: Date format incorrect {1} for key {2}'.format(dataset_name, value, key))
@@ -67,18 +68,13 @@ def convert_date_to_isoformat(value, key, dataset_name):
 
 
 def get_datavic_update_frequencies():
-    # DATASET_EXTRA_FIELDS is a list of tuples - where the first element
-    # is the name of the metadata schema field
-    # The second element contains the configuration for the field
-    update_frequency_options = [x[1]['options'] for x in DATASET_EXTRA_FIELDS if x[0] == 'update_frequency']
-
-    return update_frequency_options[0]
+    return helpers.field_choices('update_frequency')
 
 
 def map_update_frequency(datavic_update_frequencies, value):
     # Check if the value from SDM matches one of those, if so just return original value
     for frequency in datavic_update_frequencies:
-        if frequency['text'].lower() == value.lower():
+        if frequency['label'].lower() == value.lower():
             return frequency['value']
 
     # Otherwise return the default of 'unknown'
@@ -236,7 +232,7 @@ class DelwpHarvester(HarvesterBase):
         try:
             request_url = '{0}?dataset={1}&start={2}&rows={3}&format=json'.format(url, dataset_type, _from, _to)
             log.debug('Getting page of records {}'.format(request_url))
-            r = requests.get(request_url, headers={'Authorization': api_auth })
+            r = requests.get(request_url, headers={'Authorization': api_auth})
 
             if r.status_code == 200:
                 data = json.loads(r.text)
@@ -287,19 +283,21 @@ class DelwpHarvester(HarvesterBase):
         uuid = harvest_object.guid
 
         full_metadata_url_prefix = self.config.get('full_metadata_url_prefix', None)
-        full_metadata_url = full_metadata_url_prefix.format(**{'UUID':uuid}) if full_metadata_url_prefix else ''
+        full_metadata_url = full_metadata_url_prefix.format(**{'UUID': uuid}) if full_metadata_url_prefix else ''
         resource_url_prefix = self.config.get('resource_url_prefix', None)
         resource_url = '{0}{1}'.format(resource_url_prefix, uuid) if resource_url_prefix else ''
 
+        # Set the package_dict
         package_dict = {}
 
-        extras = [
-            # Mandatory fields where no value exists in MetaShare
-            # So we set them to Data.Vic defaults
-            {'key': 'personal_information', 'value': 'no'},
-            {'key': 'protective_marking', 'value': 'official'},
-            {'key': 'access', 'value': 'yes'},
-        ]
+        # Mandatory fields where no value exists in MetaShare
+        # So we set them to Data.Vic defaults
+        package_dict['personal_information'] = 'no'
+        package_dict['protective_marking'] = 'official'
+        package_dict['access'] = 'yes'
+        # Set to default values if missing
+        package_dict['organization_visibility'] = 'all'
+        package_dict['workflow_status'] = 'published'
 
         package_dict['title'] = metashare_dict.get('title', None)
 
@@ -307,13 +305,8 @@ class DelwpHarvester(HarvesterBase):
         package_dict['notes'] = metashare_dict.get('abstract', '').encode('ascii', 'xmlcharrefreplace')
 
         # Get organisation from the harvest source organisation dropdown
-        source_dict = logic.get_action('package_show')(context, {'id': harvest_object.harvest_source_id})
+        source_dict = logic.get_action('package_show')(context.copy(), {'id': harvest_object.harvest_source_id})
         package_dict['owner_org'] = source_dict.get('owner_org')
-
-        # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
-        default_group_dicts = self.config.get('default_group_dicts', None)
-        if default_group_dicts and isinstance(default_group_dicts, list):
-            package_dict['groups'] = [{"id": group.get('id')} for group in default_group_dicts]
 
         # Default as discussed with SDM
         package_dict['license_id'] = self.config.get('license_id', 'cc-by')
@@ -328,19 +321,13 @@ class DelwpHarvester(HarvesterBase):
         # Las Updated  corelates to geonet_info_changedate
         package_dict['last_updated'] = metashare_dict.get('geonet_info_changedate', None)
 
-        extras.append({
-            'key': 'extract',
-            # Get the first sentence
-            'value': '{}...'.format(package_dict['notes'].split(b'.')[0])
-        })
+        # TODO: Remove extras to package_dict
+        package_dict['extract'] = '{}...'.format(package_dict['notes'].split(b'.')[0])
 
         # There is no field in Data.Vic schema to store the source UUID of the harvested record
         # Therefore, we are using the `primary_purpose_of_collection` field
         if uuid:
-            extras.append({
-                'key': 'primary_purpose_of_collection',
-                'value': uuid
-            })
+            package_dict['primary_purpose_of_collection'] = uuid
 
         # @TODO: Consider this - in the field mapping spreadsheet:
         # https://docs.google.com/spreadsheets/d/112hzp6ZrTnp3fl_ZdmT6oHldUGf36LvEpLswAJDLdr0/edit#gid=1669999637
@@ -353,51 +340,42 @@ class DelwpHarvester(HarvesterBase):
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
-        category = default_group_dicts[0] if default_group_dicts else None
-        if category:
-            extras.append({
-                'key': 'category',
-                'value': category.get('id')
-            })
+        default_group_dicts = self.config.get('default_group_dicts', None)
+        if default_group_dicts and isinstance(default_group_dicts, list):
+            category = default_group_dicts[0] if default_group_dicts else None
+            if category:
+                package_dict['category'] = category.get('id')
 
         # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
         # might need to run some regex on this
         #temp_extent_begin = metashare_dict.get('tempextentbegin', None)
-        publication_date = metashare_dict.get('publicationdate', None)
-        if publication_date:
-            extras.append({
-                'key': 'date_created_data_asset',
-                'value': convert_date_to_isoformat(publication_date, 'publicationdate', metashare_dict.get('name')),
-            })
-        else:
-            print('WHAT DO WE DO HERE? publicaion_date does not exist for {}'.format(uuid))
+        date_created_data_asset = convert_date_to_isoformat(metashare_dict.get('publicationdate', ''), 'publicationdate', metashare_dict.get('name'))
+        if not date_created_data_asset:
+            date_created_data_asset = convert_date_to_isoformat(
+                metashare_dict.get('geonet_info_createdate', ''), 'geonet_info_createdate', metashare_dict.get('name'))
+        package_dict['date_created_data_asset'] = date_created_data_asset
 
         # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
-        extras.append({
-            'key': 'date_modified_data_asset',
-            'value': convert_date_to_isoformat(metashare_dict.get('revisiondate'), 'revisiondate', metashare_dict.get('name')),
-        })
+        date_modified_data_asset = convert_date_to_isoformat(metashare_dict.get('revisiondate', ''), 'revisiondate', metashare_dict.get('name'))
+        if not date_modified_data_asset:
+            date_modified_data_asset = convert_date_to_isoformat(
+                metashare_dict.get('geonet_info_changedate', ''), 'geonet_info_changedate', metashare_dict.get('name'))
+        package_dict['date_modified_data_asset'] = date_modified_data_asset
 
-        extras.append({
-            'key': 'update_frequency',
-            'value': map_update_frequency(get_datavic_update_frequencies(),
-                                          metashare_dict.get('maintenanceandupdatefrequency_text', 'unknown'))
-        })
+        package_dict['update_frequency'] = map_update_frequency(get_datavic_update_frequencies(),
+                                                                metashare_dict.get('maintenanceandupdatefrequency_text', 'unknown'))
 
         if full_metadata_url:
-            extras.append({
-                'key': 'full_metadata_url',
-                'value': full_metadata_url
-            })
+            package_dict['full_metadata_url'] = full_metadata_url
 
         # Create a single resource for the dataset
         resource = {
             'name': metashare_dict.get('alttitle') or metashare_dict.get('title'),
             'format': metashare_dict.get('spatialrepresentationtype_text', None),
-            'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin'), 'tempextentbegin', metashare_dict.get('name')),
-            'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend'), 'tempextentend', metashare_dict.get('name')),
+            'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
+            'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
             'url': resource_url
         }
 
@@ -411,13 +389,12 @@ class DelwpHarvester(HarvesterBase):
         # responsibleParty
 
         # Add all the `extras` to our compiled dict
-        package_dict['extras'] = extras
 
         return package_dict
 
     def gather_stage(self, harvest_job):
 
-        log.debug('In MetaShareHarvester gather_stage')
+        log.debug('In Delwp Harvester gather_stage')
 
         #
         # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
@@ -457,7 +434,7 @@ class DelwpHarvester(HarvesterBase):
         while records:
             dataset_type = self.config.get('dataset_type')
             api_auth = self.config.get('api_auth')
-            records = self._get_page_of_records(harvest_source_url,dataset_type , api_auth, page, records_per_page)
+            records = self._get_page_of_records(harvest_source_url, dataset_type, api_auth, page, records_per_page)
 
             batch_guids = []
             if records:
@@ -509,7 +486,7 @@ class DelwpHarvester(HarvesterBase):
             #
             # END: This section is copied from ckanext/dcat/harvesters/_json.py
             #
-            
+
         # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
         # @TODO: Can probably be moved into its own function
         #
@@ -540,7 +517,7 @@ class DelwpHarvester(HarvesterBase):
         :param harvest_object:
         :return:
         """
-        log.debug('In MetaShareHarvester import_stage')
+        log.debug('In Delwp Harvester import_stage')
 
         if not harvest_object:
             log.error('No harvest object received')
@@ -581,7 +558,7 @@ class DelwpHarvester(HarvesterBase):
                 harvest_object, 'Import')
             return False
 
-        self._set_config(harvest_object.job.source.config)
+        self._set_config(harvest_object.source.config)
 
         # Get the last harvested object (if any)
         previous_object = model.Session.query(HarvestObject) \
@@ -632,7 +609,8 @@ class DelwpHarvester(HarvesterBase):
             if status in ['new', 'change']:
                 action = 'package_create' if status == 'new' else 'package_update'
                 message_status = 'Created' if status == 'new' else 'Updated'
-
+                if 'package' in context:
+                    del context['package']
                 package_id = toolkit.get_action(action)(context, package_dict)
                 log.info('%s dataset with id %s', message_status, package_id)
 

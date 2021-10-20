@@ -14,11 +14,10 @@ from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
 from ckan.plugins import toolkit as toolkit
 
-import ckanext.datavicmain.helpers as helpers 
+import ckanext.datavicmain.helpers as helpers
 
 log = logging.getLogger(__name__)
 
-dataset_errors = []
 
 def _get_from_to(page, datasets_per_page):
     # if ... else expanded for readability
@@ -59,24 +58,17 @@ def convert_date_to_isoformat(value, key, dataset_name):
     date = None
     try:
         # Remove any timezone with time
-        value = value.lower().split('t')[0]        
+        value = value.lower().split('t')[0]
         date = toolkit.get_converter('isodate')(value, {})
     except Exception as ex:
         log.debug('{0}: Date format incorrect {1} for key {2}'.format(dataset_name, value, key))
         log.debug(ex)
-        dataset_errors.append({"dataset_name": dataset_name, "value": value, "key":key})
-        _save_csv(dataset_errors)
     # TODO: Do we return None or value if date string cannot be converted?
     return date.isoformat() if date else None
 
 
 def get_datavic_update_frequencies():
-    # DATASET_EXTRA_FIELDS is a list of tuples - where the first element
-    # is the name of the metadata schema field
-    # The second element contains the configuration for the field
-    update_frequency_options =[x['choices'] for x in helpers.dataset_fields() if x['field_name'] == 'update_frequency']
-
-    return update_frequency_options[0]
+    return helpers.field_choices('update_frequency')
 
 
 def map_update_frequency(datavic_update_frequencies, value):
@@ -240,7 +232,7 @@ class DelwpHarvester(HarvesterBase):
         try:
             request_url = '{0}?dataset={1}&start={2}&rows={3}&format=json'.format(url, dataset_type, _from, _to)
             log.debug('Getting page of records {}'.format(request_url))
-            r = requests.get(request_url, headers={'Authorization': api_auth })
+            r = requests.get(request_url, headers={'Authorization': api_auth})
 
             if r.status_code == 200:
                 data = json.loads(r.text)
@@ -291,7 +283,7 @@ class DelwpHarvester(HarvesterBase):
         uuid = harvest_object.guid
 
         full_metadata_url_prefix = self.config.get('full_metadata_url_prefix', None)
-        full_metadata_url = full_metadata_url_prefix.format(**{'UUID':uuid}) if full_metadata_url_prefix else ''
+        full_metadata_url = full_metadata_url_prefix.format(**{'UUID': uuid}) if full_metadata_url_prefix else ''
         resource_url_prefix = self.config.get('resource_url_prefix', None)
         resource_url = '{0}{1}'.format(resource_url_prefix, uuid) if resource_url_prefix else ''
 
@@ -313,14 +305,8 @@ class DelwpHarvester(HarvesterBase):
         package_dict['notes'] = metashare_dict.get('abstract', '').encode('ascii', 'xmlcharrefreplace')
 
         # Get organisation from the harvest source organisation dropdown
-        source_dict = logic.get_action('package_show')(context, {'id': harvest_object.harvest_source_id})
+        source_dict = logic.get_action('package_show')(context.copy(), {'id': harvest_object.harvest_source_id})
         package_dict['owner_org'] = source_dict.get('owner_org')
-
-        # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
-
-        default_group_dicts = self.config.get('default_group_dicts', None)
-        if default_group_dicts and isinstance(default_group_dicts, list):
-            package_dict['groups'] = [{"id": group.get('id')} for group in default_group_dicts]
 
         # Default as discussed with SDM
         package_dict['license_id'] = self.config.get('license_id', 'cc-by')
@@ -354,40 +340,42 @@ class DelwpHarvester(HarvesterBase):
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
-        category = default_group_dicts[0] if default_group_dicts else None
-        
-        if category:
-            package_dict['category'] = category.get('id')
+        default_group_dicts = self.config.get('default_group_dicts', None)
+        if default_group_dicts and isinstance(default_group_dicts, list):
+            category = default_group_dicts[0] if default_group_dicts else None
+            if category:
+                package_dict['category'] = category.get('id')
 
         # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
         # might need to run some regex on this
-        temp_extent_begin = metashare_dict.get('tempextentbegin', None)
-        publication_date = metashare_dict.get('publicationdate', None)
-        if publication_date:
-            package_dict['date_created_data_asset'] = convert_date_to_isoformat(publication_date, 'publicationdate', metashare_dict.get('name'))
-
-        else:
-            print('WHAT DO WE DO HERE? publicaion_date does not exist for {}'.format(uuid))
-            package_dict['date_created_data_asset'] = convert_date_to_isoformat(temp_extent_begin, 'publicationdate', metashare_dict.get('name'))
+        #temp_extent_begin = metashare_dict.get('tempextentbegin', None)
+        date_created_data_asset = convert_date_to_isoformat(metashare_dict.get('publicationdate', ''), 'publicationdate', metashare_dict.get('name'))
+        if not date_created_data_asset:
+            date_created_data_asset = convert_date_to_isoformat(
+                metashare_dict.get('geonet_info_createdate', ''), 'geonet_info_createdate', metashare_dict.get('name'))
+        package_dict['date_created_data_asset'] = date_created_data_asset
 
         # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
-        package_dict['date_modified_data_asset'] = convert_date_to_isoformat(metashare_dict.get('revisiondate'), 'revisiondate', 
-                                                    metashare_dict.get('name'))
+        date_modified_data_asset = convert_date_to_isoformat(metashare_dict.get('revisiondate', ''), 'revisiondate', metashare_dict.get('name'))
+        if not date_modified_data_asset:
+            date_modified_data_asset = convert_date_to_isoformat(
+                metashare_dict.get('geonet_info_changedate', ''), 'geonet_info_changedate', metashare_dict.get('name'))
+        package_dict['date_modified_data_asset'] = date_modified_data_asset
 
         package_dict['update_frequency'] = map_update_frequency(get_datavic_update_frequencies(),
-                                            metashare_dict.get('maintenanceandupdatefrequency_text', 'unknown'))
+                                                                metashare_dict.get('maintenanceandupdatefrequency_text', 'unknown'))
 
         if full_metadata_url:
-             package_dict['full_metadata_url'] = full_metadata_url
+            package_dict['full_metadata_url'] = full_metadata_url
 
         # Create a single resource for the dataset
         resource = {
             'name': metashare_dict.get('alttitle') or metashare_dict.get('title'),
             'format': metashare_dict.get('spatialrepresentationtype_text', None),
-            'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin'), 'tempextentbegin', metashare_dict.get('name')),
-            'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend'), 'tempextentend', metashare_dict.get('name')),
+            'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
+            'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
             'url': resource_url
         }
 
@@ -446,7 +434,7 @@ class DelwpHarvester(HarvesterBase):
         while records:
             dataset_type = self.config.get('dataset_type')
             api_auth = self.config.get('api_auth')
-            records = self._get_page_of_records(harvest_source_url,dataset_type , api_auth, page, records_per_page)
+            records = self._get_page_of_records(harvest_source_url, dataset_type, api_auth, page, records_per_page)
 
             batch_guids = []
             if records:
@@ -498,7 +486,7 @@ class DelwpHarvester(HarvesterBase):
             #
             # END: This section is copied from ckanext/dcat/harvesters/_json.py
             #
-            
+
         # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
         # @TODO: Can probably be moved into its own function
         #
@@ -570,7 +558,7 @@ class DelwpHarvester(HarvesterBase):
                 harvest_object, 'Import')
             return False
 
-        self._set_config(harvest_object.job.source.config)
+        self._set_config(harvest_object.source.config)
 
         # Get the last harvested object (if any)
         previous_object = model.Session.query(HarvestObject) \
@@ -621,10 +609,10 @@ class DelwpHarvester(HarvesterBase):
             if status in ['new', 'change']:
                 action = 'package_create' if status == 'new' else 'package_update'
                 message_status = 'Created' if status == 'new' else 'Updated'
-
+                if 'package' in context:
+                    del context['package']
                 package_id = toolkit.get_action(action)(context, package_dict)
                 log.info('%s dataset with id %s', message_status, package_id)
-
 
         except Exception as e:
             # dataset = json.loads(harvest_object.content)
@@ -637,11 +625,3 @@ class DelwpHarvester(HarvesterBase):
             model.Session.commit()
 
         return True
-
-def _save_csv(datasets):
-    with open('datasets_errors.csv', 'w') as csv:
-        header = "dataset_name,value,key\n"
-        csv.write(header)
-        for dataset in dataset_errors:
-            row = "{0},{1},{2}\n".format(dataset.get('dataset_name').replace(',',''), dataset.get('value'), dataset.get('key'))
-            csv.write(row)

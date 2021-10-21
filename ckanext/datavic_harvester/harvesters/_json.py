@@ -12,6 +12,8 @@ from ckanext.dcat.harvesters._json import DCATJSONHarvester
 from ckanext.harvest.model import HarvestSource
 
 log = logging.getLogger(__name__)
+
+
 class DataVicDCATJSONHarvester(DCATJSONHarvester):
 
     def info(self):
@@ -147,16 +149,18 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         :return:
         '''
         # Set default groups if needed
-        default_groups = harvest_config.get('default_groups', [])
-        if default_groups:
-            package_dict['category'] = default_groups[0]
+        default_group_dicts = harvest_config.get('default_group_dicts', [])
+        if default_group_dicts and isinstance(default_group_dicts, list):
+            category = default_group_dicts[0] if default_group_dicts else None
+            if category:
+                package_dict['category'] = category.get('id')
+
             if not 'groups' in package_dict:
                 package_dict['groups'] = []
             existing_group_ids = [g['id'] for g in package_dict['groups']]
             package_dict['groups'].extend(
-                [g for g in harvest_config['default_group_dicts']
+                [g for g in default_group_dicts
                     if g['id'] not in existing_group_ids])
-            
 
     def set_required_fields_defaults(self, harvest_config, dcat_dict, package_dict):
         personal_information = [extra for extra in package_dict['extras'] if
@@ -172,7 +176,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         protective_marking = [extra for extra in package_dict['extras'] if
                               extra['key'] == 'protective_marking']
         if not protective_marking:
-            package_dict['protective_marking'] = 'Public Domain'
+            package_dict['protective_marking'] = 'official'
 
         update_frequency = [extra for extra in package_dict['extras'] if
                             extra['key'] == 'update_frequency']
@@ -180,12 +184,12 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             package_dict['update_frequency'] = 'unknown'
 
         organization_visibility = [extra for extra in package_dict['extras'] if
-                                   extra ['key'] == 'organization_visibility']
+                                   extra['key'] == 'organization_visibility']
         if not organization_visibility:
             package_dict['organization_visibility'] = 'current'
 
         workflow_status = [extra for extra in package_dict['extras'] if
-                                   extra ['key'] == 'workflow_status']
+                           extra['key'] == 'workflow_status']
         if not workflow_status:
             package_dict['workflow_status'] = 'draft'
 
@@ -196,7 +200,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             package_dict['date_created_data_asset'] = helpers.convert_date_to_isoformat(issued)
 
         modified = dcat_dict.get('modified')
-        
+
         date_modified_data_asset = [extra for extra in package_dict['extras'] if
                                     extra['key'] == 'date_modified_data_asset']
         if modified and not date_modified_data_asset:

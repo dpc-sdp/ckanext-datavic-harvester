@@ -342,6 +342,7 @@ class DelwpHarvester(HarvesterBase):
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
         default_group_dicts = self.config.get('default_group_dicts', None)
         if default_group_dicts and isinstance(default_group_dicts, list):
+            package_dict['groups'] = [{"id": group.get('id')} for group in default_group_dicts]
             category = default_group_dicts[0] if default_group_dicts else None
             if category:
                 package_dict['category'] = category.get('id')

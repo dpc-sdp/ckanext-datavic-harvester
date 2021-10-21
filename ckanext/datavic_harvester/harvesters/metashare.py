@@ -5,14 +5,17 @@ import requests
 import traceback
 import uuid
 import re
+import six
 
 from ckan import logic
 from ckan import model
 from ckan import plugins as p
-from ckanext.datavicmain.schema import DATASET_EXTRA_FIELDS
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
+from ckan.plugins import toolkit as toolkit
+
+import ckanext.datavicmain.helpers as helpers
 
 
 log = logging.getLogger(__name__)
@@ -67,18 +70,13 @@ def convert_date_to_isoformat(value):
 
 
 def get_datavic_update_frequencies():
-    # DATASET_EXTRA_FIELDS is a list of tuples - where the first element
-    # is the name of the metadata schema field
-    # The second element contains the configuration for the field
-    update_frequency_options = [x[1]['options'] for x in DATASET_EXTRA_FIELDS if x[0] == 'update_frequency']
-
-    return update_frequency_options[0]
+    return helpers.field_choices('update_frequency')
 
 
 def map_update_frequency(datavic_update_frequencies, value):
     # Check if the value from SDM matches one of those, if so just return original value
     for frequency in datavic_update_frequencies:
-        if frequency['text'].lower() == value.lower():
+        if frequency['label'].lower() == value.lower():
             return frequency['value']
 
     # Otherwise return the default of 'unknown'
@@ -171,7 +169,7 @@ class MetaShareHarvester(HarvesterBase):
             "default_groups": ["spatial-data"],
             "full_metadata_url_prefix": "https://metashare.maps.vic.gov.au/geonetwork/srv/api/records/{UUID}/formatters/sdm-html?root=html&output=html",
             "resource_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
-            "attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
+            "resource_attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
             "license_id": "cc-by"
         }
         try:
@@ -181,6 +179,25 @@ class MetaShareHarvester(HarvesterBase):
                 if not isinstance(config_obj['default_groups'], list):
                     raise ValueError('default_groups must be a *list* of group'
                                      ' names/ids')
+                if config_obj['default_groups'] and \
+                        not isinstance(config_obj['default_groups'][0],
+                                       six.string_types):
+                    raise ValueError('default_groups must be a list of group '
+                                     'names/ids (i.e. strings)')
+
+                # Check if default groups exist
+                context = {'model': model, 'user': toolkit.g.user}
+                config_obj['default_group_dicts'] = []
+                for group_name_or_id in config_obj['default_groups']:
+                    try:
+                        group = toolkit.get_action('group_show')(
+                            context, {'id': group_name_or_id})
+                        # save the dict to the config object, as we'll need it
+                        # in the import_stage of every dataset
+                        config_obj['default_group_dicts'].append(group)
+                    except toolkit.ObjectNotFound:
+                        raise ValueError('Default group not found')
+                config = json.dumps(config_obj)
             else:
                 raise ValueError('default_groups must be set')
 
@@ -262,19 +279,17 @@ class MetaShareHarvester(HarvesterBase):
         uuid = harvest_object.guid
 
         full_metadata_url_prefix = self.config.get('full_metadata_url_prefix', None)
-        full_metadata_url = full_metadata_url_prefix.format(**{'UUID':uuid}) if full_metadata_url_prefix else ''
+        full_metadata_url = full_metadata_url_prefix.format(**{'UUID': uuid}) if full_metadata_url_prefix else ''
         resource_url_prefix = self.config.get('resource_url_prefix', None)
         resource_url = '{0}{1}'.format(resource_url_prefix, uuid) if resource_url_prefix else ''
 
         package_dict = {}
 
-        extras = [
-            # Mandatory fields where no value exists in MetaShare
-            # So we set them to Data.Vic defaults
-            {'key': 'personal_information', 'value': 'no'},
-            {'key': 'protective_marking', 'value': 'official'},
-            {'key': 'access', 'value': 'yes'},
-        ]
+        # Mandatory fields where no value exists in MetaShare
+        # So we set them to Data.Vic defaults
+        package_dict['personal_information'] = 'no'
+        package_dict['protective_marking'] = 'official'
+        package_dict['access'] = 'yes'
 
         package_dict['title'] = metashare_dict.get('title', None)
 
@@ -285,11 +300,6 @@ class MetaShareHarvester(HarvesterBase):
         source_dict = logic.get_action('package_show')({}, {'id': harvest_object.harvest_source_id})
         package_dict['owner_org'] = source_dict.get('owner_org')
 
-        # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
-        default_groups = self.config.get('default_groups', None)
-        if default_groups and isinstance(default_groups, list):
-            package_dict['groups'] = [{"name": group} for group in default_groups]
-
         # Default as discussed with SDM
         package_dict['license_id'] = self.config.get('license_id', 'cc-by')
 
@@ -299,19 +309,12 @@ class MetaShareHarvester(HarvesterBase):
         if topic_cat:
             package_dict['tags'] = get_tags(topic_cat)
 
-        extras.append({
-            'key': 'extract',
-            # Get the first sentence
-            'value': '{}...'.format(package_dict['notes'].split('.')[0])
-        })
+        package_dict['extract'] = '{}...'.format(package_dict['notes'].split(b'.')[0])
 
         # There is no field in Data.Vic schema to store the source UUID of the harvested record
         # Therefore, we are using the `primary_purpose_of_collection` field
         if uuid:
-            extras.append({
-                'key': 'primary_purpose_of_collection',
-                'value': uuid
-            })
+            package_dict['primary_purpose_of_collection'] = uuid
 
         # @TODO: Consider this - in the field mapping spreadsheet:
         # https://docs.google.com/spreadsheets/d/112hzp6ZrTnp3fl_ZdmT6oHldUGf36LvEpLswAJDLdr0/edit#gid=1669999637
@@ -324,43 +327,32 @@ class MetaShareHarvester(HarvesterBase):
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
-        category = default_groups[0] if default_groups else None
-        if category:
-            extras.append({
-                'key': 'category',
-                'value': category
-            })
+        default_group_dicts = self.config.get('default_group_dicts', None)
+        if default_group_dicts and isinstance(default_group_dicts, list):
+            package_dict['groups'] = [{"id": group.get('id')} for group in default_group_dicts]
+            category = default_group_dicts[0] if default_group_dicts else None
+            if category:
+                package_dict['category'] = category.get('id')
 
         # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
         # might need to run some regex on this
         temp_extent_begin = metashare_dict.get('tempExtentBegin', None)
         if temp_extent_begin:
-            extras.append({
-                'key': 'date_created_data_asset',
-                'value': convert_date_to_isoformat(temp_extent_begin)
-            })
+            package_dict['date_created_data_asset'] = convert_date_to_isoformat(temp_extent_begin)
         else:
             print('WHAT DO WE DO HERE? tempExtentBegin does not exist for {}'.format(uuid))
 
         # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
-        extras.append({
-            'key': 'date_modified_data_asset',
-            'value': convert_date_to_isoformat(metashare_dict.get('revisionDate', None))
-        })
 
-        extras.append({
-            'key': 'update_frequency',
-            'value': map_update_frequency(get_datavic_update_frequencies(),
-                                          metashare_dict.get('maintenanceAndUpdateFrequency_text', 'unknown'))
-        })
+        package_dict['date_modified_data_asset'] = convert_date_to_isoformat(metashare_dict.get('revisionDate', None))
+
+        package_dict['update_frequency'] = map_update_frequency(get_datavic_update_frequencies(),
+                                                                metashare_dict.get('maintenanceAndUpdateFrequency_text', 'unknown'))
 
         if full_metadata_url:
-            extras.append({
-                'key': 'full_metadata_url',
-                'value': full_metadata_url
-            })
+            package_dict['full_metadata_url'] = full_metadata_url
 
         # Create a single resource for the dataset
         resource = {
@@ -381,7 +373,6 @@ class MetaShareHarvester(HarvesterBase):
         # responsibleParty
 
         # Add all the `extras` to our compiled dict
-        package_dict['extras'] = extras
 
         return package_dict
 
@@ -549,7 +540,7 @@ class MetaShareHarvester(HarvesterBase):
                 harvest_object, 'Import')
             return False
 
-        self._set_config(harvest_object.job.source.config)
+        self._set_config(harvest_object.source.config)
 
         # Get the last harvested object (if any)
         previous_object = model.Session.query(HarvestObject) \

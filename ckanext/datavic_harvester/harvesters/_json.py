@@ -1,12 +1,17 @@
 import json
+import six
+import logging
+
 from ckan import model
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.plugins import toolkit
 from bs4 import BeautifulSoup
-from ckanext.datavic_harvester import bs4_helpers
+from ckanext.datavic_harvester import bs4_helpers, helpers
 from ckanext.dcat import converters
 from ckanext.dcat.harvesters._json import DCATJSONHarvester
 from ckanext.harvest.model import HarvestSource
+
+log = logging.getLogger(__name__)
 
 
 class DataVicDCATJSONHarvester(DCATJSONHarvester):
@@ -43,7 +48,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                                      ' names/ids')
                 if config_obj['default_groups'] and \
                         not isinstance(config_obj['default_groups'][0],
-                                       basestring):
+                                       six.string_types):
                     raise ValueError('default_groups must be a list of group '
                                      'names/ids (i.e. strings)')
 
@@ -56,11 +61,11 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                         # save the dict to the config object, as we'll need it
                         # in the set_default_group of every dataset
                         config_obj['default_group_dicts'].append({'id': group['id'], 'name': group['name']})
-                    except NotFound, e:
+                    except NotFound as e:
                         raise ValueError('Default group not found')
                 config = json.dumps(config_obj, indent=1)
 
-        except ValueError, e:
+        except ValueError as e:
             raise e
 
         return config
@@ -94,11 +99,11 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         extract = [extra for extra in package_dict['extras'] if extra['key'] == 'extract']
 
         if 'default.description' in package_dict['notes']:
-            package_dict['notes'] = 'No description has been entered for this dataset.'
+            package_dict['extract'] = 'No description has been entered for this dataset.'
             if not extract:
-                package_dict['extras'].append({'key': 'extract', 'value': 'No abstract has been entered for this dataset.'})
+                package_dict['extract'] = 'No abstract has been entered for this dataset.'
         else:
-            package_dict['notes'] = bs4_helpers._unwrap_all_except(
+            package_dict['extract'] = bs4_helpers._unwrap_all_except(
                 bs4_helpers._remove_all_attrs_except_saving(soup),
                 # allowed tags
                 ['a', 'br']
@@ -106,7 +111,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             if not extract:
                 extract = self.generate_extract(soup)
                 if extract:
-                    package_dict['extras'].append({'key': 'extract', 'value': extract})
+                    package_dict['extract'] = extract
 
     def set_full_metadata_url_and_update_frequency(self, harvest_config, package_dict, soup):
         '''
@@ -132,15 +137,9 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                 if desc_full_metadata_url:
                     full_metadata_url = desc_full_metadata_url
                     # Attempt to extract the update frequency from the full metadata page
-                    package_dict['extras'].append({
-                        'key': 'update_frequency',
-                        'value': bs4_helpers._fetch_update_frequency(full_metadata_url)
-                    })
+                    package_dict['update_frequency'] = bs4_helpers._fetch_update_frequency(full_metadata_url)
         if full_metadata_url:
-            package_dict['extras'].append({
-                'key': 'full_metadata_url',
-                'value': full_metadata_url
-            })
+            package_dict['full_metadata_url'] = full_metadata_url
 
     def set_default_group(self, harvest_config, package_dict):
         '''
@@ -150,74 +149,68 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         :return:
         '''
         # Set default groups if needed
-        default_groups = harvest_config.get('default_groups', [])
-        if default_groups:
+        default_group_dicts = harvest_config.get('default_group_dicts', [])
+        if default_group_dicts and isinstance(default_group_dicts, list):
+            category = default_group_dicts[0] if default_group_dicts else None
+            if category:
+                package_dict['category'] = category.get('id')
+
             if not 'groups' in package_dict:
                 package_dict['groups'] = []
             existing_group_ids = [g['id'] for g in package_dict['groups']]
             package_dict['groups'].extend(
-                [g for g in harvest_config['default_group_dicts']
+                [g for g in default_group_dicts
                     if g['id'] not in existing_group_ids])
 
     def set_required_fields_defaults(self, harvest_config, dcat_dict, package_dict):
         personal_information = [extra for extra in package_dict['extras'] if
                                 extra['key'] == 'personal_information']
         if not personal_information:
-            package_dict['extras'].append({
-                'key': 'personal_information',
-                'value': 'no'
-            })
+            package_dict['personal_information'] = 'no'
 
         access = [extra for extra in package_dict['extras'] if
                   extra['key'] == 'access']
         if not access:
-            package_dict['extras'].append({
-                'key': 'access',
-                'value': 'yes'
-            })
+            package_dict['access'] = 'yes'
 
         protective_marking = [extra for extra in package_dict['extras'] if
                               extra['key'] == 'protective_marking']
         if not protective_marking:
-            package_dict['extras'].append({
-                'key': 'protective_marking',
-                'value': 'Public Domain'
-            })
+            package_dict['protective_marking'] = 'official'
 
         update_frequency = [extra for extra in package_dict['extras'] if
                             extra['key'] == 'update_frequency']
         if not update_frequency:
-            package_dict['extras'].append({
-                'key': 'update_frequency',
-                'value': 'unknown'
-            })
+            package_dict['update_frequency'] = 'unknown'
+
+        organization_visibility = [extra for extra in package_dict['extras'] if
+                                   extra['key'] == 'organization_visibility']
+        if not organization_visibility:
+            package_dict['organization_visibility'] = 'current'
+
+        workflow_status = [extra for extra in package_dict['extras'] if
+                           extra['key'] == 'workflow_status']
+        if not workflow_status:
+            package_dict['workflow_status'] = 'draft'
 
         issued = dcat_dict.get('issued')
         date_created_data_asset = [extra for extra in package_dict['extras'] if
                                    extra['key'] == 'date_created_data_asset']
         if issued and not date_created_data_asset:
-            package_dict['extras'].append({
-                'key': 'date_created_data_asset',
-                'value': issued
-            })
+            package_dict['date_created_data_asset'] = helpers.convert_date_to_isoformat(issued)
 
         modified = dcat_dict.get('modified')
+
         date_modified_data_asset = [extra for extra in package_dict['extras'] if
                                     extra['key'] == 'date_modified_data_asset']
         if modified and not date_modified_data_asset:
-            package_dict['extras'].append({
-                'key': 'date_modified_data_asset',
-                'value': modified
-            })
+            package_dict['date_modified_data_asset'] = helpers.convert_date_to_isoformat(modified)
 
         landing_page = dcat_dict.get('landingPage')
         full_metadata_url = [extra for extra in package_dict['extras'] if
                              extra['key'] == 'full_metadata_url']
         if landing_page and not full_metadata_url:
-            package_dict['extras'].append({
-                'key': 'full_metadata_url',
-                'value': landing_page
-            })
+            package_dict['full_metadata_url'] = landing_page
 
         license_id = package_dict.get('license_id', None)
         if not license_id and 'default_license' in harvest_config:
@@ -228,7 +221,10 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                 if default_license_id:
                     package_dict['license_id'] = default_license_id
                 if default_license_title:
-                    package_dict['license_title'] = default_license_title
+                    package_dict['custom_licence_text'] = default_license_title
+
+        keywords = dcat_dict.get('keyword')
+        package_dict['tag_string'] = keywords if keywords else []
 
     def _get_package_dict(self, harvest_object):
         '''
@@ -266,3 +262,23 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         self.set_required_fields_defaults(harvest_config, dcat_dict, package_dict)
 
         return package_dict, dcat_dict
+
+    def _get_existing_dataset(self, guid):
+        '''
+        Checks if a dataset with a certain guid extra already exists
+
+        Returns a dict as the ones returned by package_show
+        '''
+
+        datasets = self._read_datasets_from_db(guid)
+
+        if not datasets:
+            return None
+        elif len(datasets) > 1:
+            log.error('Found more than one dataset with the same guid: {0}'
+                      .format(guid))
+        context = {
+            'user': self._get_user_name(),
+            'ignore_auth': True
+        }
+        return toolkit.get_action('package_show')(context, {'id': datasets[0][0]})

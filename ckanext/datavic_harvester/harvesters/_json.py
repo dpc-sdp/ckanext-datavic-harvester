@@ -91,8 +91,9 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             notes = soup.get_text()
             index = notes.index('.')
             notes = notes[:index + 1]
-        except Exception:
-            pass
+        except Exception as ex:
+            log.error('Generate extract error for: {0}'.format(str(soup)))
+            log.error(str(ex))
         return notes
 
     def set_description_and_extract(self, package_dict, soup):

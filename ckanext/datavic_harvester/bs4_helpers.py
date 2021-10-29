@@ -38,7 +38,7 @@ def _unwrap_all_except(soup, whitelist):
     for tag in soup.find_all(True):
         if tag.name not in whitelist:
             tag.unwrap()
-    return soup
+    return str(soup)
 
 
 def _extract_metadata_url(soup, base_url):

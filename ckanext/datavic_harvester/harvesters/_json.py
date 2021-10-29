@@ -96,22 +96,16 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         return notes
 
     def set_description_and_extract(self, package_dict, soup):
-        extract = [extra for extra in package_dict['extras'] if extra['key'] == 'extract']
-
         if 'default.description' in package_dict['notes']:
-            package_dict['extract'] = 'No description has been entered for this dataset.'
-            if not extract:
-                package_dict['extract'] = 'No abstract has been entered for this dataset.'
+            package_dict['notes'] = 'No description has been entered for this dataset.'
+            package_dict['extract'] = 'No abstract has been entered for this dataset.'
         else:
-            package_dict['extract'] = bs4_helpers._unwrap_all_except(
+            package_dict['notes'] = bs4_helpers._unwrap_all_except(
                 bs4_helpers._remove_all_attrs_except_saving(soup),
                 # allowed tags
                 ['a', 'br']
             )
-            if not extract:
-                extract = self.generate_extract(soup)
-                if extract:
-                    package_dict['extract'] = extract
+            package_dict['extract'] = self.generate_extract(soup)
 
     def set_full_metadata_url_and_update_frequency(self, harvest_config, package_dict, soup):
         '''

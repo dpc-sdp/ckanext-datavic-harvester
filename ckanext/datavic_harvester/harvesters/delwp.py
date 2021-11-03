@@ -301,8 +301,7 @@ class DelwpHarvester(HarvesterBase):
 
         package_dict['title'] = metashare_dict.get('title', None)
 
-        # 'xmlcharrefreplace'	- replaces the character with an xml character
-        package_dict['notes'] = metashare_dict.get('abstract', '').encode('ascii', 'xmlcharrefreplace')
+        package_dict['notes'] = metashare_dict.get('abstract', '')
 
         # Get organisation from the harvest source organisation dropdown
         source_dict = logic.get_action('package_show')(context.copy(), {'id': harvest_object.harvest_source_id})
@@ -322,7 +321,7 @@ class DelwpHarvester(HarvesterBase):
         package_dict['last_updated'] = metashare_dict.get('geonet_info_changedate', None)
 
         # TODO: Remove extras to package_dict
-        package_dict['extract'] = '{}...'.format(package_dict['notes'].split(b'.')[0])
+        package_dict['extract'] = '{}...'.format(package_dict['notes'].split('.')[0])
 
         # There is no field in Data.Vic schema to store the source UUID of the harvested record
         # Therefore, we are using the `primary_purpose_of_collection` field

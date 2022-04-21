@@ -391,7 +391,7 @@ class DelwpHarvester(HarvesterBase):
         #       not publically displayed in DV, not sure it's worth the effort of adding the custodian"
         res_owner = metashare_dict.get('resowner', None)
         if res_owner:
-            package_dict['maintainer'] = res_owner[0] if isinstance(res_owner, list) else res_owner
+            package_dict['data_owner'] = res_owner.split(';')[0]
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group

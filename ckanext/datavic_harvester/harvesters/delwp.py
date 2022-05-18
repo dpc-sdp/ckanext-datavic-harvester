@@ -370,20 +370,27 @@ class DelwpHarvester(HarvesterBase):
         if full_metadata_url:
             package_dict['full_metadata_url'] = full_metadata_url
 
-        # Create a single resource for the dataset
-        resource = {
-            'name': metashare_dict.get('alttitle') or metashare_dict.get('title'),
-            'format': metashare_dict.get('spatialrepresentationtype_text', None),
-            'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
-            'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
-            'url': resource_url
-        }
-
         attribution = self.config.get('resource_attribution', None)
-        if attribution:
-            resource['attribution'] = attribution
 
-        package_dict['resources'] = [resource]
+        # Generate resources for the dataset
+        formats = metashare_dict.get('available_formats', None)
+        resources = []
+        if formats:
+            formats = formats.split(',')
+            for format in formats:
+                res = {
+                    'name': metashare_dict.get('alttitle') or metashare_dict.get('title') + ' ' + format,
+                    'format': format,
+                    'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
+                    'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
+                    'url': resource_url
+                }
+
+                if attribution:
+                    res['attribution'] = attribution
+                resources.append(res)
+
+        package_dict['resources'] = resources
 
         # @TODO: What about these ones?
         # responsibleParty

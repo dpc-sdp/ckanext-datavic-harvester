@@ -379,13 +379,14 @@ class DelwpHarvester(HarvesterBase):
             formats = formats.split(',')
             for format in formats:
                 res = {
-                    'name': metashare_dict.get('alttitle') or metashare_dict.get('title') + ' ' + format,
+                    'name': metashare_dict.get('alttitle') or metashare_dict.get('title'),
                     'format': format,
                     'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
                     'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
                     'url': resource_url
                 }
 
+                res['name'] = res['name'] + ' ' + format
                 if attribution:
                     res['attribution'] = attribution
                 resources.append(res)

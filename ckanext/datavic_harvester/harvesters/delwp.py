@@ -99,6 +99,43 @@ def munge_title_to_name(name):
     return name
 
 
+def _get_organisation(organisation_mapping, resowner, harvest_object, context):
+    org_name = next((organisation.get('org-name') for organisation in organisation_mapping if organisation.get('resowner') == resowner), None)
+    if org_name:
+        return org_name
+    else:
+        # No mapping found, see if the organisation exist
+        log.warning(f'DELWP harvester _get_organisation: No mapping found for resowner {resowner}')
+        org_title = resowner
+        org_name = munge_title_to_name(org_title)
+        org_id = None
+        try:
+            data_dict = {
+                'id': org_name,
+                "include_dataset_count": False,
+                "include_extras": False,
+                "include_users": False,
+                "include_groups": False,
+                "include_tags": False,
+                "include_followers": False
+            }
+            organisation = toolkit.get_action('organization_show')(context.copy(), data_dict)
+            org_id = organisation.get('id')
+        except toolkit.ObjectNotFound:
+            log.warning(f'DELWP harvester _get_organisation: Organisation does not exist {org_id}')
+            # Organisation does not exist so create it and use it
+            try:
+                # organization_create will return organisation id because context has 'return_id_only' to true
+                org_id = toolkit.get_action('organization_create')(context.copy(), {'name': org_name, 'title': org_title})
+            except Exception as e:
+                log.warning(f'DELWP harvester _get_organisation: Failed to create organisation {org_name}')
+                log.error(f'DELWP harvester _get_organisation: {str(e)}')
+                # Fallback to using organisation from harvest source
+                source_dict = logic.get_action('package_show')(context.copy(), {'id': harvest_object.harvest_source_id})
+                org_id = source_dict.get('owner_org')
+        return org_id
+
+
 class DelwpHarvester(HarvesterBase):
 
     config = None
@@ -170,11 +207,12 @@ class DelwpHarvester(HarvesterBase):
             "resource_attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
             "license_id": "cc-by",
             "dataset_type": "uat-datashare-metadata",
-            "api_auth": "Apikey 9f42499563025e767dd53147787ca636d3958f7d20c0cf25e81b01a9"
+            "api_auth": "Apikey 9f42499563025e767dd53147787ca636d3958f7d20c0cf25e81b01a9",
+            "organisation_mapping": [{"resowner": "Organisation A", "org-name": "organisation-a"}]
         }
         try:
             config_obj = json.loads(config)
-
+            context = {'model': model, 'user': toolkit.g.user}
             if 'default_groups' in config_obj:
                 if not isinstance(config_obj['default_groups'], list):
                     raise ValueError('default_groups must be a *list* of group'
@@ -186,12 +224,11 @@ class DelwpHarvester(HarvesterBase):
                                      'names/ids (i.e. strings)')
 
                 # Check if default groups exist
-                context = {'model': model, 'user': toolkit.g.user}
                 config_obj['default_group_dicts'] = []
                 for group_name_or_id in config_obj['default_groups']:
                     try:
                         group = toolkit.get_action('group_show')(
-                            context, {'id': group_name_or_id})
+                            context.copy(), {'id': group_name_or_id})
                         # save the dict to the config object, as we'll need it
                         # in the import_stage of every dataset
                         config_obj['default_group_dicts'].append(group)
@@ -221,6 +258,26 @@ class DelwpHarvester(HarvesterBase):
 
             if 'api_auth' not in config_obj:
                 raise ValueError('api_auth must be set')
+
+            if 'organisation_mapping' in config_obj:
+                if not isinstance(config_obj['organisation_mapping'], list):
+                    raise ValueError('organisation_mapping must be a *list* of organisations')
+                # Check if organisation exist
+                for organisation_mapping in config_obj['organisation_mapping']:
+                    if not isinstance(organisation_mapping, dict):
+                        raise ValueError('organisation_mapping item must be a *dict*. eg {"resowner": "Organisation A", "org-name": "organisation-a"}')
+                    if not organisation_mapping.get('resowner'):
+                        raise ValueError('organisation_mapping item must have property "resowner". eg "resowner": "Organisation A"')
+                    if not organisation_mapping.get('org-name'):
+                        raise ValueError('organisation_mapping item must have property *org-name*. eg "org-name": "organisation-a"}')
+                    try:
+                        group = toolkit.get_action('organization_show')(context.copy(), {'id': organisation_mapping.get('org-name')})
+                    except toolkit.ObjectNotFound:
+                        raise ValueError(f'Organisation {organisation_mapping.get("org-name")} not found')
+            else:
+                raise ValueError('organisation_mapping must be set')
+
+            config = json.dumps(config_obj, indent=1)
         except ValueError as e:
             raise e
 
@@ -303,9 +360,8 @@ class DelwpHarvester(HarvesterBase):
 
         package_dict['notes'] = metashare_dict.get('abstract', '')
 
-        # Get organisation from the harvest source organisation dropdown
-        source_dict = logic.get_action('package_show')(context.copy(), {'id': harvest_object.harvest_source_id})
-        package_dict['owner_org'] = source_dict.get('owner_org')
+        # Get organisation from the harvest source organisation_mapping in config
+        package_dict['owner_org'] = _get_organisation(self.config.get('organisation_mapping'), metashare_dict.get('resowner').split(';')[0], harvest_object, context)
 
         # Default as discussed with SDM
         package_dict['license_id'] = self.config.get('license_id', 'cc-by')
@@ -335,7 +391,7 @@ class DelwpHarvester(HarvesterBase):
         #       not publically displayed in DV, not sure it's worth the effort of adding the custodian"
         res_owner = metashare_dict.get('resowner', None)
         if res_owner:
-            package_dict['maintainer'] = res_owner[0] if isinstance(res_owner, list) else res_owner
+            package_dict['data_owner'] = res_owner.split(';')[0]
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
@@ -548,7 +604,7 @@ class DelwpHarvester(HarvesterBase):
             # Delete package
 
             toolkit.get_action('package_delete')(
-                context, {'id': harvest_object.package_id})
+                context.copy(), {'id': harvest_object.package_id})
             log.info('Deleted package {0} with guid {1}'
                      .format(harvest_object.package_id, harvest_object.guid))
 
@@ -619,7 +675,7 @@ class DelwpHarvester(HarvesterBase):
                 message_status = 'Created' if status == 'new' else 'Updated'
                 if 'package' in context:
                     del context['package']
-                package_id = toolkit.get_action(action)(context, package_dict)
+                package_id = toolkit.get_action(action)(context.copy(), package_dict)
                 log.info('%s dataset with id %s', message_status, package_id)
 
         except Exception as e:

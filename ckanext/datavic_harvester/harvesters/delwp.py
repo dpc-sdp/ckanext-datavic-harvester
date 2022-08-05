@@ -6,6 +6,7 @@ import traceback
 import uuid
 import re
 import six
+from bs4 import BeautifulSoup
 
 from ckan import logic
 from ckan import model
@@ -13,6 +14,7 @@ from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
 from ckan.plugins import toolkit as toolkit
+from ckan.common import config
 
 import ckanext.datavicmain.helpers as helpers
 
@@ -447,6 +449,48 @@ class DelwpHarvester(HarvesterBase):
                     res['attribution'] = attribution
                 resources.append(res)
 
+        # Verify and get info for WMS resource       
+        try:
+            wms_doc = requests.get(config.get("ckanext.datavic_harvester.geoserver_dns.wms"))
+            wms_soup= BeautifulSoup(wms_doc.content,"lxml-xml")
+            wms_obj = wms_soup.find_all("Layer", {"queryable": 1})
+            wms_result = [x for x in wms_obj if uuid in str(x)]
+            if wms_result:
+                wms_res = {
+                    'name': wms_result[0].find("Title").text,
+                    'format': "WMS",
+                    'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
+                    'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
+                    'url': config.get("ckanext.datavic_harvester.resource.wms_url").format(wms_result[0].find("Title").text)
+                }
+                wms_res['name'] = wms_res['name'].upper() + ' WMS'
+                if attribution:
+                    wms_res['attribution'] = attribution
+                resources.append(wms_res)
+        except Exception as e:
+            log.error(e)
+        
+        # Verify and get info for WFS resource       
+        try:
+            wfs_doc = requests.get(config.get("ckanext.datavic_harvester.geoserver_dns.wfs"))
+            wfs_soup= BeautifulSoup(wfs_doc.content,"lxml-xml")
+            wfs_obj = wfs_soup.find_all("FeatureType")
+            wfs_result = [x for x in wfs_obj if uuid in str(x)]
+            if wfs_result:
+                wfs_res = {
+                    'name': wfs_result[0].find("Title").text,
+                    'format': "WFS",
+                    'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
+                    'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
+                    'url': config.get("ckanext.datavic_harvester.resource.wms_url")
+                }
+                wfs_res['name'] = wfs_res['name'].upper() + ' WFS'
+                if attribution:
+                    wfs_res['attribution'] = attribution
+                resources.append(wfs_res)
+        except Exception as e:
+            log.error(e)
+        
         package_dict['resources'] = resources
 
         # @TODO: What about these ones?

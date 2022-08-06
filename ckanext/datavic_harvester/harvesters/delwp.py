@@ -14,7 +14,6 @@ from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from hashlib import sha1
 from ckan.plugins import toolkit as toolkit
-from ckan.common import config
 
 import ckanext.datavicmain.helpers as helpers
 
@@ -167,7 +166,7 @@ class DelwpHarvester(HarvesterBase):
 
     # Copied from `ckanext/dcat/harvesters/base.py`
     def _get_package_name(self, harvest_object, title):
-
+        
         package = harvest_object.package
         if package is None or package.title != title:
             name = self._gen_new_name(title)
@@ -177,13 +176,13 @@ class DelwpHarvester(HarvesterBase):
                     'GUID. Please choose a more unique title.')
         else:
             name = package.name
-
+            
         return name
-
+    
     def info(self):
         return {
             'name': 'delwp',
-            'title': 'delwp Harvester',
+            'title': 'DELWP Harvester',
             'description': 'Harvester for DELWP dataset descriptions ' +
                            'serialized as JSON'
         }
@@ -210,7 +209,20 @@ class DelwpHarvester(HarvesterBase):
             "license_id": "cc-by",
             "dataset_type": "uat-datashare-metadata",
             "api_auth": "Apikey 9f42499563025e767dd53147787ca636d3958f7d20c0cf25e81b01a9",
-            "organisation_mapping": [{"resowner": "Organisation A", "org-name": "organisation-a"}]
+            "organisation_mapping": [{"resowner": "Organisation A", "org-name": "organisation-a"}],
+            "add_resources": 
+            {
+                "wms":
+                    {
+                        "full_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/ows?service=WMS&request=getCapabilities",
+                        "resource_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665"
+                    },
+                "wfs":
+                    {
+                        "full_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/ows?service=WFS&request=getCapabilities",
+                        "resource_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/wfs?request=GetCapabilities&service=WFS"
+                    }
+            }
         }
         try:
             config_obj = json.loads(config)
@@ -278,7 +290,18 @@ class DelwpHarvester(HarvesterBase):
                         raise ValueError(f'Organisation {organisation_mapping.get("org-name")} not found')
             else:
                 raise ValueError('organisation_mapping must be set')
-
+            
+            if 'add_resources' in config_obj:
+                if not isinstance(config_obj['add_resources'], dict):              
+                    raise ValueError('add_resources item must be a *dict* of available formats. eg {"wms": {"full_url": "https://...", "resource_url": "https://..."}, "wfs": {"full_url": "https://...", "resource_url": "https://..."},}')                               
+                for resource in config_obj['add_resources'].values():
+                    if not isinstance(resource, dict):              
+                        raise ValueError('add_resource item must be a *dict* of urls. eg {"full_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/ows?service=WMS&request=getCapabilities", "resource_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665"}')                               
+                    if not resource.get('full_url'):
+                        raise ValueError('add_resource item must have property *full_url*. eg "full_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/ows?service=WMS&request=getCapabilities"')
+                    if not resource.get('resource_url'):
+                        raise ValueError('add_resource item must have property *resource_url*. eg "resource_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665"}')
+            
             config = json.dumps(config_obj, indent=1)
         except ValueError as e:
             raise e
@@ -443,53 +466,32 @@ class DelwpHarvester(HarvesterBase):
                     'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
                     'url': resource_url
                 }
-
+                
                 res['name'] = res['name'] + ' ' + format
                 if attribution:
                     res['attribution'] = attribution
                 resources.append(res)
-
-        # Verify and get info for WMS resource       
-        try:
-            wms_doc = requests.get(config.get("ckanext.datavic_harvester.geoserver_dns.wms"))
-            wms_soup= BeautifulSoup(wms_doc.content,"lxml-xml")
-            wms_obj = wms_soup.find_all("Layer", {"queryable": 1})
-            wms_result = [x for x in wms_obj if uuid in str(x)]
-            if wms_result:
-                wms_res = {
-                    'name': wms_result[0].find("Title").text,
-                    'format': "WMS",
-                    'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
-                    'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
-                    'url': config.get("ckanext.datavic_harvester.resource.wms_url").format(wms_result[0].find("Title").text)
-                }
-                wms_res['name'] = wms_res['name'].upper() + ' WMS'
-                if attribution:
-                    wms_res['attribution'] = attribution
-                resources.append(wms_res)
-        except Exception as e:
-            log.error(e)
-        
-        # Verify and get info for WFS resource       
-        try:
-            wfs_doc = requests.get(config.get("ckanext.datavic_harvester.geoserver_dns.wfs"))
-            wfs_soup= BeautifulSoup(wfs_doc.content,"lxml-xml")
-            wfs_obj = wfs_soup.find_all("FeatureType")
-            wfs_result = [x for x in wfs_obj if uuid in str(x)]
-            if wfs_result:
-                wfs_res = {
-                    'name': wfs_result[0].find("Title").text,
-                    'format': "WFS",
-                    'period_start': convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
-                    'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
-                    'url': config.get("ckanext.datavic_harvester.resource.wms_url")
-                }
-                wfs_res['name'] = wfs_res['name'].upper() + ' WFS'
-                if attribution:
-                    wfs_res['attribution'] = attribution
-                resources.append(wfs_res)
-        except Exception as e:
-            log.error(e)
+                
+        # Generate additional WMS/WFS resources     
+        if self.config['add_resources']:
+            for key, value in self.config['add_resources'].items():
+                try:
+                    request = requests.get(value.get('full_url'))
+                    source= BeautifulSoup(request.content,"lxml-xml")
+                    uuid_in_source = source.find("Keyword", string=f"MetadataID={uuid}")
+                except ConnectionError as e:
+                    log.error(e)
+                if uuid_in_source:
+                    res = {
+                        "name": uuid_in_source.find_previous("Title").text.upper() + ' ' + key.upper(),
+                        "format": key.upper(),
+                        "period_start": convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
+                        "period_end": convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
+                        "url": value.get('resource_url').format(layername=uuid_in_source.find_previous("Name").text)
+                    }
+                    if attribution:
+                        res['attribution'] = attribution
+                    resources.append(res)
         
         package_dict['resources'] = resources
 

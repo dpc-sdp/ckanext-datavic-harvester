@@ -201,29 +201,7 @@ class DelwpHarvester(HarvesterBase):
         '''
         if not config:
             raise ValueError('No config options set')
-        {
-            "default_groups": ["spatial-data"],
-            "full_metadata_url_prefix": "https://metashare.maps.vic.gov.au/geonetwork/srv/api/records/{UUID}/formatters/sdm-html?root=html&output=html",
-            "resource_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
-            "resource_attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
-            "license_id": "cc-by",
-            "dataset_type": "uat-datashare-metadata",
-            "api_auth": "Apikey 9f42499563025e767dd53147787ca636d3958f7d20c0cf25e81b01a9",
-            "organisation_mapping": [{"resowner": "Organisation A", "org-name": "organisation-a"}],
-            "add_resources": 
-            {
-                "wms":
-                    {
-                        "full_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/ows?service=WMS&request=getCapabilities",
-                        "resource_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665"
-                    },
-                "wfs":
-                    {
-                        "full_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/ows?service=WFS&request=getCapabilities",
-                        "resource_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/wfs?request=GetCapabilities&service=WFS"
-                    }
-            }
-        }
+        
         try:
             config_obj = json.loads(config)
             context = {'model': model, 'user': toolkit.g.user}
@@ -290,17 +268,6 @@ class DelwpHarvester(HarvesterBase):
                         raise ValueError(f'Organisation {organisation_mapping.get("org-name")} not found')
             else:
                 raise ValueError('organisation_mapping must be set')
-            
-            if 'add_resources' in config_obj:
-                if not isinstance(config_obj['add_resources'], dict):              
-                    raise ValueError('add_resources item must be a *dict* of available formats. eg {"wms": {"full_url": "https://...", "resource_url": "https://..."}, "wfs": {"full_url": "https://...", "resource_url": "https://..."},}')                               
-                for resource in config_obj['add_resources'].values():
-                    if not isinstance(resource, dict):              
-                        raise ValueError('add_resource item must be a *dict* of urls. eg {"full_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/ows?service=WMS&request=getCapabilities", "resource_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665"}')                               
-                    if not resource.get('full_url'):
-                        raise ValueError('add_resource item must have property *full_url*. eg "full_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/ows?service=WMS&request=getCapabilities"')
-                    if not resource.get('resource_url'):
-                        raise ValueError('add_resource item must have property *resource_url*. eg "resource_url": "https://geoserver-uat.maps.vic.gov.au/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665"}')
             
             config = json.dumps(config_obj, indent=1)
         except ValueError as e:
@@ -473,25 +440,45 @@ class DelwpHarvester(HarvesterBase):
                 resources.append(res)
                 
         # Generate additional WMS/WFS resources     
-        if self.config['add_resources']:
-            for key, value in self.config['add_resources'].items():
+        if self.config['geoserver_dns']:
+            geoserver_dns = self.config['geoserver_dns']
+            dict_geoserver_urls = {
+                'WMS': [
+                    geoserver_dns + '/geoserver/ows?service=WMS&request=getCapabilities',
+                    'https://geoserver-uat.maps.vic.gov.au/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665'
+                ],
+                'WFS': [
+                    geoserver_dns + '/geoserver/ows?service=WFS&request=getCapabilities',
+                    'https://geoserver-uat.maps.vic.gov.au/geoserver/wfs?request=GetCapabilities&service=WFS'
+                ]
+            }
+            
+            def _get_content_with_uuid(geoserver_url):
                 try:
-                    request = requests.get(value.get('full_url'))
-                    source= BeautifulSoup(request.content,"lxml-xml")
-                    uuid_in_source = source.find("Keyword", string=f"MetadataID={uuid}")
-                except ConnectionError as e:
+                    res = requests.get(geoserver_url)
+                except requests.exceptions.RequestException as e:
                     log.error(e)
-                if uuid_in_source:
-                    res = {
-                        "name": uuid_in_source.find_previous("Title").text.upper() + ' ' + key.upper(),
-                        "format": key.upper(),
-                        "period_start": convert_date_to_isoformat(metashare_dict.get('tempextentbegin', ''), 'tempextentbegin', metashare_dict.get('name')),
-                        "period_end": convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
-                        "url": value.get('resource_url').format(layername=uuid_in_source.find_previous("Name").text)
-                    }
-                    if attribution:
-                        res['attribution'] = attribution
-                    resources.append(res)
+                    return None
+                try:
+                    geoserver_content= BeautifulSoup(res.content,"lxml-xml")
+                except NameError as e:
+                    log.error(e)
+                    return None
+                layer_data_with_uuid = geoserver_content.find("Keyword", string=f"MetadataID={uuid}")
+                return layer_data_with_uuid
+                
+            def generate_geo_resource(layer_data_with_uuid, format, resource_url):
+                resource_data = {
+                    "name": layer_data_with_uuid.find_previous("Title").text.upper() + ' ' + format.upper(),
+                    "format": format.upper(),
+                    "url": resource_url.format(layername=layer_data_with_uuid.find_previous("Name").text)
+                }
+                return resource_data
+            
+            for format, urls in dict_geoserver_urls.items():
+                layer_data = _get_content_with_uuid(urls[0])
+                if layer_data:
+                    resources.append(generate_geo_resource(layer_data, format, urls[1]))
         
         package_dict['resources'] = resources
 

@@ -135,7 +135,14 @@ def _get_organisation(organisation_mapping, resowner, harvest_object, context):
                 source_dict = logic.get_action('package_show')(context.copy(), {'id': harvest_object.harvest_source_id})
                 org_id = source_dict.get('owner_org')
         return org_id
-
+    
+def _generate_geo_resource(layer_data_with_uuid, resource_format, resource_url):
+    resource_data = {
+        "name": layer_data_with_uuid.find_previous("Title").text.upper() + ' ' + resource_format,
+        "format": resource_format,
+        "url": resource_url.format(layername=layer_data_with_uuid.find_previous("Name").text)
+    }
+    return resource_data
 
 class DelwpHarvester(HarvesterBase):
 
@@ -317,7 +324,7 @@ class DelwpHarvester(HarvesterBase):
             guid = fields.get('uuid', None)
 
             yield guid, as_string
-
+    
     def _get_package_dict(self, harvest_object, context):
         """
         Convert the string based content from the harvest_object
@@ -440,6 +447,15 @@ class DelwpHarvester(HarvesterBase):
                 resources.append(res)
                 
         # Generate additional WMS/WFS resources     
+        def _get_content_with_uuid(geoserver_url):
+            try:
+                geoserver_response = requests.get(geoserver_url)
+            except requests.exceptions.RequestException as e:
+                log.error(e)
+                return None
+            geoserver_content= BeautifulSoup(geoserver_response.content,"lxml-xml")
+            return geoserver_content.find("Keyword", string=f"MetadataID={uuid}")
+        
         if 'geoserver_dns' in self.config:
             geoserver_dns = self.config['geoserver_dns']
             dict_geoserver_urls = {
@@ -453,28 +469,10 @@ class DelwpHarvester(HarvesterBase):
                 }
             }
             
-            def get_content_with_uuid(geoserver_url):
-                try:
-                    geoserver_response = requests.get(geoserver_url)
-                except requests.exceptions.RequestException as e:
-                    log.error(e)
-                    return None
-                geoserver_content= BeautifulSoup(geoserver_response.content,"lxml-xml")
-                return geoserver_content.find("Keyword", string=f"MetadataID={uuid}")
-                
-            def generate_geo_resource(layer_data_with_uuid, resource_format, resource_url):
-                resource_data = {
-                    "name": layer_data_with_uuid.find_previous("Title").text.upper() + ' ' + resource_format,
-                    "format": resource_format,
-                    "url": resource_url.format(layername=layer_data_with_uuid.find_previous("Name").text)
-                }
-                return resource_data
-            
             for resource_format in dict_geoserver_urls:
-                print(resource_format)
-                layer_data_with_uuid = get_content_with_uuid(dict_geoserver_urls[resource_format].get('geoserver_url'))
+                layer_data_with_uuid = _get_content_with_uuid(dict_geoserver_urls[resource_format].get('geoserver_url'))
                 if layer_data_with_uuid:
-                    resources.append(generate_geo_resource(layer_data_with_uuid, resource_format, dict_geoserver_urls[resource_format].get('resource_url')))
+                    resources.append(_generate_geo_resource(layer_data_with_uuid, resource_format, dict_geoserver_urls[resource_format].get('resource_url')))
         
         package_dict['resources'] = resources
 

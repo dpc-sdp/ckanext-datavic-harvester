@@ -440,45 +440,41 @@ class DelwpHarvester(HarvesterBase):
                 resources.append(res)
                 
         # Generate additional WMS/WFS resources     
-        if self.config['geoserver_dns']:
+        if 'geoserver_dns' in self.config:
             geoserver_dns = self.config['geoserver_dns']
             dict_geoserver_urls = {
-                'WMS': [
-                    geoserver_dns + '/geoserver/ows?service=WMS&request=getCapabilities',
-                    'https://geoserver-uat.maps.vic.gov.au/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665'
-                ],
-                'WFS': [
-                    geoserver_dns + '/geoserver/ows?service=WFS&request=getCapabilities',
-                    'https://geoserver-uat.maps.vic.gov.au/geoserver/wfs?request=GetCapabilities&service=WFS'
-                ]
+                'WMS': {
+                    'geoserver_url': geoserver_dns + '/geoserver/ows?service=WMS&request=getCapabilities',
+                    'resource_url': geoserver_dns + '/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665'
+                },
+                'WFS': {
+                    'geoserver_url': geoserver_dns + '/geoserver/ows?service=WFS&request=getCapabilities',
+                    'resource_url': geoserver_dns + '/geoserver/wfs?request=GetCapabilities&service=WFS'
+                }
             }
             
-            def _get_content_with_uuid(geoserver_url):
+            def get_content_with_uuid(geoserver_url):
                 try:
-                    res = requests.get(geoserver_url)
+                    geoserver_response = requests.get(geoserver_url)
                 except requests.exceptions.RequestException as e:
                     log.error(e)
                     return None
-                try:
-                    geoserver_content= BeautifulSoup(res.content,"lxml-xml")
-                except NameError as e:
-                    log.error(e)
-                    return None
-                layer_data_with_uuid = geoserver_content.find("Keyword", string=f"MetadataID={uuid}")
-                return layer_data_with_uuid
+                geoserver_content= BeautifulSoup(geoserver_response.content,"lxml-xml")
+                return geoserver_content.find("Keyword", string=f"MetadataID={uuid}")
                 
-            def generate_geo_resource(layer_data_with_uuid, format, resource_url):
+            def generate_geo_resource(layer_data_with_uuid, resource_format, resource_url):
                 resource_data = {
-                    "name": layer_data_with_uuid.find_previous("Title").text.upper() + ' ' + format.upper(),
-                    "format": format.upper(),
+                    "name": layer_data_with_uuid.find_previous("Title").text.upper() + ' ' + resource_format,
+                    "format": resource_format,
                     "url": resource_url.format(layername=layer_data_with_uuid.find_previous("Name").text)
                 }
                 return resource_data
             
-            for format, urls in dict_geoserver_urls.items():
-                layer_data = _get_content_with_uuid(urls[0])
-                if layer_data:
-                    resources.append(generate_geo_resource(layer_data, format, urls[1]))
+            for resource_format in dict_geoserver_urls:
+                print(resource_format)
+                layer_data_with_uuid = get_content_with_uuid(dict_geoserver_urls[resource_format].get('geoserver_url'))
+                if layer_data_with_uuid:
+                    resources.append(generate_geo_resource(layer_data_with_uuid, resource_format, dict_geoserver_urls[resource_format].get('resource_url')))
         
         package_dict['resources'] = resources
 

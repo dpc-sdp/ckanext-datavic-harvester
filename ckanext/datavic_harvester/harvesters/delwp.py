@@ -6,6 +6,7 @@ import traceback
 import uuid
 import re
 import six
+from bs4 import BeautifulSoup
 
 from ckan import logic
 from ckan import model
@@ -134,7 +135,14 @@ def _get_organisation(organisation_mapping, resowner, harvest_object, context):
                 source_dict = logic.get_action('package_show')(context.copy(), {'id': harvest_object.harvest_source_id})
                 org_id = source_dict.get('owner_org')
         return org_id
-
+    
+def _generate_geo_resource(layer_data_with_uuid, resource_format, resource_url):
+    resource_data = {
+        "name": layer_data_with_uuid.find_previous("Title").text.upper() + ' ' + resource_format,
+        "format": resource_format,
+        "url": resource_url.format(layername=layer_data_with_uuid.find_previous("Name").text)
+    }
+    return resource_data
 
 class DelwpHarvester(HarvesterBase):
 
@@ -165,7 +173,7 @@ class DelwpHarvester(HarvesterBase):
 
     # Copied from `ckanext/dcat/harvesters/base.py`
     def _get_package_name(self, harvest_object, title):
-
+        
         package = harvest_object.package
         if package is None or package.title != title:
             name = self._gen_new_name(title)
@@ -175,13 +183,13 @@ class DelwpHarvester(HarvesterBase):
                     'GUID. Please choose a more unique title.')
         else:
             name = package.name
-
+            
         return name
-
+    
     def info(self):
         return {
             'name': 'delwp',
-            'title': 'delwp Harvester',
+            'title': 'DELWP Harvester',
             'description': 'Harvester for DELWP dataset descriptions ' +
                            'serialized as JSON'
         }
@@ -200,16 +208,7 @@ class DelwpHarvester(HarvesterBase):
         '''
         if not config:
             raise ValueError('No config options set')
-        {
-            "default_groups": ["spatial-data"],
-            "full_metadata_url_prefix": "https://metashare.maps.vic.gov.au/geonetwork/srv/api/records/{UUID}/formatters/sdm-html?root=html&output=html",
-            "resource_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
-            "resource_attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
-            "license_id": "cc-by",
-            "dataset_type": "uat-datashare-metadata",
-            "api_auth": "Apikey 9f42499563025e767dd53147787ca636d3958f7d20c0cf25e81b01a9",
-            "organisation_mapping": [{"resowner": "Organisation A", "org-name": "organisation-a"}]
-        }
+        
         try:
             config_obj = json.loads(config)
             context = {'model': model, 'user': toolkit.g.user}
@@ -276,7 +275,7 @@ class DelwpHarvester(HarvesterBase):
                         raise ValueError(f'Organisation {organisation_mapping.get("org-name")} not found')
             else:
                 raise ValueError('organisation_mapping must be set')
-
+            
             config = json.dumps(config_obj, indent=1)
         except ValueError as e:
             raise e
@@ -325,7 +324,7 @@ class DelwpHarvester(HarvesterBase):
             guid = fields.get('uuid', None)
 
             yield guid, as_string
-
+    
     def _get_package_dict(self, harvest_object, context):
         """
         Convert the string based content from the harvest_object
@@ -441,12 +440,40 @@ class DelwpHarvester(HarvesterBase):
                     'period_end': convert_date_to_isoformat(metashare_dict.get('tempextentend', ''), 'tempextentend', metashare_dict.get('name')),
                     'url': resource_url
                 }
-
+                
                 res['name'] = res['name'] + ' ' + format
                 if attribution:
                     res['attribution'] = attribution
                 resources.append(res)
-
+                
+        # Generate additional WMS/WFS resources     
+        def _get_content_with_uuid(geoserver_url):
+            try:
+                geoserver_response = requests.get(geoserver_url)
+            except requests.exceptions.RequestException as e:
+                log.error(e)
+                return None
+            geoserver_content= BeautifulSoup(geoserver_response.content,"lxml-xml")
+            return geoserver_content.find("Keyword", string=f"MetadataID={uuid}")
+        
+        if 'geoserver_dns' in self.config:
+            geoserver_dns = self.config['geoserver_dns']
+            dict_geoserver_urls = {
+                'WMS': {
+                    'geoserver_url': geoserver_dns + '/geoserver/ows?service=WMS&request=getCapabilities',
+                    'resource_url': geoserver_dns + '/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665'
+                },
+                'WFS': {
+                    'geoserver_url': geoserver_dns + '/geoserver/ows?service=WFS&request=getCapabilities',
+                    'resource_url': geoserver_dns + '/geoserver/wfs?request=GetCapabilities&service=WFS'
+                }
+            }
+            
+            for resource_format in dict_geoserver_urls:
+                layer_data_with_uuid = _get_content_with_uuid(dict_geoserver_urls[resource_format].get('geoserver_url'))
+                if layer_data_with_uuid:
+                    resources.append(_generate_geo_resource(layer_data_with_uuid, resource_format, dict_geoserver_urls[resource_format].get('resource_url')))
+        
         package_dict['resources'] = resources
 
         # @TODO: What about these ones?

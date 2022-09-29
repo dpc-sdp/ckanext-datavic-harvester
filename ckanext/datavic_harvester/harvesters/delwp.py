@@ -135,6 +135,17 @@ def _get_organisation(organisation_mapping, resowner, harvest_object, context):
                 source_dict = logic.get_action('package_show')(context.copy(), {'id': harvest_object.harvest_source_id})
                 org_id = source_dict.get('owner_org')
         return org_id
+
+
+def clean_resource_name(name):
+    '''
+     Replace underscores (_) with spaces to avoid braking words
+    '''
+    # convert underscores to spaces
+    name = re.sub('_', ' ', name)
+
+    return name
+
     
 def _generate_geo_resource(layer_data_with_uuid, resource_format, resource_url):
     resource_data = {
@@ -143,6 +154,7 @@ def _generate_geo_resource(layer_data_with_uuid, resource_format, resource_url):
         "url": resource_url.format(layername=layer_data_with_uuid.find_previous("Name").text)
     }
     return resource_data
+
 
 class DelwpHarvester(HarvesterBase):
 
@@ -442,6 +454,7 @@ class DelwpHarvester(HarvesterBase):
                 }
                 
                 res['name'] = res['name'] + ' ' + format
+                res['name'] = clean_resource_name(res['name'])
                 if attribution:
                     res['attribution'] = attribution
                 resources.append(res)

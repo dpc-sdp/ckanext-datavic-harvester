@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import json
 import logging
+from typing import Optional
 
 from bs4 import BeautifulSoup
 
@@ -10,7 +13,7 @@ from ckanext.dcat import converters
 from ckanext.dcat.harvesters._json import DCATJSONHarvester
 from ckanext.harvest.model import HarvestSource
 
-from ckanext.datavic_harvester import bs4_helpers, helpers
+from ckanext.datavic_harvester import helpers
 
 
 log = logging.getLogger(__name__)
@@ -109,15 +112,15 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             package_dict["notes"] = "No description has been entered for this dataset."
             package_dict["extract"] = "No abstract has been entered for this dataset."
         else:
-            package_dict["notes"] = bs4_helpers._unwrap_all_except(
-                bs4_helpers._remove_all_attrs_except_saving(soup),
-                # allowed tags
-                ["a", "br"],
+            allowed_tags: list[str] = ["a", "br"]
+            package_dict["notes"] = helpers.unwrap_all_except(
+                helpers.remove_all_attrs_except_for(soup, allowed_tags),
+                allowed_tags,
             )
             package_dict["extract"] = self.generate_extract(soup)
 
     def set_full_metadata_url_and_update_frequency(
-        self, harvest_config, package_dict, soup
+        self, harvest_config, package_dict, soup: BeautifulSoup
     ):
         """
         Try and extract the full metadata URL from the dataset description and then the update frequency from the
@@ -142,15 +145,17 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             # Try and extract a full metadata url from the description based on
             # a pattern defined in the harvest source config
             if "full_metadata_url_pattern" in harvest_config:
-                desc_full_metadata_url = bs4_helpers._extract_metadata_url(
+                desciption_full_metadata_url: Optional[
+                    str
+                ] = helpers.extract_metadata_url(
                     soup, harvest_config["full_metadata_url_pattern"]
                 )
-                if desc_full_metadata_url:
-                    full_metadata_url = desc_full_metadata_url
+                if desciption_full_metadata_url:
+                    full_metadata_url = desciption_full_metadata_url
                     # Attempt to extract the update frequency from the full metadata page
-                    package_dict[
-                        "update_frequency"
-                    ] = bs4_helpers._fetch_update_frequency(full_metadata_url)
+                    package_dict["update_frequency"] = helpers.fetch_update_frequency(
+                        full_metadata_url
+                    )
         if full_metadata_url:
             package_dict["full_metadata_url"] = full_metadata_url
 
@@ -227,8 +232,10 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             if extra["key"] == "date_created_data_asset"
         ]
         if issued and not date_created_data_asset:
-            package_dict["date_created_data_asset"] = helpers.convert_date_to_isoformat(
-                issued
+            package_dict[
+                "date_created_data_asset"
+            ] = helpers.convert_date_str_to_isoformat(
+                issued, "issued", package_dict["title"]
             )
 
         modified = dcat_dict.get("modified")
@@ -241,7 +248,9 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         if modified and not date_modified_data_asset:
             package_dict[
                 "date_modified_data_asset"
-            ] = helpers.convert_date_to_isoformat(modified)
+            ] = helpers.convert_date_str_to_isoformat(
+                modified, "modified", package_dict["title"]
+            )
 
         landing_page = dcat_dict.get("landingPage")
         full_metadata_url = [
@@ -287,7 +296,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         except Exception:
             harvest_config = None
 
-        soup = BeautifulSoup(package_dict["notes"], "html.parser")
+        soup: BeautifulSoup = BeautifulSoup(package_dict["notes"], "html.parser")
 
         self.set_description_and_extract(package_dict, soup)
 

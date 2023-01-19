@@ -15,20 +15,14 @@ from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from ckanext.datavicmain import helpers
 
+from ckanext.datavic_harvester.helpers import (
+    convert_date_str_to_isoformat,
+    get_from_to,
+    munge_title_to_name,
+)
+
 
 log = logging.getLogger(__name__)
-
-
-def _get_from_to(page, datasets_per_page):
-    # if ... else expanded for readability
-    if page == 1:
-        _from = 1
-        _to = page * datasets_per_page
-    else:
-        _from = ((page - 1) * datasets_per_page) + 1
-        _to = page * datasets_per_page
-
-    return _from, _to
 
 
 def get_tags(value):
@@ -43,30 +37,6 @@ def get_tags(value):
     return tags
 
 
-def convert_date_to_isoformat(value, key, dataset_name):
-    """
-    Example dates:
-        '2020-10-13t05:00:11'
-        u'2006-12-31t13:00:00.000z'
-    :param value:
-    :return:
-    """
-    date = None
-    try:
-        # Remove any timezone with time
-        value = value.lower().split("t")[0]
-        date = tk.get_converter("isodate")(value, {})
-    except Exception as ex:
-        log.debug(
-            "{0}: Date format incorrect {1} for key {2}".format(
-                dataset_name, value, key
-            )
-        )
-        log.debug(ex)
-    # TODO: Do we return None or value if date string cannot be converted?
-    return date.isoformat() if date else None
-
-
 def get_datavic_update_frequencies():
     return helpers.field_choices("update_frequency")
 
@@ -79,24 +49,6 @@ def map_update_frequency(datavic_update_frequencies, value):
 
     # Otherwise return the default of 'unknown'
     return "unknown"
-
-
-def munge_title_to_name(name):
-    """Munge a package title into a package name.
-    Copied from vicmaps-harvest.py to use the same code to create name from title
-    This is required to match existing pacakge names
-    """
-    # convert spaces and separators
-    name = re.sub("[ .:/,]", "-", name)
-    # take out not-allowed characters
-    name = re.sub("[^a-zA-Z0-9-_]", "", name).lower()
-    # remove doubles
-    name = re.sub("---", "-", name)
-    name = re.sub("--", "-", name)
-    name = re.sub("--", "-", name)
-    # remove leading or trailing hyphens
-    name = name.strip("-")[:99]
-    return name
 
 
 def _get_organisation(organisation_mapping, resowner, harvest_object, context):
@@ -128,9 +80,7 @@ def _get_organisation(organisation_mapping, resowner, harvest_object, context):
                 "include_tags": False,
                 "include_followers": False,
             }
-            organisation = tk.get_action("organization_show")(
-                context.copy(), data_dict
-            )
+            organisation = tk.get_action("organization_show")(context.copy(), data_dict)
             org_id = organisation.get("id")
         except tk.ObjectNotFound:
             log.warning(
@@ -338,7 +288,7 @@ class DelwpHarvester(HarvesterBase):
     def _get_page_of_records(
         self, url, dataset_type, api_auth, page, datasets_per_page=100
     ):
-        _from, _to = _get_from_to(page, datasets_per_page)
+        _from, _to = get_from_to(page, datasets_per_page)
         records = None
         try:
             request_url = "{0}?dataset={1}&start={2}&rows={3}&format=json".format(
@@ -477,14 +427,14 @@ class DelwpHarvester(HarvesterBase):
         # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
         # might need to run some regex on this
         # temp_extent_begin = metashare_dict.get('tempextentbegin', None)
-        date_created_data_asset = convert_date_to_isoformat(
-            metashare_dict.get("publicationdate", ""),
+        date_created_data_asset = convert_date_str_to_isoformat(
+            metashare_dict.get("publicationdate"),
             "publicationdate",
             metashare_dict.get("name"),
         )
         if not date_created_data_asset:
-            date_created_data_asset = convert_date_to_isoformat(
-                metashare_dict.get("geonet_info_createdate", ""),
+            date_created_data_asset = convert_date_str_to_isoformat(
+                metashare_dict.get("geonet_info_createdate"),
                 "geonet_info_createdate",
                 metashare_dict.get("name"),
             )
@@ -492,14 +442,14 @@ class DelwpHarvester(HarvesterBase):
 
         # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
         # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
-        date_modified_data_asset = convert_date_to_isoformat(
-            metashare_dict.get("revisiondate", ""),
+        date_modified_data_asset = convert_date_str_to_isoformat(
+            metashare_dict.get("revisiondate"),
             "revisiondate",
             metashare_dict.get("name"),
         )
         if not date_modified_data_asset:
-            date_modified_data_asset = convert_date_to_isoformat(
-                metashare_dict.get("geonet_info_changedate", ""),
+            date_modified_data_asset = convert_date_str_to_isoformat(
+                metashare_dict.get("geonet_info_changedate"),
                 "geonet_info_changedate",
                 metashare_dict.get("name"),
             )
@@ -525,13 +475,13 @@ class DelwpHarvester(HarvesterBase):
                     "name": metashare_dict.get("alttitle")
                     or metashare_dict.get("title"),
                     "format": format,
-                    "period_start": convert_date_to_isoformat(
-                        metashare_dict.get("tempextentbegin", ""),
+                    "period_start": convert_date_str_to_isoformat(
+                        metashare_dict.get("tempextentbegin"),
                         "tempextentbegin",
                         metashare_dict.get("name"),
                     ),
-                    "period_end": convert_date_to_isoformat(
-                        metashare_dict.get("tempextentend", ""),
+                    "period_end": convert_date_str_to_isoformat(
+                        metashare_dict.get("tempextentend"),
                         "tempextentend",
                         metashare_dict.get("name"),
                     ),

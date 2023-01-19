@@ -2,7 +2,6 @@ import json
 import logging
 import traceback
 import uuid
-import re
 
 import requests
 
@@ -14,20 +13,10 @@ from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from ckanext.datavicmain import helpers
 
+from ckanext.datavic_harvester.helpers import convert_date_str_to_isoformat, get_from_to
+
 
 log = logging.getLogger(__name__)
-
-
-def _get_from_to(page, datasets_per_page):
-    # if ... else expanded for readability
-    if page == 1:
-        _from = 1
-        _to = page * datasets_per_page
-    else:
-        _from = ((page - 1) * datasets_per_page) + 1
-        _to = page * datasets_per_page
-
-    return _from, _to
 
 
 def get_tags(value):
@@ -39,27 +28,6 @@ def get_tags(value):
         tags.append({"name": value})
 
     return tags
-
-
-def convert_date_to_isoformat(value):
-    """
-    Example dates:
-        '2020-10-13t05:00:11'
-        u'2006-12-31t13:00:00.000z'
-    :param value:
-    :return:
-    """
-    date = None
-    try:
-        # Remove any microseconds
-        value = value.split(".")[0]
-        if "t" in value:
-            date = tk.get_converter("isodate")(value, {})
-    except Exception as ex:
-        log.debug("Date format incorrect {0}".format(value))
-        log.debug(ex)
-    # TODO: Do we return None or value if date string cannot be converted?
-    return date.isoformat() if date else None
 
 
 def get_datavic_update_frequencies():
@@ -74,24 +42,6 @@ def map_update_frequency(datavic_update_frequencies, value):
 
     # Otherwise return the default of 'unknown'
     return "unknown"
-
-
-def munge_title_to_name(name):
-    """Munge a package title into a package name.
-    Copied from vicmaps-harvest.py to use the same code to create name from title
-    This is required to match existing pacakge names
-    """
-    # convert spaces and separators
-    name = re.sub("[ .:/,]", "-", name)
-    # take out not-allowed characters
-    name = re.sub("[^a-zA-Z0-9-_]", "", name).lower()
-    # remove doubles
-    name = re.sub("---", "-", name)
-    name = re.sub("--", "-", name)
-    name = re.sub("--", "-", name)
-    # remove leading or trailing hyphens
-    name = name.strip("-")[:99]
-    return name
 
 
 class MetaShareHarvester(HarvesterBase):
@@ -221,7 +171,7 @@ class MetaShareHarvester(HarvesterBase):
         return config
 
     def _get_page_of_records(self, url, page, datasets_per_page=100):
-        _from, _to = _get_from_to(page, datasets_per_page)
+        _from, _to = get_from_to(page, datasets_per_page)
         records = None
         try:
             request_url = "{0}?from={1}&to={2}&_content_type=json&fast=index".format(
@@ -348,24 +298,16 @@ class MetaShareHarvester(HarvesterBase):
             if category:
                 package_dict["category"] = category.get("id")
 
-        # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
-        # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
-        # might need to run some regex on this
-        temp_extent_begin = metashare_dict.get("tempExtentBegin", None)
-        if temp_extent_begin:
-            package_dict["date_created_data_asset"] = convert_date_to_isoformat(
-                temp_extent_begin
-            )
-        else:
-            print(
-                "WHAT DO WE DO HERE? tempExtentBegin does not exist for {}".format(uuid)
-            )
+        package_dict["date_created_data_asset"] = convert_date_str_to_isoformat(
+            metashare_dict.get("tempExtentBegin"),
+            "tempExtentBegin",
+            package_dict["title"],
+        )
 
-        # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
-        # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
-
-        package_dict["date_modified_data_asset"] = convert_date_to_isoformat(
-            metashare_dict.get("revisionDate", None)
+        package_dict["date_modified_data_asset"] = convert_date_str_to_isoformat(
+            metashare_dict.get("revisionDate"),
+            "revisionDate",
+            package_dict["title"],
         )
 
         package_dict["update_frequency"] = map_update_frequency(
@@ -380,11 +322,15 @@ class MetaShareHarvester(HarvesterBase):
         resource = {
             "name": metashare_dict.get("altTitle") or metashare_dict.get("title"),
             "format": metashare_dict.get("spatialRepresentationType_text", None),
-            "period_start": convert_date_to_isoformat(
-                metashare_dict.get("tempExtentBegin", None)
+            "period_start": convert_date_str_to_isoformat(
+                metashare_dict.get("tempExtentBegin"),
+                "tempExtentBegin",
+                metashare_dict.get("altTitle") or metashare_dict.get("title"),
             ),
-            "period_end": convert_date_to_isoformat(
-                metashare_dict.get("tempExtentEnd", None)
+            "period_end": convert_date_str_to_isoformat(
+                metashare_dict.get("tempExtentEnd"),
+                "tempExtentEnd",
+                metashare_dict.get("altTitle") or metashare_dict.get("title"),
             ),
             "url": resource_url,
         }
@@ -559,9 +505,7 @@ class MetaShareHarvester(HarvesterBase):
         if status == "delete":
             # Delete package
 
-            tk.get_action("package_delete")(
-                context, {"id": harvest_object.package_id}
-            )
+            tk.get_action("package_delete")(context, {"id": harvest_object.package_id})
             log.info(
                 "Deleted package {0} with guid {1}".format(
                     harvest_object.package_id, harvest_object.guid

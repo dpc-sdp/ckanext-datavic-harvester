@@ -291,10 +291,11 @@ class DelwpHarvester(HarvesterBase):
         _from, _to = get_from_to(page, datasets_per_page)
         records = None
         try:
-            request_url = "{0}?dataset={1}&start={2}&rows={3}&format=json".format(
-                url, dataset_type, _from, _to
+            request_url = (
+                f"{url}?dataset={dataset_type}&start={_from}&rows={_to}&format=json"
             )
-            log.debug("Getting page of records {}".format(request_url))
+            log.debug(f"Getting page of records {request_url}")
+
             r = requests.get(request_url, headers={"Authorization": api_auth})
 
             if r.status_code == 200:
@@ -320,7 +321,7 @@ class DelwpHarvester(HarvesterBase):
             if isinstance(datasets, dict):
                 datasets = [datasets]
             else:
-                log.debug("Datasets data is not a list: {}".format(type(datasets)))
+                log.debug(f"Datasets data is not a list: {type(datasets)}")
                 raise ValueError("Wrong JSON object")
 
         for dataset in datasets:
@@ -352,9 +353,7 @@ class DelwpHarvester(HarvesterBase):
             else ""
         )
         resource_url_prefix = self.config.get("resource_url_prefix", None)
-        resource_url = (
-            "{0}{1}".format(resource_url_prefix, uuid) if resource_url_prefix else ""
-        )
+        resource_url = f"{resource_url_prefix}{uuid}" if resource_url_prefix else ""
 
         # Set the package_dict
         package_dict = {}
@@ -396,7 +395,7 @@ class DelwpHarvester(HarvesterBase):
         )
 
         # TODO: Remove extras to package_dict
-        package_dict["extract"] = "{}...".format(package_dict["notes"].split(".")[0])
+        package_dict["extract"] = f"{package_dict['notes'].split('.')[0]}..."
 
         # There is no field in Data.Vic schema to store the source UUID of the harvested record
         # Therefore, we are using the `primary_purpose_of_collection` field
@@ -600,9 +599,6 @@ class DelwpHarvester(HarvesterBase):
                 # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
                 #
                 for guid, as_string in self._get_guids_and_datasets(records):
-                    # Only add back for debugging as it pollutes the logs with 1700+ guids
-                    # log.debug('Got identifier: {0}'
-                    #           .format(guid.encode('utf8')))
                     batch_guids.append(guid)
 
                     if guid not in previous_guids:
@@ -706,16 +702,14 @@ class DelwpHarvester(HarvesterBase):
                 context.copy(), {"id": harvest_object.package_id}
             )
             log.info(
-                "Deleted package {0} with guid {1}".format(
-                    harvest_object.package_id, harvest_object.guid
-                )
+                f"Deleted package {harvest_object.package_id} with guid {harvest_object.guid}"
             )
 
             return True
 
         if harvest_object.content is None:
             self._save_object_error(
-                "Empty content for object %s" % harvest_object.id,
+                f"Empty content for object {harvest_object.id}",
                 harvest_object,
                 "Import",
             )
@@ -723,7 +717,7 @@ class DelwpHarvester(HarvesterBase):
 
         if harvest_object.guid is None:
             self._save_object_error(
-                "Empty guid for object %s" % harvest_object.id, harvest_object, "Import"
+                f"Empty guid for object {harvest_object.id}", harvest_object, "Import"
             )
             return False
 
@@ -789,12 +783,10 @@ class DelwpHarvester(HarvesterBase):
                 log.info("%s dataset with id %s", message_status, package_id)
 
         except Exception as e:
-            # dataset = json.loads(harvest_object.content)
             dataset_name = package_dict.get("name", "")
 
             self._save_object_error(
-                "Error importing dataset %s: %r / %s"
-                % (dataset_name, e, traceback.format_exc()),
+                f"Error importing dataset {dataset_name}: {e} / {traceback.format_exc()}",
                 harvest_object,
                 "Import",
             )

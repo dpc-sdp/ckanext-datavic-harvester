@@ -46,7 +46,7 @@ class DataVicCKANHarvester(CKANHarvester):
 
         if harvest_object.content is None:
             self._save_object_error(
-                "Empty content for object %s" % harvest_object.id,
+                f"Empty content for object {harvest_object.id}",
                 harvest_object,
                 "Import",
             )
@@ -64,8 +64,8 @@ class DataVicCKANHarvester(CKANHarvester):
             except (tk.ObjectNotFound) as e:
                 local_dataset = {}
                 log.info(
-                    "-- Package ID %s (%s) does not exist locally"
-                    % (package_dict["id"], package_dict["name"])
+                    "-- Package ID %s (%s) does not exist locally",
+                    package_dict["id"], package_dict["name"]
                 )
 
             ignore_private = tk.asbool(
@@ -392,15 +392,14 @@ class DataVicCKANHarvester(CKANHarvester):
 
             return result
 
-        except (tk.ValidationError) as e:
+        except tk.ValidationError as e:
             self._save_object_error(
-                "Invalid package with GUID %s: %r"
-                % (harvest_object.guid, e.error_dict),
+                f"Invalid package with GUID {harvest_object.guid}: {e.error_dict}",
                 harvest_object,
                 "Import",
             )
-        except (Exception) as e:
-            self._save_object_error("%s" % e, harvest_object, "Import")
+        except Exception as e:
+            self._save_object_error(str(e), harvest_object, "Import")
 
     def copy_remote_file_to_filestore(self, resource_id, resource_url, apikey=None):
         try:
@@ -424,23 +423,15 @@ class DataVicCKANHarvester(CKANHarvester):
                     headers["Authorization"] = apikey
                 r = requests.get(resource_url, headers=headers)
                 open(full_path, "wb").write(r.content)
-                log.info(
-                    "Downloaded resource {0} to {1}".format(resource_url, full_path)
-                )
+                log.info(f"Downloaded resource {resource_url} to {full_path}")
             else:
-                log.error(
-                    "Directory for local resource {0} does not exist".format(sub_dir)
-                )
+                log.error(f"Directory for local resource {sub_dir} does not exist")
 
             # Return the actual filename of the remote resource
             return resource_url.split("/")[-1]
         except Exception as e:
-            log.error(
-                "Error copying remote file {0} to local {1}".format(
-                    resource_url, full_path
-                )
-            )
-            log.error("Exception: {0}".format(e))
+            log.error(f"Error copying remote file {resource_url} to local {full_path}")
+            log.error(f"Exception: {e}")
             return None
 
     def resource_directory_exists(self, parent_dir, sub_dir):
@@ -453,7 +444,7 @@ class DataVicCKANHarvester(CKANHarvester):
                 self.create_resource_directory(sub_dir)
             return True
         except Exception as e:
-            log.error("`resource_directory_exists` Exception: {0}".format(e))
+            log.error(f"`resource_directory_exists` Exception: {e}")
         return False
 
     def create_resource_directory(self, directory):
@@ -462,11 +453,9 @@ class DataVicCKANHarvester(CKANHarvester):
             return True
         except Exception as e:
             log.error(
-                "`create_resource_directory` Error creating directory: {0}".format(
-                    directory
-                )
+                f"`create_resource_directory` Error creating directory: {directory}"
             )
-            log.error("`create_resource_directory` Exception: {0}".format(e))
+            log.error(f"`create_resource_directory` Exception: {e}")
         return False
 
     def get_paths_from_resource_id(self, resource_id):

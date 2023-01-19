@@ -103,7 +103,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             index = notes.index(".")
             notes = notes[: index + 1]
         except Exception as ex:
-            log.error("Generate extract error for: {0}".format(str(soup)))
+            log.error(f"Generate extract error for: {soup}")
             log.error(str(ex))
         return notes
 
@@ -326,8 +326,6 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         if not datasets:
             return None
         elif len(datasets) > 1:
-            log.error(
-                "Found more than one dataset with the same guid: {0}".format(guid)
-            )
+            log.error(f"Found more than one dataset with the same guid: {guid}")
         context = {"user": self._get_user_name(), "ignore_auth": True}
         return tk.get_action("package_show")(context, {"id": datasets[0][0]})

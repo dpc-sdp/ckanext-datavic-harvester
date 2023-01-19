@@ -64,7 +64,7 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points="""
         [ckan.plugins]
-        datavic_ckan_harvester=ckanext.datavic_harvester.plugin:DataVicCKANHarvester
+        datavic_ckan_harvester=ckanext.datavic_harvester.harvesters:DataVicCKANHarvester
         datavic_dcat_json_harvester=ckanext.datavic_harvester.harvesters:DataVicDCATJSONHarvester
         metashare_harvester=ckanext.datavic_harvester.harvesters:MetaShareHarvester
         delwp_harvester = ckanext.datavic_harvester.harvesters:DelwpHarvester

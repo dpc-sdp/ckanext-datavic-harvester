@@ -16,7 +16,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-from ckanext.harvest.harvesters.ckanharvester import CKANHarvester
+from ckanext.harvest.harvesters.ckanharvester import CKANHarvester, RemoteResourceError
 
 
 class DataVicCKANHarvester(CKANHarvester):
@@ -486,19 +486,3 @@ class DataVicCKANHarvester(CKANHarvester):
         full_path = "/".join([sub_dir, filename])
 
         return resources_path, parent_dir, sub_dir, filename, full_path
-
-
-class ContentFetchError(Exception):
-    pass
-
-
-class ContentNotFoundError(ContentFetchError):
-    pass
-
-
-class RemoteResourceError(Exception):
-    pass
-
-
-class SearchError(Exception):
-    pass

@@ -1,6 +1,7 @@
 import logging
 
-from ckan import plugins as p
+import ckan.plugins.toolkit as tk
+
 
 log = logging.getLogger(__name__)
 
@@ -18,8 +19,8 @@ def convert_date_to_isoformat(value):
         # Remove any microseconds
         value = value.split(".")[0]
         if "t" in value.lower():
-            date = p.toolkit.get_converter("isodate")(value, {})
-    except p.toolkit.Invalid as ex:
+            date = tk.get_converter("isodate")(value, {})
+    except tk.Invalid as ex:
         log.debug("Date format incorrect {0}".format(value))
     # TODO: Do we return None or value if date string cannot be converted?
     return date.isoformat() if date else None

@@ -1,22 +1,17 @@
-from __future__ import print_function
-
-import requests
 import os
-import six
-
-from ckan import model
-from ckan.logic import ValidationError, NotFound, get_action
-from ckan.lib.helpers import json
-from ckan.lib.search.index import PackageSearchIndex
-from ckan.plugins import toolkit
-
-from ckan.common import config
-
 import logging
 
-log = logging.getLogger(__name__)
+import requests
+
+from ckan import model
+from ckan.plugins import toolkit as tk
+from ckan.lib.helpers import json
+from ckan.lib.search.index import PackageSearchIndex
 
 from ckanext.harvest.harvesters.ckanharvester import CKANHarvester, RemoteResourceError
+
+
+log = logging.getLogger(__name__)
 
 
 class DataVicCKANHarvester(CKANHarvester):
@@ -63,25 +58,25 @@ class DataVicCKANHarvester(CKANHarvester):
             package_dict = json.loads(harvest_object.content)
 
             try:
-                local_dataset = get_action("package_show")(
+                local_dataset = tk.get_action("package_show")(
                     base_context.copy(), {"id": package_dict["id"]}
                 )
-            except (NotFound) as e:
+            except (tk.ObjectNotFound) as e:
                 local_dataset = {}
                 log.info(
                     "-- Package ID %s (%s) does not exist locally"
                     % (package_dict["id"], package_dict["name"])
                 )
 
-            ignore_private = toolkit.asbool(
+            ignore_private = tk.asbool(
                 self.config.get("ignore_private_datasets", False)
             )
             # DATAVIC-94 - Even if a dataset is marked Private we need to check if it exists locally in CKAN
             # If it exists then it needs to be removed
-            if ignore_private and toolkit.asbool(package_dict["private"]) is True:
+            if ignore_private and tk.asbool(package_dict["private"]) is True:
                 if local_dataset:
                     if not local_dataset["state"] == "deleted":
-                        get_action("package_delete")(
+                        tk.get_action("package_delete")(
                             base_context.copy(), {"id": local_dataset["id"]}
                         )
                         package_index = PackageSearchIndex()
@@ -132,7 +127,7 @@ class DataVicCKANHarvester(CKANHarvester):
                 if len(package_dict["groups"]) > 1:
                     package_group_names = [x["name"] for x in package_dict["groups"]]
                     # Get all the groups in CKAN
-                    ckan_groups = get_action("group_list")(base_context.copy(), {})
+                    ckan_groups = tk.get_action("group_list")(base_context.copy(), {})
                     for group_name in package_group_names:
                         if group_name in ckan_groups:
                             package_dict["groups"] = [
@@ -147,26 +142,26 @@ class DataVicCKANHarvester(CKANHarvester):
                         try:
                             if "id" in group_:
                                 data_dict = {"id": group_["id"]}
-                                group = get_action("group_show")(
+                                group = tk.get_action("group_show")(
                                     base_context.copy(), data_dict
                                 )
                             else:
-                                raise NotFound
+                                raise tk.ObjectNotFound
 
-                        except NotFound as e:
+                        except tk.ObjectNotFound as e:
                             if "name" in group_:
                                 data_dict = {"id": group_["name"]}
-                                group = get_action("group_show")(
+                                group = tk.get_action("group_show")(
                                     base_context.copy(), data_dict
                                 )
                             else:
-                                raise NotFound
+                                raise tk.ObjectNotFound
                         # Found local group
                         validated_groups.append(
                             {"id": group["id"], "name": group["name"]}
                         )
 
-                    except NotFound as e:
+                    except tk.ObjectNotFound as e:
                         log.info("Group %s is not available", group_)
                         if remote_groups == "create":
                             try:
@@ -188,7 +183,7 @@ class DataVicCKANHarvester(CKANHarvester):
                             ]:
                                 group.pop(key, None)
 
-                            get_action("group_create")(base_context.copy(), group)
+                            tk.get_action("group_create")(base_context.copy(), group)
                             log.info("Group %s has been newly created", group_)
                             validated_groups.append(
                                 {"id": group["id"], "name": group["name"]}
@@ -197,7 +192,7 @@ class DataVicCKANHarvester(CKANHarvester):
                 package_dict["groups"] = validated_groups
 
             # Local harvest source organization
-            source_dataset = get_action("package_show")(
+            source_dataset = tk.get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
             local_org = source_dataset.get("owner_org")
@@ -218,11 +213,11 @@ class DataVicCKANHarvester(CKANHarvester):
                 if remote_org:
                     try:
                         data_dict = {"id": remote_org}
-                        org = get_action("organization_show")(
+                        org = tk.get_action("organization_show")(
                             base_context.copy(), data_dict
                         )
                         validated_org = org["id"]
-                    except NotFound as e:
+                    except tk.ObjectNotFound as e:
                         log.info("Organization %s is not available", remote_org)
                         if remote_orgs == "create":
                             try:
@@ -239,14 +234,14 @@ class DataVicCKANHarvester(CKANHarvester):
 
                                 # DATAVIC-8: Try and find a local org with the same name first..
                                 try:
-                                    matching_local_org = get_action(
+                                    matching_local_org = tk.get_action(
                                         "organization_show"
                                     )(base_context.copy(), {"id": org["name"]})
                                     log.info(
                                         "Found local org matching name: " + org["name"]
                                     )
                                     validated_org = matching_local_org["id"]
-                                except NotFound as e:
+                                except tk.ObjectNotFound as e:
                                     log.info(
                                         "Did NOT find local org matching name: "
                                         + org["name"]
@@ -263,7 +258,7 @@ class DataVicCKANHarvester(CKANHarvester):
                                         "type",
                                     ]:
                                         org.pop(key, None)
-                                    get_action("organization_create")(
+                                    tk.get_action("organization_create")(
                                         base_context.copy(), org
                                     )
                                     log.info(
@@ -271,7 +266,7 @@ class DataVicCKANHarvester(CKANHarvester):
                                         remote_org,
                                     )
                                     validated_org = org["id"]
-                            except (RemoteResourceError, ValidationError):
+                            except (RemoteResourceError, tk.ValidationError):
                                 log.error("Could not get remote org %s", remote_org)
 
                 package_dict["owner_org"] = validated_org or local_org
@@ -309,7 +304,7 @@ class DataVicCKANHarvester(CKANHarvester):
                     if existing_extra:
                         package_dict["extras"].remove(existing_extra)
                     # Look for replacement strings
-                    if isinstance(value, six.string_types):
+                    if isinstance(value, str):
                         value = value.format(
                             harvest_source_id=harvest_object.job.source.id,
                             harvest_source_url=harvest_object.job.source.url.strip("/"),
@@ -397,7 +392,7 @@ class DataVicCKANHarvester(CKANHarvester):
 
             return result
 
-        except (ValidationError) as e:
+        except (tk.ValidationError) as e:
             self._save_object_error(
                 "Invalid package with GUID %s: %r"
                 % (harvest_object.guid, e.error_dict),
@@ -476,7 +471,7 @@ class DataVicCKANHarvester(CKANHarvester):
 
     def get_paths_from_resource_id(self, resource_id):
         # Our base path for storing resource files
-        resources_path = "/".join([config.get("ckan.storage_path"), "resources"])
+        resources_path = "/".join([tk.config.get("ckan.storage_path"), "resources"])
 
         # Separate the resource ID into the necessary chunks for filestore resource directory structure
         parent_dir = "/".join([resources_path, resource_id[0:3]])

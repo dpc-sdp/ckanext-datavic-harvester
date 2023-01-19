@@ -1,21 +1,18 @@
-from datetime import datetime
 import json
 import logging
-import requests
 import traceback
 import uuid
 import re
-import six
+
+import requests
 
 from ckan import logic
 from ckan import model
-from ckan import plugins as p
+from ckan.plugins import toolkit as tk
+
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
-from hashlib import sha1
-from ckan.plugins import toolkit as toolkit
-
-import ckanext.datavicmain.helpers as helpers
+from ckanext.datavicmain import helpers
 
 
 log = logging.getLogger(__name__)
@@ -57,7 +54,7 @@ def convert_date_to_isoformat(value):
         # Remove any microseconds
         value = value.split(".")[0]
         if "t" in value:
-            date = p.toolkit.get_converter("isodate")(value, {})
+            date = tk.get_converter("isodate")(value, {})
     except Exception as ex:
         log.debug("Date format incorrect {0}".format(value))
         log.debug(ex)
@@ -178,7 +175,7 @@ class MetaShareHarvester(HarvesterBase):
                         "default_groups must be a *list* of group" " names/ids"
                     )
                 if config_obj["default_groups"] and not isinstance(
-                    config_obj["default_groups"][0], six.string_types
+                    config_obj["default_groups"][0], str
                 ):
                     raise ValueError(
                         "default_groups must be a list of group "
@@ -186,17 +183,17 @@ class MetaShareHarvester(HarvesterBase):
                     )
 
                 # Check if default groups exist
-                context = {"model": model, "user": toolkit.g.user}
+                context = {"model": model, "user": tk.g.user}
                 config_obj["default_group_dicts"] = []
                 for group_name_or_id in config_obj["default_groups"]:
                     try:
-                        group = toolkit.get_action("group_show")(
+                        group = tk.get_action("group_show")(
                             context, {"id": group_name_or_id}
                         )
                         # save the dict to the config object, as we'll need it
                         # in the import_stage of every dataset
                         config_obj["default_group_dicts"].append(group)
-                    except toolkit.ObjectNotFound:
+                    except tk.ObjectNotFound:
                         raise ValueError("Default group not found")
                 config = json.dumps(config_obj)
             else:
@@ -562,7 +559,7 @@ class MetaShareHarvester(HarvesterBase):
         if status == "delete":
             # Delete package
 
-            p.toolkit.get_action("package_delete")(
+            tk.get_action("package_delete")(
                 context, {"id": harvest_object.package_id}
             )
             log.info(
@@ -644,7 +641,7 @@ class MetaShareHarvester(HarvesterBase):
                 action = "package_create" if status == "new" else "package_update"
                 message_status = "Created" if status == "new" else "Updated"
 
-                package_id = p.toolkit.get_action(action)(context, package_dict)
+                package_id = tk.get_action(action)(context, package_dict)
                 log.info("%s dataset with id %s", message_status, package_id)
 
         except Exception as e:

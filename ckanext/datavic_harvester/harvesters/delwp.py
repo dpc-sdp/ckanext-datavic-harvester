@@ -1,21 +1,20 @@
-from datetime import datetime
 import json
 import logging
-import requests
 import traceback
 import uuid
 import re
-import six
+
+import requests
 from bs4 import BeautifulSoup
 
-from ckan import logic
 from ckan import model
+from ckan.plugins import toolkit as tk
+from ckan.logic.schema import default_create_package_schema
+
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
-from hashlib import sha1
-from ckan.plugins import toolkit as toolkit
+from ckanext.datavicmain import helpers
 
-import ckanext.datavicmain.helpers as helpers
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ def convert_date_to_isoformat(value, key, dataset_name):
     try:
         # Remove any timezone with time
         value = value.lower().split("t")[0]
-        date = toolkit.get_converter("isodate")(value, {})
+        date = tk.get_converter("isodate")(value, {})
     except Exception as ex:
         log.debug(
             "{0}: Date format incorrect {1} for key {2}".format(
@@ -129,18 +128,18 @@ def _get_organisation(organisation_mapping, resowner, harvest_object, context):
                 "include_tags": False,
                 "include_followers": False,
             }
-            organisation = toolkit.get_action("organization_show")(
+            organisation = tk.get_action("organization_show")(
                 context.copy(), data_dict
             )
             org_id = organisation.get("id")
-        except toolkit.ObjectNotFound:
+        except tk.ObjectNotFound:
             log.warning(
                 f"DELWP harvester _get_organisation: Organisation does not exist {org_id}"
             )
             # Organisation does not exist so create it and use it
             try:
                 # organization_create will return organisation id because context has 'return_id_only' to true
-                org_id = toolkit.get_action("organization_create")(
+                org_id = tk.get_action("organization_create")(
                     context.copy(), {"name": org_name, "title": org_title}
                 )
             except Exception as e:
@@ -149,7 +148,7 @@ def _get_organisation(organisation_mapping, resowner, harvest_object, context):
                 )
                 log.error(f"DELWP harvester _get_organisation: {str(e)}")
                 # Fallback to using organisation from harvest source
-                source_dict = logic.get_action("package_show")(
+                source_dict = tk.get_action("package_show")(
                     context.copy(), {"id": harvest_object.harvest_source_id}
                 )
                 org_id = source_dict.get("owner_org")
@@ -247,14 +246,14 @@ class DelwpHarvester(HarvesterBase):
 
         try:
             config_obj = json.loads(config)
-            context = {"model": model, "user": toolkit.g.user}
+            context = {"model": model, "user": tk.g.user}
             if "default_groups" in config_obj:
                 if not isinstance(config_obj["default_groups"], list):
                     raise ValueError(
                         "default_groups must be a *list* of group" " names/ids"
                     )
                 if config_obj["default_groups"] and not isinstance(
-                    config_obj["default_groups"][0], six.string_types
+                    config_obj["default_groups"][0], str
                 ):
                     raise ValueError(
                         "default_groups must be a list of group "
@@ -265,13 +264,13 @@ class DelwpHarvester(HarvesterBase):
                 config_obj["default_group_dicts"] = []
                 for group_name_or_id in config_obj["default_groups"]:
                     try:
-                        group = toolkit.get_action("group_show")(
+                        group = tk.get_action("group_show")(
                             context.copy(), {"id": group_name_or_id}
                         )
                         # save the dict to the config object, as we'll need it
                         # in the import_stage of every dataset
                         config_obj["default_group_dicts"].append(group)
-                    except toolkit.ObjectNotFound:
+                    except tk.ObjectNotFound:
                         raise ValueError("Default group not found")
                 config = json.dumps(config_obj)
             else:
@@ -320,10 +319,10 @@ class DelwpHarvester(HarvesterBase):
                             'organisation_mapping item must have property *org-name*. eg "org-name": "organisation-a"}'
                         )
                     try:
-                        group = toolkit.get_action("organization_show")(
+                        group = tk.get_action("organization_show")(
                             context.copy(), {"id": organisation_mapping.get("org-name")}
                         )
-                    except toolkit.ObjectNotFound:
+                    except tk.ObjectNotFound:
                         raise ValueError(
                             f'Organisation {organisation_mapping.get("org-name")} not found'
                         )
@@ -753,7 +752,7 @@ class DelwpHarvester(HarvesterBase):
         if status == "delete":
             # Delete package
 
-            toolkit.get_action("package_delete")(
+            tk.get_action("package_delete")(
                 context.copy(), {"id": harvest_object.package_id}
             )
             log.info(
@@ -809,7 +808,7 @@ class DelwpHarvester(HarvesterBase):
 
         try:
             if status == "new":
-                package_schema = logic.schema.default_create_package_schema()
+                package_schema = default_create_package_schema()
                 context["schema"] = package_schema
 
                 # We need to explicitly provide a package ID
@@ -836,7 +835,7 @@ class DelwpHarvester(HarvesterBase):
                 message_status = "Created" if status == "new" else "Updated"
                 if "package" in context:
                     del context["package"]
-                package_id = toolkit.get_action(action)(context.copy(), package_dict)
+                package_id = tk.get_action(action)(context.copy(), package_dict)
                 log.info("%s dataset with id %s", message_status, package_id)
 
         except Exception as e:

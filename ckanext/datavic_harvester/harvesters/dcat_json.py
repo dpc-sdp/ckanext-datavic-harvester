@@ -1,15 +1,17 @@
 import json
-import six
 import logging
 
-from ckan import model
-from ckan.logic import ValidationError, NotFound, get_action
-from ckan.plugins import toolkit
 from bs4 import BeautifulSoup
-from ckanext.datavic_harvester import bs4_helpers, helpers
+
+from ckan import model
+from ckan.plugins import toolkit as tk
+
 from ckanext.dcat import converters
 from ckanext.dcat.harvesters._json import DCATJSONHarvester
 from ckanext.harvest.model import HarvestSource
+
+from ckanext.datavic_harvester import bs4_helpers, helpers
+
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +49,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                         "default_groups must be a *list* of group" " names/ids"
                     )
                 if config_obj["default_groups"] and not isinstance(
-                    config_obj["default_groups"][0], six.string_types
+                    config_obj["default_groups"][0], str
                 ):
                     raise ValueError(
                         "default_groups must be a list of group "
@@ -55,11 +57,11 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                     )
 
                 # Check if default groups exist
-                context = {"model": model, "user": toolkit.c.user}
+                context = {"model": model, "user": tk.g.user}
                 config_obj["default_group_dicts"] = []
                 for group_name_or_id in config_obj["default_groups"]:
                     try:
-                        group = get_action("group_show")(
+                        group = tk.get_action("group_show")(
                             context, {"id": group_name_or_id}
                         )
                         # save the dict to the config object, as we'll need it
@@ -67,7 +69,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                         config_obj["default_group_dicts"].append(
                             {"id": group["id"], "name": group["name"]}
                         )
-                    except NotFound as e:
+                    except tk.ObjectNotFound as e:
                         raise ValueError("Default group not found")
                 config = json.dumps(config_obj, indent=1)
 
@@ -319,4 +321,4 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
                 "Found more than one dataset with the same guid: {0}".format(guid)
             )
         context = {"user": self._get_user_name(), "ignore_auth": True}
-        return toolkit.get_action("package_show")(context, {"id": datasets[0][0]})
+        return tk.get_action("package_show")(context, {"id": datasets[0][0]})

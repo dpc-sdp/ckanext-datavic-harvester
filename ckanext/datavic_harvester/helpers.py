@@ -4,6 +4,7 @@ from ckan import plugins as p
 
 log = logging.getLogger(__name__)
 
+
 def convert_date_to_isoformat(value):
     """
     Example dates:
@@ -15,10 +16,10 @@ def convert_date_to_isoformat(value):
     date = None
     try:
         # Remove any microseconds
-        value = value.split('.')[0]
-        if 't' in value.lower():
-            date = p.toolkit.get_converter('isodate')(value, {})
+        value = value.split(".")[0]
+        if "t" in value.lower():
+            date = p.toolkit.get_converter("isodate")(value, {})
     except p.toolkit.Invalid as ex:
-        log.debug('Date format incorrect {0}'.format(value))
+        log.debug("Date format incorrect {0}".format(value))
     # TODO: Do we return None or value if date string cannot be converted?
     return date.isoformat() if date else None

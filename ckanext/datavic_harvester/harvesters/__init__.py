@@ -1,3 +1,4 @@
 from ckanext.datavic_harvester.harvesters._json import DataVicDCATJSONHarvester
 from ckanext.datavic_harvester.harvesters.metashare import MetaShareHarvester
 from ckanext.datavic_harvester.harvesters.delwp import DelwpHarvester
+from ckanext.datavic_harvester.harvesters.ods import DataVicODSHarvester

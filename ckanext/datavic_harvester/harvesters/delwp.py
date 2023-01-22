@@ -136,6 +136,14 @@ def _get_organisation(organisation_mapping, resowner, harvest_object, context):
                 org_id = source_dict.get('owner_org')
         return org_id
 
+def clean_resource_name(name):
+    '''
+     Replace underscores (_) with spaces to avoid braking words
+    '''
+    # convert underscores to spaces
+    name = re.sub('_', ' ', name)
+
+    return name
 
 def clean_resource_name(name):
     '''

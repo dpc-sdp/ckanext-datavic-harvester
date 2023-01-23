@@ -1,191 +1,55 @@
+from __future__ import annotations
+
 import json
 import logging
 import traceback
 import uuid
+from typing import Optional, Any
 
-import requests
-
-from ckan import logic
 from ckan import model
 from ckan.plugins import toolkit as tk
+from ckan.logic.schema import default_create_package_schema
 
-from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from ckanext.datavicmain import helpers
 
-from ckanext.datavic_harvester.helpers import convert_date_str_to_isoformat, get_from_to
+from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester
+from ckanext.datavic_harvester.helpers import convert_date_to_isoformat, get_from_to
 
 
 log = logging.getLogger(__name__)
 
 
-def get_tags(value):
-    tags = []
-    if isinstance(value, list):
-        for tag in value:
-            tags.append({"name": tag})
-    else:
-        tags.append({"name": value})
-
-    return tags
-
-
-def get_datavic_update_frequencies():
-    return helpers.field_choices("update_frequency")
-
-
-def map_update_frequency(datavic_update_frequencies, value):
-    # Check if the value from SDM matches one of those, if so just return original value
-    for frequency in datavic_update_frequencies:
-        if frequency["label"].lower() == value.lower():
-            return frequency["value"]
-
-    # Otherwise return the default of 'unknown'
-    return "unknown"
-
-
-class MetaShareHarvester(HarvesterBase):
-
-    config = None
-    force_import = False
-
-    # Copied from `ckanext/harvest/harvesters/ckanharvester.py`
-    def _set_config(self, config_str):
-        if config_str:
-            self.config = json.loads(config_str)
-            if "api_version" in self.config:
-                self.api_version = int(self.config["api_version"])
-
-            log.debug("Using config: %r", self.config)
-        else:
-            self.config = {}
-
-    # Copied from `ckanext/dcat/harvesters/base.py`
-    def _get_object_extra(self, harvest_object, key):
-        """
-        Helper function for retrieving the value from a harvest object extra,
-        given the key
-        """
-        for extra in harvest_object.extras:
-            if extra.key == key:
-                return extra.value
-        return None
-
-    # Copied from `ckanext/dcat/harvesters/base.py`
-    def _get_package_name(self, harvest_object, title):
-
-        package = harvest_object.package
-        if package is None or package.title != title:
-            name = self._gen_new_name(title)
-            if not name:
-                raise Exception(
-                    "Could not generate a unique name from the title or the "
-                    "GUID. Please choose a more unique title."
-                )
-        else:
-            name = package.name
-
-        return name
-
+class MetaShareHarvester(DataVicBaseHarvester):
     def info(self):
         return {
             "name": "metashare",
             "title": "MetaShare Harvester",
-            "description": "Harvester for MetaShare dataset descriptions "
-            + "serialized as JSON",
+            "description": "Harvester for MetaShare dataset descriptions serialized as JSON",
         }
 
-    def validate_config(self, config):
-        """
-        Harvesters can provide this method to validate the configuration
-        entered in the form. It should return a single string, which will be
-        stored in the database.  Exceptions raised will be shown in the form's
-        error messages.
-
-        Validates the default_group entered exists and creates default_group_dicts
-
-        :param harvest_object_id: Config string coming from the form
-        :returns: A string with the validated configuration options
-        """
-        if not config:
-            raise ValueError("No config options set")
-        {
-            "default_groups": ["spatial-data"],
-            "full_metadata_url_prefix": "https://metashare.maps.vic.gov.au/geonetwork/srv/api/records/{UUID}/formatters/sdm-html?root=html&output=html",
-            "resource_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
-            "resource_attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
-            "license_id": "cc-by",
-        }
-        try:
-            config_obj = json.loads(config)
-
-            if "default_groups" in config_obj:
-                if not isinstance(config_obj["default_groups"], list):
-                    raise ValueError(
-                        "default_groups must be a *list* of group" " names/ids"
-                    )
-                if config_obj["default_groups"] and not isinstance(
-                    config_obj["default_groups"][0], str
-                ):
-                    raise ValueError(
-                        "default_groups must be a list of group "
-                        "names/ids (i.e. strings)"
-                    )
-
-                # Check if default groups exist
-                context = {"model": model, "user": tk.g.user}
-                config_obj["default_group_dicts"] = []
-                for group_name_or_id in config_obj["default_groups"]:
-                    try:
-                        group = tk.get_action("group_show")(
-                            context, {"id": group_name_or_id}
-                        )
-                        # save the dict to the config object, as we'll need it
-                        # in the import_stage of every dataset
-                        config_obj["default_group_dicts"].append(group)
-                    except tk.ObjectNotFound:
-                        raise ValueError("Default group not found")
-                config = json.dumps(config_obj)
-            else:
-                raise ValueError("default_groups must be set")
-
-            if "full_metadata_url_prefix" not in config_obj:
-                raise ValueError("full_metadata_url_prefix must be set")
-
-            if "{UUID}" not in config_obj.get("full_metadata_url_prefix", ""):
-                raise ValueError(
-                    "full_metadata_url_prefix must have the {UUID} identifier in the URL"
-                )
-
-            if "resource_url_prefix" not in config_obj:
-                raise ValueError("resource_url_prefix must be set")
-
-            if "license_id" not in config_obj:
-                raise ValueError("license_id must be set")
-
-            if "resource_attribution" not in config_obj:
-                raise ValueError("resource_attribution must be set")
-        except ValueError as e:
-            raise e
-
-        return config
-
-    def _get_page_of_records(self, url, page, datasets_per_page=100):
+    def _get_page_of_records(
+        self, url: str, page: int, datasets_per_page: int = 100
+    ) -> Optional[list[dict[str, Any]]]:
         _from, _to = get_from_to(page, datasets_per_page)
         records = None
-        try:
-            request_url = f"{url}?from={_from}&to={_to}&_content_type=json&fast=index"
-            log.debug(f"Getting page of records {request_url}")
-            r = requests.get(request_url)
 
-            if r.status_code == 200:
-                data = json.loads(r.text)
+        request_url = f"{url}?from={_from}&to={_to}&_content_type=json&fast=index"
+        log.debug(f"Getting page of records {request_url}")
 
-                # Records are contained in the "metadata" element of the response JSON
-                # see example: https://dev-metashare.maps.vic.gov.au/geonetwork/srv/en/q?from=1&to=1&_content_type=json&fast=index
-                records = data.get("metadata", None)
-        except Exception as e:
-            log.error(e)
+        resp_text: Optional[str] = self._make_request(
+            request_url, {"Authorization": api_auth}
+        )
+
+        if not resp_text:
+            return records
+
+        if r.status_code == 200:
+            data = json.loads(r.text)
+
+            # Records are contained in the "metadata" element of the response JSON
+            # see example: https://dev-metashare.maps.vic.gov.au/geonetwork/srv/en/q?from=1&to=1&_content_type=json&fast=index
+            records = data.get("metadata")
 
         return records
 
@@ -210,8 +74,8 @@ class MetaShareHarvester(HarvesterBase):
             as_string = json.dumps(dataset)
 
             # Get identifier
-            geonet_info = dataset.get("geonet:info", None)
-            guid = geonet_info.get("uuid", None)
+            geonet_info = dataset.get("geonet:info")
+            guid = geonet_info.get("uuid")
 
             yield guid, as_string
 
@@ -228,13 +92,13 @@ class MetaShareHarvester(HarvesterBase):
 
         uuid = harvest_object.guid
 
-        full_metadata_url_prefix = self.config.get("full_metadata_url_prefix", None)
+        full_metadata_url_prefix = self.config.get("full_metadata_url_prefix")
         full_metadata_url = (
             full_metadata_url_prefix.format(**{"UUID": uuid})
             if full_metadata_url_prefix
             else ""
         )
-        resource_url_prefix = self.config.get("resource_url_prefix", None)
+        resource_url_prefix = self.config.get("resource_url_prefix")
         resource_url = f"{resource_url_prefix}{uuid}" if resource_url_prefix else ""
 
         package_dict = {}
@@ -245,7 +109,7 @@ class MetaShareHarvester(HarvesterBase):
         package_dict["protective_marking"] = "official"
         package_dict["access"] = "yes"
 
-        package_dict["title"] = metashare_dict.get("title", None)
+        package_dict["title"] = metashare_dict.get("title")
 
         # 'xmlcharrefreplace'	- replaces the character with an xml character
         package_dict["notes"] = metashare_dict.get("abstract", "").encode(
@@ -253,7 +117,7 @@ class MetaShareHarvester(HarvesterBase):
         )
 
         # Get organisation from the harvest source organisation dropdown
-        source_dict = logic.get_action("package_show")(
+        source_dict = tk.get_action("package_show")(
             {}, {"id": harvest_object.harvest_source_id}
         )
         package_dict["owner_org"] = source_dict.get("owner_org")
@@ -263,7 +127,7 @@ class MetaShareHarvester(HarvesterBase):
 
         # Tags / Keywords
         # `topicCat` can either be a single tag as a string or a list of tags
-        topic_cat = metashare_dict.get("topicCat", None)
+        topic_cat = metashare_dict.get("topicCat")
         if topic_cat:
             package_dict["tags"] = get_tags(topic_cat)
 
@@ -279,13 +143,13 @@ class MetaShareHarvester(HarvesterBase):
         # The response from SDM was:
         #       "We could either add Custodian to the Q Search results or just use resource owner. Given that it is
         #       not publically displayed in DV, not sure it's worth the effort of adding the custodian"
-        res_owner = metashare_dict.get("resOwner", None)
+        res_owner = metashare_dict.get("resOwner")
         if res_owner:
             package_dict["data_owner"] = res_owner.split(";")[0]
 
         # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
         # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
-        default_group_dicts = self.config.get("default_group_dicts", None)
+        default_group_dicts = self.config.get("default_group_dicts")
         if default_group_dicts and isinstance(default_group_dicts, list):
             package_dict["groups"] = [
                 {"id": group.get("id")} for group in default_group_dicts
@@ -294,13 +158,13 @@ class MetaShareHarvester(HarvesterBase):
             if category:
                 package_dict["category"] = category.get("id")
 
-        package_dict["date_created_data_asset"] = convert_date_str_to_isoformat(
+        package_dict["date_created_data_asset"] = convert_date_to_isoformat(
             metashare_dict.get("tempExtentBegin"),
             "tempExtentBegin",
             package_dict["title"],
         )
 
-        package_dict["date_modified_data_asset"] = convert_date_str_to_isoformat(
+        package_dict["date_modified_data_asset"] = convert_date_to_isoformat(
             metashare_dict.get("revisionDate"),
             "revisionDate",
             package_dict["title"],
@@ -317,13 +181,13 @@ class MetaShareHarvester(HarvesterBase):
         # Create a single resource for the dataset
         resource = {
             "name": metashare_dict.get("altTitle") or metashare_dict.get("title"),
-            "format": metashare_dict.get("spatialRepresentationType_text", None),
-            "period_start": convert_date_str_to_isoformat(
+            "format": metashare_dict.get("spatialRepresentationType_text"),
+            "period_start": convert_date_to_isoformat(
                 metashare_dict.get("tempExtentBegin"),
                 "tempExtentBegin",
                 metashare_dict.get("altTitle") or metashare_dict.get("title"),
             ),
-            "period_end": convert_date_str_to_isoformat(
+            "period_end": convert_date_to_isoformat(
                 metashare_dict.get("tempExtentEnd"),
                 "tempExtentEnd",
                 metashare_dict.get("altTitle") or metashare_dict.get("title"),
@@ -331,7 +195,7 @@ class MetaShareHarvester(HarvesterBase):
             "url": resource_url,
         }
 
-        attribution = self.config.get("resource_attribution", None)
+        attribution = self.config.get("resource_attribution")
         if attribution:
             resource["attribution"] = attribution
 
@@ -345,14 +209,8 @@ class MetaShareHarvester(HarvesterBase):
         return package_dict
 
     def gather_stage(self, harvest_job):
-
         log.debug("In MetaShareHarvester gather_stage")
 
-        #
-        # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
-        # @TODO: Move this into a separate function for readability
-        # (except the `ids = []` & `guids_in_source = []` lines)
-        #
         ids = []
 
         # Get the previous guids for this source
@@ -467,9 +325,6 @@ class MetaShareHarvester(HarvesterBase):
         # END: This section is copied from ckanext/dcat/harvesters/_json.py
         #
 
-    def fetch_stage(self, harvest_object):
-        return True
-
     def import_stage(self, harvest_object):
         """
         Mostly copied from `ckanext/dcat/harvesters/_json.py`
@@ -482,10 +337,7 @@ class MetaShareHarvester(HarvesterBase):
             log.error("No harvest object received")
             return False
 
-        if self.force_import:
-            status = "change"
-        else:
-            status = self._get_object_extra(harvest_object, "status")
+        status = self._get_object_extra(harvest_object, "status")
 
         context = {
             "user": self._get_user_name(),
@@ -530,7 +382,7 @@ class MetaShareHarvester(HarvesterBase):
         )
 
         # Flag previous object as not current anymore
-        if previous_object and not self.force_import:
+        if previous_object:
             previous_object.current = False
             previous_object.add()
 
@@ -550,7 +402,7 @@ class MetaShareHarvester(HarvesterBase):
 
         try:
             if status == "new":
-                package_schema = logic.schema.default_create_package_schema()
+                package_schema = default_create_package_schema()
                 context["schema"] = package_schema
 
                 # We need to explicitly provide a package ID
@@ -594,3 +446,28 @@ class MetaShareHarvester(HarvesterBase):
             model.Session.commit()
 
         return True
+
+
+def get_tags(value):
+    tags = []
+    if isinstance(value, list):
+        for tag in value:
+            tags.append({"name": tag})
+    else:
+        tags.append({"name": value})
+
+    return tags
+
+
+def get_datavic_update_frequencies():
+    return helpers.field_choices("update_frequency")
+
+
+def map_update_frequency(datavic_update_frequencies, value):
+    # Check if the value from SDM matches one of those, if so just return original value
+    for frequency in datavic_update_frequencies:
+        if frequency["label"].lower() == value.lower():
+            return frequency["value"]
+
+    # Otherwise return the default of 'unknown'
+    return "unknown"

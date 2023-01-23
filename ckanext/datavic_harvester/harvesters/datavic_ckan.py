@@ -19,11 +19,6 @@ class DataVicCKANHarvester(CKANHarvester):
     A Harvester for CKAN Data.Vic instances
     """
 
-    config = None
-
-    api_version = 2
-    action_api_version = 3
-
     def info(self):
         return {
             "name": "datavic_ckan_harvester",
@@ -65,7 +60,8 @@ class DataVicCKANHarvester(CKANHarvester):
                 local_dataset = {}
                 log.info(
                     "-- Package ID %s (%s) does not exist locally",
-                    package_dict["id"], package_dict["name"]
+                    package_dict["id"],
+                    package_dict["name"],
                 )
 
             ignore_private = tk.asbool(
@@ -404,10 +400,10 @@ class DataVicCKANHarvester(CKANHarvester):
     def copy_remote_file_to_filestore(self, resource_id, resource_url, apikey=None):
         try:
             (
-                resources_path,
+                _,
                 parent_dir,
                 sub_dir,
-                filename,
+                _,
                 full_path,
             ) = self.get_paths_from_resource_id(resource_id)
 

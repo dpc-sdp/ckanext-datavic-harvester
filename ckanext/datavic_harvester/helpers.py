@@ -112,8 +112,8 @@ def fetch_update_frequency(full_metadata_url: str) -> str:
     return update_frequency
 
 
-def convert_date_str_to_isoformat(
-    value: str, key: str, dataset_name: str, with_tz=False
+def convert_date_to_isoformat(
+    value: Optional[str], key: str, dataset_name: Optional[str], with_tz=False
 ) -> Optional[str]:
     """Convert a date string to isoformat
 
@@ -161,16 +161,16 @@ def get_from_to(page: int, datasets_per_page: int) -> tuple[int, int]:
     return _from, _to
 
 
-def munge_title_to_name(package_title: str) -> str:
-    """Munge a package title into a package name
+def munge_title_to_name(value: str) -> str:
+    """Munge a title into a name
 
     Args:
-        package_title (str): package_title
+        value (str): title
 
     Returns:
-        str: package name
+        str: name
     """
-    name = re.sub("[ .:/,]", "-", package_title)
+    name = re.sub("[ .:/,]", "-", value)
     name = re.sub("[^a-zA-Z0-9-_]", "", name).lower()
     name = re.sub("[-]+", "-", name)
     return name.strip("-")[:99]

@@ -1,22 +1,25 @@
+from __future__ import annotations
+
 import json
 import logging
 import traceback
 import uuid
 import re
+from typing import Iterator, Optional, Any, Union
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag, NavigableString
 
 from ckan import model
 from ckan.plugins import toolkit as tk
 from ckan.logic.schema import default_create_package_schema
 
-from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from ckanext.datavicmain import helpers
 
+from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester
 from ckanext.datavic_harvester.helpers import (
-    convert_date_str_to_isoformat,
+    convert_date_to_isoformat,
     get_from_to,
     munge_title_to_name,
 )
@@ -25,628 +28,119 @@ from ckanext.datavic_harvester.helpers import (
 log = logging.getLogger(__name__)
 
 
-def get_tags(value):
-    tags = []
-    value = re.split(";|,", value)
-    if isinstance(value, list):
-        for tag in value:
-            tags.append({"name": tag})
-    else:
-        tags.append({"name": value})
-
-    return tags
-
-
-def get_datavic_update_frequencies():
-    return helpers.field_choices("update_frequency")
-
-
-def map_update_frequency(datavic_update_frequencies, value):
-    # Check if the value from SDM matches one of those, if so just return original value
-    for frequency in datavic_update_frequencies:
-        if frequency["label"].lower() == value.lower():
-            return frequency["value"]
-
-    # Otherwise return the default of 'unknown'
-    return "unknown"
-
-
-def _get_organisation(organisation_mapping, resowner, harvest_object, context):
-    org_name = next(
-        (
-            organisation.get("org-name")
-            for organisation in organisation_mapping
-            if organisation.get("resowner") == resowner
-        ),
-        None,
-    )
-    if org_name:
-        return org_name
-    else:
-        # No mapping found, see if the organisation exist
-        log.warning(
-            f"DELWP harvester _get_organisation: No mapping found for resowner {resowner}"
-        )
-        org_title = resowner
-        org_name = munge_title_to_name(org_title)
-        org_id = None
-        try:
-            data_dict = {
-                "id": org_name,
-                "include_dataset_count": False,
-                "include_extras": False,
-                "include_users": False,
-                "include_groups": False,
-                "include_tags": False,
-                "include_followers": False,
-            }
-            organisation = tk.get_action("organization_show")(context.copy(), data_dict)
-            org_id = organisation.get("id")
-        except tk.ObjectNotFound:
-            log.warning(
-                f"DELWP harvester _get_organisation: Organisation does not exist {org_id}"
-            )
-            # Organisation does not exist so create it and use it
-            try:
-                # organization_create will return organisation id because context has 'return_id_only' to true
-                org_id = tk.get_action("organization_create")(
-                    context.copy(), {"name": org_name, "title": org_title}
-                )
-            except Exception as e:
-                log.warning(
-                    f"DELWP harvester _get_organisation: Failed to create organisation {org_name}"
-                )
-                log.error(f"DELWP harvester _get_organisation: {str(e)}")
-                # Fallback to using organisation from harvest source
-                source_dict = tk.get_action("package_show")(
-                    context.copy(), {"id": harvest_object.harvest_source_id}
-                )
-                org_id = source_dict.get("owner_org")
-        return org_id
-
-
-def clean_resource_name(name):
-    """
-    Replace underscores (_) with spaces to avoid braking words
-    """
-    # convert underscores to spaces
-    name = re.sub("_", " ", name)
-
-    return name
-
-
-def _generate_geo_resource(layer_data_with_uuid, resource_format, resource_url):
-    resource_data = {
-        "name": layer_data_with_uuid.find_previous("Title").text.upper()
-        + " "
-        + resource_format,
-        "format": resource_format,
-        "url": resource_url.format(
-            layername=layer_data_with_uuid.find_previous("Name").text
-        ),
-    }
-    return resource_data
-
-
-class DelwpHarvester(HarvesterBase):
-
-    config = None
-    force_import = False
-
-    # Copied from `ckanext/harvest/harvesters/ckanharvester.py`
-    def _set_config(self, config_str):
-        if config_str:
-            self.config = json.loads(config_str)
-            if "api_version" in self.config:
-                self.api_version = int(self.config["api_version"])
-
-            log.debug("Using config: %r", self.config)
-        else:
-            self.config = {}
-
-    # Copied from `ckanext/dcat/harvesters/base.py`
-    def _get_object_extra(self, harvest_object, key):
-        """
-        Helper function for retrieving the value from a harvest object extra,
-        given the key
-        """
-        for extra in harvest_object.extras:
-            if extra.key == key:
-                return extra.value
-        return None
-
-    # Copied from `ckanext/dcat/harvesters/base.py`
-    def _get_package_name(self, harvest_object, title):
-
-        package = harvest_object.package
-        if package is None or package.title != title:
-            name = self._gen_new_name(title)
-            if not name:
-                raise Exception(
-                    "Could not generate a unique name from the title or the "
-                    "GUID. Please choose a more unique title."
-                )
-        else:
-            name = package.name
-
-        return name
+class DelwpHarvester(DataVicBaseHarvester):
+    HARVESTER = "DELWP Harvester"
 
     def info(self):
         return {
             "name": "delwp",
-            "title": "DELWP Harvester",
-            "description": "Harvester for DELWP dataset descriptions "
-            + "serialized as JSON",
+            "title": self.HARVESTER,
+            "description": "Harvester for DELWP dataset descriptions serialized as JSON",
         }
 
-    def validate_config(self, config):
-        """
-        Harvesters can provide this method to validate the configuration
-        entered in the form. It should return a single string, which will be
-        stored in the database.  Exceptions raised will be shown in the form's
-        error messages.
+    def validate_config(self, config: Optional[str]):
+        config_obj: dict[str, Any] = super().validate_config(config)
 
-        Validates the default_group entered exists and creates default_group_dicts
+        if "dataset_type" not in config_obj:
+            raise ValueError("dataset_type must be set")
 
-        :param harvest_object_id: Config string coming from the form
-        :returns: A string with the validated configuration options
-        """
-        if not config:
-            raise ValueError("No config options set")
+        if "api_auth" not in config_obj:
+            raise ValueError("api_auth must be set")
 
-        try:
-            config_obj = json.loads(config)
-            context = {"model": model, "user": tk.g.user}
-            if "default_groups" in config_obj:
-                if not isinstance(config_obj["default_groups"], list):
-                    raise ValueError(
-                        "default_groups must be a *list* of group" " names/ids"
-                    )
-                if config_obj["default_groups"] and not isinstance(
-                    config_obj["default_groups"][0], str
-                ):
-                    raise ValueError(
-                        "default_groups must be a list of group "
-                        "names/ids (i.e. strings)"
-                    )
+        if "organisation_mapping" not in config_obj:
+            return config_obj
 
-                # Check if default groups exist
-                config_obj["default_group_dicts"] = []
-                for group_name_or_id in config_obj["default_groups"]:
-                    try:
-                        group = tk.get_action("group_show")(
-                            context.copy(), {"id": group_name_or_id}
-                        )
-                        # save the dict to the config object, as we'll need it
-                        # in the import_stage of every dataset
-                        config_obj["default_group_dicts"].append(group)
-                    except tk.ObjectNotFound:
-                        raise ValueError("Default group not found")
-                config = json.dumps(config_obj)
-            else:
-                raise ValueError("default_groups must be set")
+        if not isinstance(config_obj["organisation_mapping"], list):
+            raise ValueError("organisation_mapping must be a *list* of organisations")
 
-            if "full_metadata_url_prefix" not in config_obj:
-                raise ValueError("full_metadata_url_prefix must be set")
+        for organisation in config_obj["organisation_mapping"]:
+            resowner: Optional[str] = organisation.get("resowner")
+            org_name: Optional[str] = organisation.get("org-name")
 
-            if "{UUID}" not in config_obj.get("full_metadata_url_prefix", ""):
+            if not isinstance(organisation, dict):
                 raise ValueError(
-                    "full_metadata_url_prefix must have the {UUID} identifier in the URL"
+                    'organisation_mapping item must be a *dict*. eg {"resowner": "Organisation A", "org-name": "organisation-a"}'
                 )
 
-            if "resource_url_prefix" not in config_obj:
-                raise ValueError("resource_url_prefix must be set")
+            if not resowner:
+                raise ValueError(
+                    'organisation_mapping item must have property "resowner". eg "resowner": "Organisation A"'
+                )
 
-            if "license_id" not in config_obj:
-                raise ValueError("license_id must be set")
+            if not org_name:
+                raise ValueError(
+                    'organisation_mapping item must have property *org-name*. eg "org-name": "organisation-a"}'
+                )
 
-            if "resource_attribution" not in config_obj:
-                raise ValueError("resource_attribution must be set")
-
-            if "dataset_type" not in config_obj:
-                raise ValueError("dataset_type must be set")
-
-            if "api_auth" not in config_obj:
-                raise ValueError("api_auth must be set")
-
-            if "organisation_mapping" in config_obj:
-                if not isinstance(config_obj["organisation_mapping"], list):
-                    raise ValueError(
-                        "organisation_mapping must be a *list* of organisations"
-                    )
-                # Check if organisation exist
-                for organisation_mapping in config_obj["organisation_mapping"]:
-                    if not isinstance(organisation_mapping, dict):
-                        raise ValueError(
-                            'organisation_mapping item must be a *dict*. eg {"resowner": "Organisation A", "org-name": "organisation-a"}'
-                        )
-                    if not organisation_mapping.get("resowner"):
-                        raise ValueError(
-                            'organisation_mapping item must have property "resowner". eg "resowner": "Organisation A"'
-                        )
-                    if not organisation_mapping.get("org-name"):
-                        raise ValueError(
-                            'organisation_mapping item must have property *org-name*. eg "org-name": "organisation-a"}'
-                        )
-                    try:
-                        group = tk.get_action("organization_show")(
-                            context.copy(), {"id": organisation_mapping.get("org-name")}
-                        )
-                    except tk.ObjectNotFound:
-                        raise ValueError(
-                            f'Organisation {organisation_mapping.get("org-name")} not found'
-                        )
-            else:
-                raise ValueError("organisation_mapping must be set")
-
-            config = json.dumps(config_obj, indent=1)
-        except ValueError as e:
-            raise e
-
-        return config
-
-    def _get_page_of_records(
-        self, url, dataset_type, api_auth, page, datasets_per_page=100
-    ):
-        _from, _to = get_from_to(page, datasets_per_page)
-        records = None
-        try:
-            request_url = (
-                f"{url}?dataset={dataset_type}&start={_from}&rows={_to}&format=json"
-            )
-            log.debug(f"Getting page of records {request_url}")
-
-            r = requests.get(request_url, headers={"Authorization": api_auth})
-
-            if r.status_code == 200:
-                data = json.loads(r.text)
-
-                # Records are contained in the "metadata" element of the response JSON
-                # see example: https://dev-metashare.maps.vic.gov.au/geonetwork/srv/en/q?from=1&to=1&_content_type=json&fast=index
-                records = data.get("records", None)
-        except Exception as e:
-            log.error(e)
-
-        return records
-
-    def _get_guids_and_datasets(self, datasets):
-        """
-        Copied & adapted from ckanext/dcat/harvesters/_json.py
-        - don't json.loads the `datasets` input - it already be a list of dicts
-        - get `uuid` from `geonet:info` property
-        :param content:
-        :return:
-        """
-        if not isinstance(datasets, list):
-            if isinstance(datasets, dict):
-                datasets = [datasets]
-            else:
-                log.debug(f"Datasets data is not a list: {type(datasets)}")
-                raise ValueError("Wrong JSON object")
-
-        for dataset in datasets:
-            fields = dataset.get("fields", {})
-            as_string = json.dumps(fields)
-
-            # Get identifier
-            guid = fields.get("uuid", None)
-
-            yield guid, as_string
-
-    def _get_package_dict(self, harvest_object, context):
-        """
-        Convert the string based content from the harvest_object
-        into a package_dict for a CKAN dataset
-        :param harvest_object:
-        :return:
-        """
-        content = harvest_object.content
-
-        metashare_dict = json.loads(content)
-
-        uuid = harvest_object.guid
-
-        full_metadata_url_prefix = self.config.get("full_metadata_url_prefix", None)
-        full_metadata_url = (
-            full_metadata_url_prefix.format(**{"UUID": uuid})
-            if full_metadata_url_prefix
-            else ""
-        )
-        resource_url_prefix = self.config.get("resource_url_prefix", None)
-        resource_url = f"{resource_url_prefix}{uuid}" if resource_url_prefix else ""
-
-        # Set the package_dict
-        package_dict = {}
-
-        # Mandatory fields where no value exists in MetaShare
-        # So we set them to Data.Vic defaults
-        package_dict["personal_information"] = "no"
-        package_dict["protective_marking"] = "official"
-        package_dict["access"] = "yes"
-        # Set to default values if missing
-        package_dict["organization_visibility"] = "all"
-        package_dict["workflow_status"] = "published"
-
-        package_dict["title"] = metashare_dict.get("title", None)
-
-        package_dict["notes"] = metashare_dict.get("abstract", "")
-
-        # Get organisation from the harvest source organisation_mapping in config
-        package_dict["owner_org"] = _get_organisation(
-            self.config.get("organisation_mapping"),
-            metashare_dict.get("resowner").split(";")[0],
-            harvest_object,
-            context,
-        )
-
-        # Default as discussed with SDM
-        package_dict["license_id"] = self.config.get("license_id", "cc-by")
-
-        # Tags / Keywords
-        # `topicCat` can either be a single tag as a string or a list of tags
-        topic_cat = metashare_dict.get("topiccat", None)
-        if topic_cat:
-            package_dict["tags"] = get_tags(topic_cat)
-
-        # TODO: Is this the right metadata field? Should it be at the resource?
-        # Las Updated  corelates to geonet_info_changedate
-        package_dict["last_updated"] = metashare_dict.get(
-            "geonet_info_changedate", None
-        )
-
-        # TODO: Remove extras to package_dict
-        package_dict["extract"] = f"{package_dict['notes'].split('.')[0]}..."
-
-        # There is no field in Data.Vic schema to store the source UUID of the harvested record
-        # Therefore, we are using the `primary_purpose_of_collection` field
-        if uuid:
-            package_dict["primary_purpose_of_collection"] = uuid
-
-        # @TODO: Consider this - in the field mapping spreadsheet:
-        # https://docs.google.com/spreadsheets/d/112hzp6ZrTnp3fl_ZdmT6oHldUGf36LvEpLswAJDLdr0/edit#gid=1669999637
-        # The response from SDM was:
-        #       "We could either add Custodian to the Q Search results or just use resource owner. Given that it is
-        #       not publically displayed in DV, not sure it's worth the effort of adding the custodian"
-        res_owner = metashare_dict.get("resowner", None)
-        if res_owner:
-            package_dict["data_owner"] = res_owner.split(";")[0]
-
-        # Decision from discussion with Simon/DPC on 2020-10-13 is to assign all datasets to "Spatial Data" group
-        # Data.Vic "category" field is equivalent to groups, but stored as an extra and only has 1 group
-        default_group_dicts = self.config.get("default_group_dicts", None)
-        if default_group_dicts and isinstance(default_group_dicts, list):
-            package_dict["groups"] = [
-                {"id": group.get("id")} for group in default_group_dicts
-            ]
-            category = default_group_dicts[0] if default_group_dicts else None
-            if category:
-                package_dict["category"] = category.get("id")
-
-        # @TODO: Default to UTC now if not available... OR try and get it from somewhere else in the record
-        # date provided seems to be a bit of a mess , e.g. '2013-03-31t13:00:00.000z'
-        # might need to run some regex on this
-        # temp_extent_begin = metashare_dict.get('tempextentbegin', None)
-        date_created_data_asset = convert_date_str_to_isoformat(
-            metashare_dict.get("publicationdate"),
-            "publicationdate",
-            metashare_dict.get("name"),
-        )
-        if not date_created_data_asset:
-            date_created_data_asset = convert_date_str_to_isoformat(
-                metashare_dict.get("geonet_info_createdate"),
-                "geonet_info_createdate",
-                metashare_dict.get("name"),
-            )
-        package_dict["date_created_data_asset"] = date_created_data_asset
-
-        # @TODO: Examples can be "2012-03-27" - do we need to convert this to UTC before inserting?
-        # is a question for SDM - i.e. are their dates in UTC or Vic/Melb time?
-        date_modified_data_asset = convert_date_str_to_isoformat(
-            metashare_dict.get("revisiondate"),
-            "revisiondate",
-            metashare_dict.get("name"),
-        )
-        if not date_modified_data_asset:
-            date_modified_data_asset = convert_date_str_to_isoformat(
-                metashare_dict.get("geonet_info_changedate"),
-                "geonet_info_changedate",
-                metashare_dict.get("name"),
-            )
-        package_dict["date_modified_data_asset"] = date_modified_data_asset
-
-        package_dict["update_frequency"] = map_update_frequency(
-            get_datavic_update_frequencies(),
-            metashare_dict.get("maintenanceandupdatefrequency_text", "unknown"),
-        )
-
-        if full_metadata_url:
-            package_dict["full_metadata_url"] = full_metadata_url
-
-        attribution = self.config.get("resource_attribution", None)
-
-        # Generate resources for the dataset
-        formats = metashare_dict.get("available_formats", None)
-        resources = []
-        if formats:
-            formats = formats.split(",")
-            for format in formats:
-                res = {
-                    "name": metashare_dict.get("alttitle")
-                    or metashare_dict.get("title"),
-                    "format": format,
-                    "period_start": convert_date_str_to_isoformat(
-                        metashare_dict.get("tempextentbegin"),
-                        "tempextentbegin",
-                        metashare_dict.get("name"),
-                    ),
-                    "period_end": convert_date_str_to_isoformat(
-                        metashare_dict.get("tempextentend"),
-                        "tempextentend",
-                        metashare_dict.get("name"),
-                    ),
-                    "url": resource_url,
-                }
-
-                res["name"] = res["name"] + " " + format
-                res["name"] = clean_resource_name(res["name"])
-                if attribution:
-                    res["attribution"] = attribution
-                resources.append(res)
-
-        # Generate additional WMS/WFS resources
-        def _get_content_with_uuid(geoserver_url):
             try:
-                geoserver_response = requests.get(geoserver_url)
-            except requests.exceptions.RequestException as e:
-                log.error(e)
-                return None
-            geoserver_content = BeautifulSoup(geoserver_response.content, "lxml-xml")
-            return geoserver_content.find("Keyword", string=f"MetadataID={uuid}")
-
-        if "geoserver_dns" in self.config:
-            geoserver_dns = self.config["geoserver_dns"]
-            dict_geoserver_urls = {
-                "WMS": {
-                    "geoserver_url": geoserver_dns
-                    + "/geoserver/ows?service=WMS&request=getCapabilities",
-                    "resource_url": geoserver_dns
-                    + "/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={layername}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665",
-                },
-                "WFS": {
-                    "geoserver_url": geoserver_dns
-                    + "/geoserver/ows?service=WFS&request=getCapabilities",
-                    "resource_url": geoserver_dns
-                    + "/geoserver/wfs?request=GetCapabilities&service=WFS",
-                },
-            }
-
-            for resource_format in dict_geoserver_urls:
-                layer_data_with_uuid = _get_content_with_uuid(
-                    dict_geoserver_urls[resource_format].get("geoserver_url")
+                tk.get_action("organization_show")(
+                    self._make_context(), {"id": org_name}
                 )
-                if layer_data_with_uuid:
-                    resources.append(
-                        _generate_geo_resource(
-                            layer_data_with_uuid,
-                            resource_format,
-                            dict_geoserver_urls[resource_format].get("resource_url"),
-                        )
-                    )
+            except tk.ObjectNotFound:
+                raise ValueError(f"Organisation {org_name} not found")
 
-        package_dict["resources"] = resources
-
-        # @TODO: What about these ones?
-        # responsibleParty
-
-        # Add all the `extras` to our compiled dict
-
-        return package_dict
+        return config_obj
 
     def gather_stage(self, harvest_job):
-
-        log.debug("In Delwp Harvester gather_stage")
-
-        #
-        # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
-        # @TODO: Move this into a separate function for readability
-        # (except the `ids = []` & `guids_in_source = []` lines)
-        #
-        ids = []
-
-        # Get the previous guids for this source
-        query = (
-            model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(HarvestObject.current == True)
-            .filter(HarvestObject.harvest_source_id == harvest_job.source.id)
-        )
-
-        guid_to_package_id = {}
-
-        for guid, package_id in query:
-            guid_to_package_id[guid] = package_id
-
-        guids_in_db = list(guid_to_package_id.keys())
-
-        guids_in_source = []
-        #
-        # END: This section is copied from ckanext/dcat/harvesters/_json.py
-        #
-
-        previous_guids = []
-        page = 1
-        # CKAN harvest default is 100, in testing 500 works pretty fast and is more efficient as it only needs 5 API calls instead of 19 for 1701 test datasets
-        records_per_page = 500
-
-        harvest_source_url = (
-            harvest_job.source.url[:-1]
-            if harvest_job.source.url.endswith("?")
-            else harvest_job.source.url
-        )
+        log.debug(f"In {self.HARVESTER} gather_stage")
         self._set_config(harvest_job.source.config)
 
-        # _get_page_of_records will return None if there are no more records
-        records = True
-        while records:
-            dataset_type = self.config.get("dataset_type")
-            api_auth = self.config.get("api_auth")
-            records = self._get_page_of_records(
-                harvest_source_url, dataset_type, api_auth, page, records_per_page
-            )
+        ids = []
+        guid_to_package_id: dict[str, str] = self._get_guids_to_package_ids(
+            harvest_job.source.id
+        )
+        guids_in_db: list[str] = [
+            harvest_object.guid for harvest_object in guid_to_package_id
+        ]
+        guids_in_source: list[str] = []
+        previous_guids: list[str] = []
+        page: int = 1
+        records_per_page: int = 10
+        harvest_source_url: str = harvest_job.source.url.rstrip("?")
+
+        while True:
+            records = self._fetch_records(harvest_source_url, page, records_per_page)
 
             batch_guids = []
-            if records:
-                #
-                # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
-                #
-                for guid, as_string in self._get_guids_and_datasets(records):
-                    batch_guids.append(guid)
 
-                    if guid not in previous_guids:
+            if not records:
+                log.debug(f"{self.HARVESTER} empty document, no more records")
+                break
 
-                        if guid in guids_in_db:
-                            # Dataset needs to be udpated
-                            obj = HarvestObject(
-                                guid=guid,
-                                job=harvest_job,
-                                package_id=guid_to_package_id[guid],
-                                content=as_string,
-                                extras=[
-                                    HarvestObjectExtra(key="status", value="change")
-                                ],
-                            )
-                        else:
-                            # Dataset needs to be created
-                            obj = HarvestObject(
-                                guid=guid,
-                                job=harvest_job,
-                                content=as_string,
-                                extras=[HarvestObjectExtra(key="status", value="new")],
-                            )
-                        obj.save()
-                        ids.append(obj.id)
+            for guid, as_string in self._get_guids_and_datasets(records):
+                batch_guids.append(guid)
 
-                if len(batch_guids) > 0:
-                    guids_in_source.extend(set(batch_guids) - set(previous_guids))
+                if guid in previous_guids:
+                    continue
+
+                if guid in guids_in_db:
+                    # Dataset needs to be udpated
+                    obj = HarvestObject(
+                        guid=guid,
+                        job=harvest_job,
+                        package_id=guid_to_package_id[guid],
+                        content=as_string,
+                        extras=[HarvestObjectExtra(key="status", value="change")],
+                    )
                 else:
-                    log.debug("Empty document, no more records")
-                    # Empty document, no more ids
-                    break
-                #
-                # END: This section is copied from ckanext/dcat/harvesters/_json.py
-                #
+                    # Dataset needs to be created
+                    obj = HarvestObject(
+                        guid=guid,
+                        job=harvest_job,
+                        content=as_string,
+                        extras=[HarvestObjectExtra(key="status", value="new")],
+                    )
 
-            #
-            # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
-            #
+                obj.save()
+                ids.append(obj.id)
+
+            if len(batch_guids) > 0:
+                guids_in_source.extend(set(batch_guids) - set(previous_guids))
+
+            break
             page = page + 1
             previous_guids = batch_guids
-            #
-            # END: This section is copied from ckanext/dcat/harvesters/_json.py
-            #
 
-        # BEGIN: This section is copied from ckanext/dcat/harvesters/_json.py
-        # @TODO: Can probably be moved into its own function
-        #
         # Check datasets that need to be deleted
         guids_to_delete = set(guids_in_db) - set(guids_in_source)
         for guid in guids_to_delete:
@@ -663,53 +157,72 @@ class DelwpHarvester(HarvesterBase):
             obj.save()
 
         return ids
-        #
-        # END: This section is copied from ckanext/dcat/harvesters/_json.py
-        #
 
-    def fetch_stage(self, harvest_object):
-        return True
+    def _fetch_records(
+        self, url: str, page: int, records_per_page: int = 100
+    ) -> Optional[list[dict[str, Any]]]:
 
-    def import_stage(self, harvest_object):
+        _from, _to = get_from_to(page, records_per_page)
+
+        request_url: str = "{}?dataset={}&start={}&rows={}&format=json".format(
+            url, self.config["dataset_type"], _from, _to
+        )
+        log.debug(f"{self.HARVESTER}: getting page of records {request_url}")
+
+        resp_text: Optional[str] = self._make_request(
+            request_url,
+            {"Authorization": self.config["api_auth"]},
+        )
+
+        if not resp_text:
+            return
+
+        data = json.loads(resp_text)
+        return data.get("records")
+
+    def _get_guids_and_datasets(self, datasets) -> Iterator[tuple[Optional[str], str]]:
+        """
+        Copied & adapted from ckanext/dcat/harvesters/_json.py
+        - don't json.loads the `datasets` input - it already be a list of dicts
+        - get `uuid` from `geonet:info` property
+        :param content:
+        :return:
+        """
+        if not isinstance(datasets, list):
+            if isinstance(datasets, dict):
+                datasets = [datasets]
+            else:
+                log.debug(f"Datasets data is not a list: {type(datasets)}")
+                raise ValueError("Wrong JSON object")
+
+        for dataset in datasets:
+            fields: dict[str, Any] = dataset.get("fields", {})
+            as_string: str = json.dumps(fields)
+            guid: Optional[str] = fields.get("uuid")
+
+            yield guid, as_string
+
+    def import_stage(self, harvest_object: HarvestObject) -> bool:
         """
         Mostly copied from `ckanext/dcat/harvesters/_json.py`
         :param harvest_object:
         :return:
         """
-        log.debug("In Delwp Harvester import_stage")
+        log.debug(f"{self.HARVESTER}: starting import stage")
 
         if not harvest_object:
-            log.error("No harvest object received")
+            log.error(f"{self.HARVESTER}: no harvest object received")
             return False
 
-        if self.force_import:
-            status = "change"
-        else:
-            status = self._get_object_extra(harvest_object, "status")
-
-        context = {
-            "user": self._get_user_name(),
-            "return_id_only": True,
-            "ignore_auth": True,
-            "model": model,
-            "session": model.Session,
-        }
+        status = self._get_object_extra(harvest_object, "status")
 
         if status == "delete":
-            # Delete package
-
-            tk.get_action("package_delete")(
-                context.copy(), {"id": harvest_object.package_id}
-            )
-            log.info(
-                f"Deleted package {harvest_object.package_id} with guid {harvest_object.guid}"
-            )
-
+            self._delete_package(harvest_object.package_id, harvest_object.guid)
             return True
 
         if harvest_object.content is None:
             self._save_object_error(
-                f"Empty content for object {harvest_object.id}",
+                f"{self.HARVESTER}: Empty content for object {harvest_object.id}",
                 harvest_object,
                 "Import",
             )
@@ -723,45 +236,30 @@ class DelwpHarvester(HarvesterBase):
 
         self._set_config(harvest_object.source.config)
 
-        # Get the last harvested object (if any)
-        previous_object = (
+        previous_harvest_object = (
             model.Session.query(HarvestObject)
             .filter(HarvestObject.guid == harvest_object.guid)
             .filter(HarvestObject.current == True)
             .first()
         )
 
-        # Flag previous object as not current anymore
-        if previous_object and not self.force_import:
-            previous_object.current = False
-            previous_object.add()
-
-        package_dict = self._get_package_dict(harvest_object, context)
-
-        if not package_dict:
-            return False
-
-        if not package_dict.get("name"):
-            package_dict["name"] = self._get_package_name(
-                harvest_object, package_dict["title"]
-            )
-
-        # Flag this object as the current one
+        if previous_harvest_object:
+            previous_harvest_object.current = False
+            # previous_harvest_object.add()
         harvest_object.current = True
-        harvest_object.add()
+
+        package_dict = self._get_package_dict(harvest_object)
+
+        # harvest_object.add()
+
+        if status not in ["new", "change"]:
+            return True
 
         try:
             if status == "new":
-                package_schema = default_create_package_schema()
-                context["schema"] = package_schema
-
-                # We need to explicitly provide a package ID
                 package_dict["id"] = str(uuid.uuid4())
-                package_schema["id"] = [str]
-
-                # Save reference to the package on the object
                 harvest_object.package_id = package_dict["id"]
-                harvest_object.add()
+                # harvest_object.add()
 
                 # Defer constraints and flush so the dataset can be indexed with
                 # the harvest object id (on the after_show hook from the harvester
@@ -774,25 +272,323 @@ class DelwpHarvester(HarvesterBase):
             elif status == "change":
                 package_dict["id"] = harvest_object.package_id
 
-            if status in ["new", "change"]:
-                action = "package_create" if status == "new" else "package_update"
-                message_status = "Created" if status == "new" else "Updated"
-                if "package" in context:
-                    del context["package"]
-                package_id = tk.get_action(action)(context.copy(), package_dict)
-                log.info("%s dataset with id %s", message_status, package_id)
+            action_name: str = "package_create" if status == "new" else "package_update"
+            message_status: str = "Created" if status == "new" else "Updated"
+
+            context = self._make_context()
+            context["schema"] = self._create_custom_package_create_schema()
+
+            package_id = tk.get_action(action_name)(context, package_dict)
+            log.info(
+                "%s: %s dataset with id %s", self.HARVESTER, message_status, package_id
+            )
 
         except Exception as e:
-            dataset_name = package_dict.get("name", "")
-
             self._save_object_error(
-                f"Error importing dataset {dataset_name}: {e} / {traceback.format_exc()}",
+                f"Error importing dataset {package_dict.get('name', '')}: {e} / {traceback.format_exc()}",
                 harvest_object,
                 "Import",
             )
             return False
-
         finally:
             model.Session.commit()
 
         return True
+
+    def _get_package_dict(self, harvest_object):
+        """Create a package_dict from remote portal data"""
+        content = harvest_object.content
+        uuid = harvest_object.guid
+
+        metashare_dict = json.loads(content)
+        metashare_dict["_uuid"] = uuid
+
+        remote_pkg_name: Optional[str] = metashare_dict.get("name")
+
+        full_metadata_url = (
+            self.config["full_metadata_url_prefix"].format(**{"UUID": uuid})
+            if self.config.get("full_metadata_url_prefix")
+            else ""
+        )
+
+        package_dict = {}
+
+        package_dict["personal_information"] = "no"
+        package_dict["protective_marking"] = "official"
+        package_dict["access"] = "yes"
+        package_dict["organization_visibility"] = "all"
+        package_dict["workflow_status"] = "published"
+        package_dict["license_id"] = self.config.get("license_id", "cc-by")
+
+        package_dict["title"] = metashare_dict.get("title")
+        package_dict["notes"] = metashare_dict.get("abstract", "")
+        package_dict["tags"] = get_tags(metashare_dict.get("topiccat"))
+        package_dict["last_updated"] = metashare_dict.get("geonet_info_changedate")
+        package_dict["extract"] = f"{package_dict['notes'].split('.')[0]}..."
+        package_dict["owner_org"] = self._get_organisation(
+            self.config.get("organisation_mapping"),
+            metashare_dict.get("resowner").split(";")[0],
+            harvest_object,
+        )
+
+        if not package_dict.get("name"):
+            package_dict["name"] = self._get_package_name(
+                harvest_object, package_dict["title"]
+            )
+
+        if full_metadata_url:
+            package_dict["full_metadata_url"] = full_metadata_url
+
+        if uuid:
+            package_dict["primary_purpose_of_collection"] = uuid
+
+        if metashare_dict.get("resowner"):
+            package_dict["data_owner"] = metashare_dict["resowner"].split(";")[0]
+
+        package_dict["groups"] = [
+            {"id": group.get("id")} for group in self.config["default_group_dicts"]
+        ]
+
+        if package_dict["groups"]:
+            package_dict["category"] = package_dict["groups"][0]
+
+        package_dict["date_created_data_asset"] = convert_date_to_isoformat(
+            metashare_dict.get("publicationdate")
+            or metashare_dict.get("geonet_info_createdate"),
+            "geonet_info_createdate",
+            remote_pkg_name,
+        )
+
+        package_dict["date_modified_data_asset"] = convert_date_to_isoformat(
+            metashare_dict.get("revisiondate")
+            or metashare_dict.get("geonet_info_changedate"),
+            "geonet_info_changedate",
+            remote_pkg_name,
+        )
+
+        package_dict["update_frequency"] = map_update_frequency(
+            get_datavic_update_frequencies(),
+            metashare_dict.get("maintenanceandupdatefrequency_text", "unknown"),
+        )
+
+        package_dict["resources"] = self._fetch_resources(metashare_dict)
+
+        return package_dict
+
+    def _get_organisation(
+        self,
+        organisation_mapping: list[dict[str, str]],
+        resowner: str,
+        harvest_object: HarvestObject,
+    ) -> Optional[str]:
+        """Get existing organization from the config `organization_mapping`
+        field or create a new one"""
+
+        owner_org: Optional[str] = self._get_existing_organization(
+            organisation_mapping, resowner
+        )
+
+        if not owner_org:
+            return self._create_organization(resowner, harvest_object)
+
+    def _get_existing_organization(
+        self, organisation_mapping: list[dict[str, str]], resowner: str
+    ) -> Optional[str]:
+        """Get an organization name either from config mapping or try to find
+        an existing one on a portal by `resowner` field"""
+        org_name = next(
+            (
+                organisation.get("org-name")
+                for organisation in organisation_mapping
+                if organisation.get("resowner") == resowner
+            ),
+            None,
+        )
+
+        if org_name:
+            return org_name
+
+        log.warning(
+            f"{self.HARVESTER} get_organisation: No mapping found for resowner {resowner}"
+        )
+        org_name = munge_title_to_name(resowner)
+
+        try:
+            organisation = tk.get_action("organization_show")(
+                self._make_context(),
+                {
+                    "id": org_name,
+                    "include_dataset_count": False,
+                    "include_extras": False,
+                    "include_users": False,
+                    "include_groups": False,
+                    "include_tags": False,
+                    "include_followers": False,
+                },
+            )
+        except tk.ObjectNotFound:
+            log.warning(
+                f"{self.HARVESTER} get_organisation: organisation does not exist: {org_name}"
+            )
+        else:
+            return organisation.get("id")
+
+    def _create_organization(self, resowner: str, harvest_object: HarvestObject) -> str:
+        """Create organization from a resowner field"""
+        org_name = munge_title_to_name(resowner)
+
+        try:
+            org_id = tk.get_action("organization_create")(
+                {
+                    "user": self._get_user_name(),
+                    "return_id_only": True,
+                    "ignore_auth": True,
+                    "model": model,
+                    "session": model.Session,
+                },
+                {"name": org_name, "title": resowner},
+            )
+        except Exception as e:
+            log.warning(
+                f"{self.HARVESTER} get_organisation: Failed to create organisation {org_name}"
+            )
+
+            source_dict: dict[str, Any] = tk.get_action("package_show")(
+                self._make_context(), {"id": harvest_object.harvest_source_id}
+            )
+            org_id = source_dict["owner_org"]
+
+        return org_id
+
+    def _create_custom_package_create_schema(self) -> dict[str, Any]:
+        package_schema: dict[str, Any] = default_create_package_schema()  # type: ignore
+        package_schema["id"] = [str]
+
+        return package_schema
+
+    def _fetch_resources(self, metashare_dict: dict[str, Any]) -> list[dict[str, Any]]:
+        """Fetch resources data from a metashare_dict"""
+
+        resources: list[dict[str, Any]] = []
+
+        resources.extend(self._get_resources_by_formats(metashare_dict))
+        resources.extend(self._get_geoserver_resoures(metashare_dict))
+
+        return resources
+
+    def _get_resources_by_formats(
+        self, metashare_dict: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        resources: list[dict[str, Any]] = []
+
+        res_url_prefix: Optional[str] = self.config.get("resource_url_prefix")
+        res_url: str = f"{res_url_prefix}{uuid}" if res_url_prefix else ""
+        attribution = self.config.get("resource_attribution")
+
+        pkg_name: Optional[str] = metashare_dict.get("name")
+        formats: Optional[str] = metashare_dict.get("available_formats")
+
+        if not formats:
+            return resources
+
+        for res_format in formats:
+            res = {
+                "name": metashare_dict.get("alttitle") or metashare_dict.get("title"),
+                "format": res_format,
+                "period_start": convert_date_to_isoformat(
+                    metashare_dict.get("tempextentbegin"),
+                    "tempextentbegin",
+                    pkg_name,
+                ),
+                "period_end": convert_date_to_isoformat(
+                    metashare_dict.get("tempextentend"),
+                    "tempextentend",
+                    pkg_name,
+                ),
+                "url": res_url,
+            }
+
+            res["name"] = f"{res['name']} {res_format}".replace("_", "")
+
+            if attribution:
+                res["attribution"] = attribution
+
+            resources.append(res)
+
+        return resources
+
+    def _get_geoserver_resoures(
+        self, metashare_dict: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        resources: list[dict[str, Any]] = []
+
+        if "geoserver_dns" not in self.config:
+            return resources
+
+        geoserver_dns = self.config["geoserver_dns"]
+        metadata_uuid: Optional[str] = metashare_dict["_uuid"]
+
+        dict_geoserver_urls = {
+            "WMS": {
+                "geoserver_url": f"{geoserver_dns}/geoserver/ows?service=WMS&request=getCapabilities",
+                "resource_url": f"{geoserver_dns}/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={{layername}}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665",
+            },
+            "WFS": {
+                "geoserver_url": f"{geoserver_dns}/geoserver/ows?service=WFS&request=getCapabilities",
+                "resource_url": f"{geoserver_dns}/geoserver/wfs?request=GetCapabilities&service=WFS",
+            },
+        }
+
+        for res_fmt in dict_geoserver_urls:
+            layer_data = self._get_geoserver_content_with_uuid(
+                dict_geoserver_urls[res_fmt]["geoserver_url"], metadata_uuid
+            )
+
+            if not layer_data:
+                continue
+
+            layer_title: str = layer_data.find_previous("Title").text.upper()
+            layer_name: str = layer_data.find_previous("Name").text
+            resource_url: str = dict_geoserver_urls[res_fmt]["resource_url"]
+
+            resources.append(
+                {
+                    "name": f"{layer_title} {res_fmt}",
+                    "format": res_fmt,
+                    "url": resource_url.format(layername=layer_name),
+                }
+            )
+
+        return resources
+
+    def _get_geoserver_content_with_uuid(
+        self, geoserver_url: str, metadata_uuid: Optional[str]
+    ) -> Optional[Union[Tag, NavigableString]]:
+
+        resp_text: Optional[str] = self._make_request(geoserver_url)
+
+        if not resp_text:
+            return
+
+        geoserver_data: BeautifulSoup = BeautifulSoup(resp_text, "lxml-xml")
+        return geoserver_data.find("Keyword", string=f"MetadataID={metadata_uuid}")
+
+
+def get_tags(tags: str) -> list[dict[str, str]]:
+    """Fetch tags from a delwp tags string, e.g `society;environment`"""
+    tag_list: list[str] = re.split(";|,", tags)
+
+    return [{"name": tag} for tag in tag_list]
+
+
+def get_datavic_update_frequencies():
+    return helpers.field_choices("update_frequency")
+
+
+def map_update_frequency(datavic_update_frequencies: list[dict[str, Any]], value: str):
+    """Map local update_frequency to remote portal ones"""
+    for frequency in datavic_update_frequencies:
+        if frequency["label"].lower() == value.lower():
+            return frequency["value"]
+
+    return "unknown"

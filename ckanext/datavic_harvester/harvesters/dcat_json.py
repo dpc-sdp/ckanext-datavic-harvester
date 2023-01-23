@@ -234,7 +234,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         if issued and not date_created_data_asset:
             package_dict[
                 "date_created_data_asset"
-            ] = helpers.convert_date_str_to_isoformat(
+            ] = helpers.convert_date_to_isoformat(
                 issued, "issued", package_dict["title"]
             )
 
@@ -248,7 +248,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
         if modified and not date_modified_data_asset:
             package_dict[
                 "date_modified_data_asset"
-            ] = helpers.convert_date_str_to_isoformat(
+            ] = helpers.convert_date_to_isoformat(
                 modified, "modified", package_dict["title"]
             )
 

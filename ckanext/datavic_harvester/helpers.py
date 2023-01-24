@@ -9,6 +9,8 @@ from bs4 import BeautifulSoup
 
 import ckan.plugins.toolkit as tk
 
+from ckanext.datavicmain.helpers import field_choices
+
 
 log = logging.getLogger(__name__)
 
@@ -113,7 +115,7 @@ def fetch_update_frequency(full_metadata_url: str) -> str:
 
 
 def convert_date_to_isoformat(
-    value: Optional[str], key: str, dataset_name: Optional[str], with_tz=False
+    value: Optional[str], key: str, dataset_name: Optional[str], strip_tz=True
 ) -> Optional[str]:
     """Convert a date string to isoformat
 
@@ -130,7 +132,8 @@ def convert_date_to_isoformat(
     if not value:
         return log.debug(f"{dataset_name}: Missing date for key {key}")
 
-    value = value.lower().split("t")[0] if with_tz else value.split(".")[0]
+    value = value.split(".")[0]  # strip out microseconds
+    value = value.lower().split("t")[0] if strip_tz else value
 
     try:
         date = tk.get_converter("isodate")(value, {})
@@ -174,3 +177,26 @@ def munge_title_to_name(value: str) -> str:
     name = re.sub("[^a-zA-Z0-9-_]", "", name).lower()
     name = re.sub("[-]+", "-", name)
     return name.strip("-")[:99]
+
+
+def get_tags(tags: str) -> list[dict[str, str]]:
+    """Fetch tags from a delwp tags string, e.g `society;environment`"""
+    tag_list: list[str] = re.split(";|,", tags)
+
+    return [{"name": tag} for tag in tag_list]
+
+
+def map_update_frequency(value: str):
+    """Map local update_frequency to remote portal ones"""
+
+    frequency_mapping: list[dict[str, Any]] = get_datavic_update_frequencies()
+
+    for frequency in frequency_mapping:
+        if frequency["label"].lower() == value.lower():
+            return frequency["value"]
+
+    return "unknown"
+
+
+def get_datavic_update_frequencies():
+    return field_choices("update_frequency")

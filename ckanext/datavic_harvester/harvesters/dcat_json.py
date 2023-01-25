@@ -2,102 +2,74 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Optional
+from os import path
+from typing import Optional, Any
 
 from bs4 import BeautifulSoup
 
-from ckan import model
 from ckan.plugins import toolkit as tk
 
 from ckanext.dcat import converters
 from ckanext.dcat.harvesters._json import DCATJSONHarvester
-from ckanext.harvest.model import HarvestSource
+from ckanext.harvest.model import HarvestObject
 
 from ckanext.datavic_harvester import helpers
+from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester
 
 
 log = logging.getLogger(__name__)
 
 
-class DataVicDCATJSONHarvester(DCATJSONHarvester):
+class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
     def info(self):
         return {
             "name": "datavic_dcat_json",
             "title": "DataVic DCAT JSON Harvester",
-            "description": "DataVic Harvester for DCAT dataset descriptions "
-            + "serialized as JSON",
+            "description": "DataVic Harvester for DCAT dataset descriptions serialized as JSON",
         }
 
-    def validate_config(self, config):
-        """
-        Harvesters can provide this method to validate the configuration
-        entered in the form. It should return a single string, which will be
-        stored in the database.  Exceptions raised will be shown in the form's
-        error messages.
+    def gather_stage(self, harvest_job):
+        self._set_config(harvest_job.source.config)
+        return super().gather_stage(harvest_job)
 
-        Validates the default_group entered exists and creates default_group_dicts
+    def import_stage(self, harvest_object):
+        self._set_config(harvest_object.source.config)
+        return super().import_stage(harvest_object)
 
-        :param harvest_object_id: Config string coming from the form
-        :returns: A string with the validated configuration options
-        """
-        if not config:
-            return config
+    def _get_package_dict(
+        self, harvest_object: HarvestObject
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Converts a DCAT dataset into a CKAN dataset. Performs specific DataVic
+        conversions of the data"""
 
-        try:
-            config_obj = json.loads(config)
+        dcat_dict: dict[str, Any] = json.loads(harvest_object.content)
+        pkg_dict = converters.dcat_to_ckan(dcat_dict)
 
-            if "default_groups" in config_obj:
-                if not isinstance(config_obj["default_groups"], list):
-                    raise ValueError(
-                        "default_groups must be a *list* of group" " names/ids"
-                    )
-                if config_obj["default_groups"] and not isinstance(
-                    config_obj["default_groups"][0], str
-                ):
-                    raise ValueError(
-                        "default_groups must be a list of group "
-                        "names/ids (i.e. strings)"
-                    )
+        soup: BeautifulSoup = BeautifulSoup(pkg_dict["notes"], "html.parser")
 
-                # Check if default groups exist
-                context = {"model": model, "user": tk.g.user}
-                config_obj["default_group_dicts"] = []
-                for group_name_or_id in config_obj["default_groups"]:
-                    try:
-                        group = tk.get_action("group_show")(
-                            context, {"id": group_name_or_id}
-                        )
-                        # save the dict to the config object, as we'll need it
-                        # in the set_default_group of every dataset
-                        config_obj["default_group_dicts"].append(
-                            {"id": group["id"], "name": group["name"]}
-                        )
-                    except tk.ObjectNotFound as e:
-                        raise ValueError("Default group not found")
-                config = json.dumps(config_obj, indent=1)
+        self._set_description_and_extract(pkg_dict, soup)
+        self._set_full_metadata_url_and_update_frequency(pkg_dict, soup)
+        self._mutate_tags(pkg_dict)
+        self._set_default_group(pkg_dict)
+        self._set_required_fields_defaults(dcat_dict, pkg_dict)
 
-        except ValueError as e:
-            raise e
+        return pkg_dict, dcat_dict
 
-        return config
+    def _set_description_and_extract(self, pkg_dict: dict[str, Any], soup) -> None:
+        if "default.description" in pkg_dict["notes"]:
+            pkg_dict["notes"] = "No description has been entered for this dataset."
+            pkg_dict["extract"] = "No abstract has been entered for this dataset."
+        else:
+            allowed_tags: list[str] = ["a", "br"]
+            pkg_dict["notes"] = helpers.unwrap_all_except(
+                helpers.remove_all_attrs_except_for(soup, allowed_tags),
+                allowed_tags,
+            )
+            pkg_dict["extract"] = self._generate_extract(soup)
 
-    def fix_erroneous_tags(self, package_dict):
-        """
-        Replace ampersands with "and" in tags
-        :param package_dict:
-        :return:
-        """
-        if package_dict["tags"]:
-            for tag in package_dict["tags"]:
-                if "name" in tag and "&" in tag["name"]:
-                    tag["name"] = tag["name"].replace("&", "and")
+    def _generate_extract(self, soup: BeautifulSoup) -> str:
+        """Extract is the first sentence of the description/notes"""
 
-    def generate_extract(self, soup):
-        """
-        Extract is just the first sentence of the text-only description/notes for our purposes at this stage.
-        :param soup:
-        :return:
-        """
         try:
             notes = soup.get_text()
             index = notes.index(".")
@@ -107,225 +79,160 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester):
             log.error(str(ex))
         return notes
 
-    def set_description_and_extract(self, package_dict, soup):
-        if "default.description" in package_dict["notes"]:
-            package_dict["notes"] = "No description has been entered for this dataset."
-            package_dict["extract"] = "No abstract has been entered for this dataset."
-        else:
-            allowed_tags: list[str] = ["a", "br"]
-            package_dict["notes"] = helpers.unwrap_all_except(
-                helpers.remove_all_attrs_except_for(soup, allowed_tags),
-                allowed_tags,
-            )
-            package_dict["extract"] = self.generate_extract(soup)
+    def _set_full_metadata_url_and_update_frequency(
+        self, pkg_dict: dict[str, Any], soup: BeautifulSoup
+    ) -> None:
+        metadata_url: Optional[str] = self._get_extra(pkg_dict, "full_metadata_url")
 
-    def set_full_metadata_url_and_update_frequency(
-        self, harvest_config, package_dict, soup: BeautifulSoup
-    ):
-        """
-        Try and extract the full metadata URL from the dataset description and then the update frequency from the
-        full metadata URL.
-        If full metadata URL not found, or update frequency not determined, it will default to 'unknown' either
-        through the `_fetch_update_frequency` function or the IPackageController `create` function in
-        ckanext.datavicmain.plugins.py
-        :param package_dict:
-        :param soup:
-        :return:
-        """
-        #
-        full_metadata_url = [
-            extra
-            for extra in package_dict["extras"]
-            if extra["key"] == "full_metadata_url"
-        ]
-        if not full_metadata_url:
-            # Set the default if it has been added to the harvest source config
-            if "default_full_metadata_url" in harvest_config:
-                full_metadata_url = harvest_config["default_full_metadata_url"]
-            # Try and extract a full metadata url from the description based on
-            # a pattern defined in the harvest source config
-            if "full_metadata_url_pattern" in harvest_config:
-                desciption_full_metadata_url: Optional[
-                    str
-                ] = helpers.extract_metadata_url(
-                    soup, harvest_config["full_metadata_url_pattern"]
-                )
-                if desciption_full_metadata_url:
-                    full_metadata_url = desciption_full_metadata_url
-                    # Attempt to extract the update frequency from the full metadata page
-                    package_dict["update_frequency"] = helpers.fetch_update_frequency(
-                        full_metadata_url
-                    )
-        if full_metadata_url:
-            package_dict["full_metadata_url"] = full_metadata_url
+        if not metadata_url and "default_full_metadata_url" in self.config:
+            metadata_url = self.config["default_full_metadata_url"]
 
-    def set_default_group(self, harvest_config, package_dict):
-        """
-        Set the default group from config
-        :param harvest_config:
-        :param package_dict:
-        :return:
-        """
-        # Set default groups if needed
-        default_group_dicts = harvest_config.get("default_group_dicts", [])
-        if default_group_dicts and isinstance(default_group_dicts, list):
-            category = default_group_dicts[0] if default_group_dicts else None
-            if category:
-                package_dict["category"] = category.get("id")
-
-            if not "groups" in package_dict:
-                package_dict["groups"] = []
-            existing_group_ids = [g["id"] for g in package_dict["groups"]]
-            package_dict["groups"].extend(
-                [g for g in default_group_dicts if g["id"] not in existing_group_ids]
+        if not metadata_url and "full_metadata_url_pattern" in self.config:
+            desc_metadata_url: Optional[str] = helpers.extract_metadata_url(
+                soup, self.config["full_metadata_url_pattern"]
             )
 
-    def set_required_fields_defaults(self, harvest_config, dcat_dict, package_dict):
-        personal_information = [
-            extra
-            for extra in package_dict["extras"]
-            if extra["key"] == "personal_information"
-        ]
-        if not personal_information:
-            package_dict["personal_information"] = "no"
+            if desc_metadata_url:
+                metadata_url = desc_metadata_url
 
-        access = [extra for extra in package_dict["extras"] if extra["key"] == "access"]
-        if not access:
-            package_dict["access"] = "yes"
+        if metadata_url:
+            pkg_dict["update_frequency"] = self._fetch_update_frequency(metadata_url)
+            pkg_dict["full_metadata_url"] = metadata_url
 
-        protective_marking = [
-            extra
-            for extra in package_dict["extras"]
-            if extra["key"] == "protective_marking"
-        ]
-        if not protective_marking:
-            package_dict["protective_marking"] = "official"
+    def _fetch_update_frequency(self, full_metadata_url: str) -> str:
+        """Fetch an update_frequency by full_metadata_url"""
 
-        update_frequency = [
-            extra
-            for extra in package_dict["extras"]
-            if extra["key"] == "update_frequency"
-        ]
-        if not update_frequency:
-            package_dict["update_frequency"] = "unknown"
+        default_udp_frequency: str = "unknown"
 
-        organization_visibility = [
-            extra
-            for extra in package_dict["extras"]
-            if extra["key"] == "organization_visibility"
-        ]
-        if not organization_visibility:
-            package_dict["organization_visibility"] = "current"
+        resp_text: Optional[str] = self._make_request(full_metadata_url)
 
-        workflow_status = [
-            extra
-            for extra in package_dict["extras"]
-            if extra["key"] == "workflow_status"
-        ]
-        if not workflow_status:
-            package_dict["workflow_status"] = "draft"
+        if not resp_text:
+            log.error(f"Request error occured during fetching update_frequency")
+            return default_udp_frequency
 
-        issued = dcat_dict.get("issued")
-        date_created_data_asset = [
-            extra
-            for extra in package_dict["extras"]
-            if extra["key"] == "date_created_data_asset"
-        ]
-        if issued and not date_created_data_asset:
-            package_dict[
-                "date_created_data_asset"
-            ] = helpers.convert_date_to_isoformat(
-                issued, "issued", package_dict["title"]
-            )
+        soup: BeautifulSoup = BeautifulSoup(resp_text, "html.parser")
 
-        modified = dcat_dict.get("modified")
+        frequency_mapping: dict[str, str] = {
+            "deemed": "asNeeded",
+            "week": "weekly",
+            "twice": "biannually",
+            "year": "annually",
+            "month": "monthly",
+            "quarter": "quarterly",
+        }
 
-        date_modified_data_asset = [
-            extra
-            for extra in package_dict["extras"]
-            if extra["key"] == "date_modified_data_asset"
-        ]
-        if modified and not date_modified_data_asset:
-            package_dict[
-                "date_modified_data_asset"
-            ] = helpers.convert_date_to_isoformat(
-                modified, "modified", package_dict["title"]
-            )
+        for tag in soup(
+            "script", attrs={"id": "tpx_ExternalView_Frequency_of_Updates"}
+        ):
+            tag_text: str = tag.get_text()
 
-        landing_page = dcat_dict.get("landingPage")
-        full_metadata_url = [
-            extra
-            for extra in package_dict["extras"]
-            if extra["key"] == "full_metadata_url"
-        ]
-        if landing_page and not full_metadata_url:
-            package_dict["full_metadata_url"] = landing_page
+            for k, v in frequency_mapping.items():
+                if k in tag_text:
+                    return v
 
-        license_id = package_dict.get("license_id", None)
-        if not license_id and "default_license" in harvest_config:
-            default_license = harvest_config.get("default_license")
-            if default_license:
-                default_license_id = default_license.get("id")
-                default_license_title = default_license.get("title")
-                if default_license_id:
-                    package_dict["license_id"] = default_license_id
-                if default_license_title:
-                    package_dict["custom_licence_text"] = default_license_title
+        return default_udp_frequency
 
-        keywords = dcat_dict.get("keyword")
-        package_dict["tag_string"] = keywords if keywords else []
+    def _mutate_tags(self, pkg_dict: dict[str, Any]) -> None:
+        """Replace ampersands with "and" in tags"""
 
-    def _get_package_dict(self, harvest_object):
-        """
-        Converts a DCAT dataset into a CKAN dataset
-        and performs some Data.Vic specific conversion of the data
-        :param harvest_object:
-        :return:
-        """
+        if not pkg_dict["tags"]:
+            return
 
-        content = harvest_object.content
+        for tag in pkg_dict["tags"]:
+            if "name" in tag and "&" in tag["name"]:
+                tag["name"] = tag["name"].replace("&", "and")
 
-        dcat_dict = json.loads(content)
-
-        package_dict = converters.dcat_to_ckan(dcat_dict)
-
-        try:
-            # Get the harvest source configuration settings via the `harvest_source_id` property of the harvest object
-            harvest_source = HarvestSource.get(harvest_object.harvest_source_id)
-            harvest_config = json.loads(harvest_source.config)
-        except Exception:
-            harvest_config = None
-
-        soup: BeautifulSoup = BeautifulSoup(package_dict["notes"], "html.parser")
-
-        self.set_description_and_extract(package_dict, soup)
-
-        self.set_full_metadata_url_and_update_frequency(
-            harvest_config, package_dict, soup
+    def _set_default_group(self, pkg_dict: dict[str, Any]) -> None:
+        default_groups: list[dict[str, Any]] = self.config.get(
+            "default_group_dicts", []
         )
 
-        self.fix_erroneous_tags(package_dict)
+        if not "groups" in pkg_dict:
+            pkg_dict["groups"] = []
 
-        # Groups (Categories)
-        # Default group is set in the harvest source configuration, "default_groups" property.
-        self.set_default_group(harvest_config, package_dict)
+        if default_groups and isinstance(default_groups, list):
+            category = default_groups[0] if default_groups else None
 
-        self.set_required_fields_defaults(harvest_config, dcat_dict, package_dict)
+            if category:
+                pkg_dict["category"] = category.get("id")
 
-        return package_dict, dcat_dict
+            existing_group_ids: list[str] = [
+                group["id"] for group in pkg_dict["groups"]
+            ]
 
-    def _get_existing_dataset(self, guid):
-        """
-        Checks if a dataset with a certain guid extra already exists
+            pkg_dict["groups"].extend(
+                [
+                    group
+                    for group in default_groups
+                    if group["id"] not in existing_group_ids
+                ]
+            )
 
-        Returns a dict as the ones returned by package_show
-        """
+    def _set_required_fields_defaults(
+        self, dcat_dict: dict[str, Any], pkg_dict: dict[str, Any]
+    ) -> None:
+        """Set required fields"""
+        if not self._get_extra(pkg_dict, "personal_information"):
+            pkg_dict["personal_information"] = "no"
 
-        datasets = self._read_datasets_from_db(guid)
+        if not self._get_extra(pkg_dict, "access"):
+            pkg_dict["access"] = "yes"
+
+        if not self._get_extra(pkg_dict, "protective_marking"):
+            pkg_dict["protective_marking"] = "official"
+
+        if not self._get_extra(pkg_dict, "update_frequency"):
+            pkg_dict["update_frequency"] = "unknown"
+
+        if not self._get_extra(pkg_dict, "organization_visibility"):
+            pkg_dict["organization_visibility"] = "current"
+
+        if not self._get_extra(pkg_dict, "workflow_status"):
+            pkg_dict["workflow_status"] = "draft"
+
+        issued: Optional[str] = dcat_dict.get("issued")
+        if issued and not self._get_extra(pkg_dict, "date_created_data_asset"):
+            pkg_dict["date_created_data_asset"] = helpers.convert_date_to_isoformat(
+                issued, "issued", pkg_dict["title"], strip_tz=False
+            )
+
+        modified: Optional[str] = dcat_dict.get("modified")
+        if modified and not self._get_extra(pkg_dict, "date_modified_data_asset"):
+            pkg_dict["date_modified_data_asset"] = helpers.convert_date_to_isoformat(
+                modified, "modified", pkg_dict["title"], strip_tz=False
+            )
+
+        landing_page: Optional[str] = dcat_dict.get("landingPage")
+        if landing_page and not self._get_extra(pkg_dict, "full_metadata_url"):
+            pkg_dict["full_metadata_url"] = landing_page
+
+        if not pkg_dict.get("license_id") and "default_license" in self.config:
+            pkg_dict["license_id"] = self.config["default_license"]["id"]
+            pkg_dict["custom_licence_text"] = self.config["default_license"]["title"]
+
+        pkg_dict["tag_string"] = dcat_dict.get("keyword", [])
+
+    def _get_existing_dataset(self, guid: str) -> Optional[dict[str, Any]]:
+        """Return a package with specific guid extra if exists"""
+
+        datasets: list[tuple[str]] = self._read_datasets_from_db(guid)
 
         if not datasets:
-            return None
-        elif len(datasets) > 1:
+            return
+
+        if len(datasets) > 1:
             log.error(f"Found more than one dataset with the same guid: {guid}")
-        context = {"user": self._get_user_name(), "ignore_auth": True}
-        return tk.get_action("package_show")(context, {"id": datasets[0][0]})
+
+        return tk.get_action("package_show")(
+            {"user": self._get_user_name(), "ignore_auth": True},
+            {"id": datasets[0][0]},
+        )
+
+    def __get_content_and_type(self, url, harvest_job, page=1, content_type=None):
+        """Mock data, use it instead of actual request for develop process"""
+        return self._get_mocked_content(), ""
+
+    def _get_mocked_content(self) -> str:
+        here: str = path.abspath(path.dirname(__file__))
+        with open(path.join(here, "../data/dcat_json_datasets.txt")) as f:
+            return f.read()

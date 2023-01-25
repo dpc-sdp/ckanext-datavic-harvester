@@ -33,8 +33,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         }
 
     def validate_config(self, config: Optional[str]) -> str:
-        config: str = super().validate_config(config)
-        config_obj = json.loads(config)
+        config_obj = json.loads(super().validate_config(config))
 
         if "full_metadata_url_prefix" not in config_obj:
             raise ValueError("full_metadata_url_prefix must be set")
@@ -104,9 +103,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         guid_to_package_id: dict[str, str] = self._get_guids_to_package_ids(
             harvest_job.source.id
         )
-        guids_in_db: list[str] = [
-            harvest_object.guid for harvest_object in guid_to_package_id
-        ]
+        guids_in_db: list[str] = list(guid_to_package_id.keys())
         guids_in_source: list[str] = []
         previous_guids: list[str] = []
 
@@ -115,6 +112,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         harvest_source_url: str = harvest_job.source.url.rstrip("?")
 
         while True:
+            log.debug(f"{self.HARVESTER} fetching records by url: {harvest_source_url}, page: {page}")
             records = self._fetch_records(harvest_source_url, page, records_per_page)
 
             batch_guids = []
@@ -173,6 +171,17 @@ class DelwpHarvester(DataVicBaseHarvester):
             obj.save()
 
         return ids
+
+    def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
+        query = (
+            model.Session.query(HarvestObject.guid, HarvestObject.package_id)
+            .filter(HarvestObject.current == True)
+            .filter(HarvestObject.harvest_source_id == source_id)
+        )
+
+        return {
+            harvest_object.guid: harvest_object.package_id for harvest_object in query
+        }
 
     def _fetch_records(
         self, url: str, page: int, records_per_page: int = 100
@@ -372,18 +381,27 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         return pkg_dict
 
+    def _create_custom_package_create_schema(self) -> dict[str, Any]:
+        package_schema: dict[str, Any] = default_create_package_schema()  # type: ignore
+        package_schema["id"] = [str]
+
+        return package_schema
+
     def _get_organisation(
         self,
-        organisation_mapping: list[dict[str, str]],
+        organisation_mapping: Optional[list[dict[str, str]]],
         resowner: str,
         harvest_object: HarvestObject,
     ) -> Optional[str]:
         """Get existing organization from the config `organization_mapping`
         field or create a new one"""
 
-        owner_org: Optional[str] = self._get_existing_organization(
-            organisation_mapping, resowner
-        )
+        owner_org = None
+
+        if organisation_mapping:
+            owner_org: Optional[str] = self._get_existing_organization(
+                organisation_mapping, resowner
+            )
 
         return owner_org or self._create_organization(resowner, harvest_object)
 
@@ -456,11 +474,22 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         return org_id
 
-    def _create_custom_package_create_schema(self) -> dict[str, Any]:
-        package_schema: dict[str, Any] = default_create_package_schema()  # type: ignore
-        package_schema["id"] = [str]
+    def _get_package_name(self, harvest_object: HarvestObject, title: str) -> str:
+        """Generate package name from title"""
+        package: model.Package = harvest_object.package
 
-        return package_schema
+        if package is None or package.title != title:
+            name = self._gen_new_name(title)
+
+            if not name:
+                raise Exception(
+                    "Could not generate a unique name from the title or the "
+                    "GUID. Please choose a more unique title."
+                )
+        else:
+            name = package.name
+
+        return name
 
     def _fetch_resources(self, metashare_dict: dict[str, Any]) -> list[dict[str, Any]]:
         """Fetch resources data from a metashare_dict"""

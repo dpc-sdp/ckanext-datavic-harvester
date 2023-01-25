@@ -8,11 +8,9 @@ import requests
 from ckan import model
 from ckan.plugins import toolkit as tk
 from ckan.lib.helpers import json
-from ckan.model import Package
 
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
-from ckanext.harvest.harvesters.ckanharvester import ContentFetchError
 
 
 log = logging.getLogger(__name__)
@@ -30,7 +28,7 @@ class DataVicBaseHarvester(HarvesterBase):
         else:
             self.config = {}
 
-    def validate_config(self, config: Optional[str]) -> dict[str, Any]:
+    def validate_config(self, config: Optional[str]) -> str:
         """
         Harvesters can provide this method to validate the configuration
         entered in the form. It should return a single string, which will be
@@ -47,10 +45,17 @@ class DataVicBaseHarvester(HarvesterBase):
 
         config_obj = json.loads(config)
 
-        if "default_groups" not in config_obj:
+        self._validate_default_groups(config_obj)
+        self._set_default_groups_data(config_obj)
+        self._validate_default_license(config_obj)
+
+        return json.dumps(config_obj, indent=4)
+
+    def _validate_default_groups(self, config: dict[str, Any]) -> None:
+        if "default_groups" not in config:
             raise ValueError("default_groups must be set")
 
-        default_groups = config_obj["default_groups"]
+        default_groups: list[str] = config["default_groups"]
 
         if not isinstance(default_groups, list):
             raise ValueError("default_groups must be a *list* of group names/ids")
@@ -60,28 +65,22 @@ class DataVicBaseHarvester(HarvesterBase):
                 "default_groups must be a list of group " "names/ids (i.e. strings)"
             )
 
-        config_obj["default_group_dicts"] = self._get_default_groups_data(
-            default_groups
-        )
+    def _validate_default_license(self, config: dict[str, Any]) -> None:
+        default_license: dict[str, Any] = config.get("default_license", {})
 
-        if "full_metadata_url_prefix" not in config_obj:
-            raise ValueError("full_metadata_url_prefix must be set")
+        if not default_license:
+            return
 
-        if "{UUID}" not in config_obj.get("full_metadata_url_prefix", ""):
-            raise ValueError(
-                "full_metadata_url_prefix must have the {UUID} identifier in the URL"
-            )
+        if not isinstance(default_license, dict):
+            raise ValueError("default_license field must be a dictionary")
 
-        if "resource_url_prefix" not in config_obj:
-            raise ValueError("resource_url_prefix must be set")
+        if "id" not in default_license or "title" not in default_license:
+            raise ValueError("default_license must contain `id` and `title` fields")
 
-        if "license_id" not in config_obj:
-            raise ValueError("license_id must be set")
+    def _set_default_groups_data(self, config: dict[str, Any]) -> None:
+        default_groups: list[str] = config["default_groups"]
 
-        if "resource_attribution" not in config_obj:
-            raise ValueError("resource_attribution must be set")
-
-        return config_obj
+        config["default_group_dicts"] = self._get_default_groups_data(default_groups)
 
     def _get_default_groups_data(self, group_ids: list[str]) -> list[dict[str, Any]]:
         group_dicts: list[dict[str, Any]] = []
@@ -107,22 +106,13 @@ class DataVicBaseHarvester(HarvesterBase):
                 return extra.value
         return None
 
-    def _get_package_name(self, harvest_object: HarvestObject, title: str) -> str:
-        """Generate package name from title"""
-        package: Package = harvest_object.package
+    def _get_extra(self, data_dict: dict[str, Any], key: str) -> Optional[Any]:
+        """Retrieving the value from a data_dict extra by a given key"""
+        for extra in data_dict.get("extras", []):
+            if extra.get("key") == key:
+                return extra.get("value")
 
-        if package is None or package.title != title:
-            name = self._gen_new_name(title)
-
-            if not name:
-                raise Exception(
-                    "Could not generate a unique name from the title or the "
-                    "GUID. Please choose a more unique title."
-                )
-        else:
-            name = package.name
-
-        return name
+        return None
 
     def _make_request(
         self, url: str, headers: Optional[dict[str, Any]] = None
@@ -154,15 +144,4 @@ class DataVicBaseHarvester(HarvesterBase):
             "ignore_auth": True,
             "model": model,
             "session": model.Session,
-        }
-
-    def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
-        query = (
-            model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(HarvestObject.current == True)
-            .filter(HarvestObject.harvest_source_id == source_id)
-        )
-
-        return {
-            harvest_object.guid: harvest_object.package_id for harvest_object in query
         }

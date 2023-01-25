@@ -1,2 +1,3 @@
 from ckanext.datavic_harvester.harvesters.dcat_json import DataVicDCATJSONHarvester
 from ckanext.datavic_harvester.harvesters.delwp import DelwpHarvester
+from ckanext.datavic_harvester.harvesters.ods import DataVicODSHarvester

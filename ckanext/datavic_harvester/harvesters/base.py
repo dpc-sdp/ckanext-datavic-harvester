@@ -17,6 +17,10 @@ log = logging.getLogger(__name__)
 
 
 class DataVicBaseHarvester(HarvesterBase):
+    def __init__(self, **kwargs):
+        self.test = kwargs.get("test", False)
+        super().__init__(**kwargs)
+
     def _set_config(self, config_str: str) -> None:
         if config_str:
             self.config = json.loads(config_str)
@@ -29,17 +33,7 @@ class DataVicBaseHarvester(HarvesterBase):
             self.config = {}
 
     def validate_config(self, config: Optional[str]) -> str:
-        """
-        Harvesters can provide this method to validate the configuration
-        entered in the form. It should return a single string, which will be
-        stored in the database.  Exceptions raised will be shown in the form's
-        error messages.
-
-        Validates the default_group entered exists and creates default_group_dicts
-
-        :param harvest_object_id: Config string coming from the form
-        :returns: A string with the validated configuration options
-        """
+        """Validates source config"""
         if not config:
             raise ValueError("No config options set")
 

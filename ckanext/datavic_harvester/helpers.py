@@ -7,6 +7,7 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 import ckan.plugins.toolkit as tk
+from ckan.lib.munge import munge_title_to_name as munge_title
 
 from ckanext.datavicmain.helpers import field_choices
 
@@ -84,11 +85,7 @@ def get_from_to(page: int, datasets_per_page: int) -> tuple[int, int]:
 
 
 def munge_title_to_name(value: str) -> str:
-    """Munge a title into a name"""
-    name = re.sub("[ .:/,]", "-", value)
-    name = re.sub("[^a-zA-Z0-9-_]", "", name).lower()
-    name = re.sub("[-]+", "-", name)
-    return name.strip("-")[:99]
+    return munge_title(value)
 
 
 def get_tags(tags: str) -> list[dict[str, str]]:

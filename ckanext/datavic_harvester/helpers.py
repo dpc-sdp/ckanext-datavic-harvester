@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import logging
-from typing import Optional
+from typing import Optional, Any
 
 from bs4 import BeautifulSoup
 
@@ -15,14 +15,12 @@ from ckanext.datavicmain.helpers import field_choices
 log = logging.getLogger(__name__)
 
 
-def remove_all_attrs_except_for(
-    soup: BeautifulSoup, allowed_tags: list[str] = ["a", "br"]
-) -> BeautifulSoup:
+def remove_all_attrs_except_for(soup: BeautifulSoup) -> BeautifulSoup:
     """Remove all attributes from tags inside soup except for the listed ones
     Leave only "target" and "href" attributes for allowed ones."""
 
     for tag in soup.find_all(True):
-        if tag.name not in allowed_tags:
+        if tag.name not in ["a", "br"]:
             tag.attrs = {}
         else:
             attrs = dict(tag.attrs)
@@ -32,12 +30,10 @@ def remove_all_attrs_except_for(
     return soup
 
 
-def unwrap_all_except(
-    soup: BeautifulSoup, allowed_tags: list[str] = ["a", "br"]
-) -> str:
+def unwrap_all_except(soup: BeautifulSoup) -> str:
     """Removes all tags from soup obj except for allowed ones"""
     for tag in soup.find_all(True):
-        if tag.name not in allowed_tags:
+        if tag.name not in ["a", "br"]:
             tag.unwrap()
 
     return str(soup)

@@ -103,6 +103,9 @@ class TestDelwpHarvester:
         assert package.name == h.munge_title_to_name(delwp_dataset["title"])
         assert package.extras["primary_purpose_of_collection"] == delwp_dataset["uuid"]
 
+        # no new harvest_object, cause it's update
+        assert harvest_model.HarvestObject.filter(guid=delwp_dataset["uuid"]).one()
+
     def test_mock_geores_data(self, harvester: DelwpHarvester):
         """The geoserver_url doesn't matter, because we're mocking response.
         The `content` with uuid below exists in test data"""
@@ -218,7 +221,9 @@ class TestDelwpHarvester:
         assert harvester._create_organization("organization title", harvest_object)
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
-    def test_create_organization_error(self, harvester: DelwpHarvester, harvest_object, organization_factory):
+    def test_create_organization_error(
+        self, harvester: DelwpHarvester, harvest_object, organization_factory
+    ):
         resowner = "organization title"
         organization_factory(name=h.munge_title_to_name(resowner))
         org_id: str = harvester._create_organization(resowner, harvest_object)

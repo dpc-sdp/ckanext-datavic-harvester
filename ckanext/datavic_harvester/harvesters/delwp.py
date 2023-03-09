@@ -579,6 +579,16 @@ class DelwpHarvester(DataVicBaseHarvester):
                     "name": f"{layer_title} {res_fmt}",
                     "format": res_fmt,
                     "url": resource_url.format(layername=layer_name),
+                    "period_start": helpers.convert_date_to_isoformat(
+                        metashare_dict.get("tempextentbegin"),
+                        "tempextentbegin",
+                        metashare_dict.get("name"),
+                    ),
+                    "period_end": helpers.convert_date_to_isoformat(
+                        metashare_dict.get("tempextentend"),
+                        "tempextentend",
+                        metashare_dict.get("name"),
+                    ),
                 }
             )
 

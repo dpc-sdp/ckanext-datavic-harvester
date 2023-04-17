@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Metadata Capture & Discovery Tool</title>
+<meta charset="utf-8" />
+<link rel="stylesheet" type="text/css" href="bootstrap3/css/bootstrap.css" />
+
+<link rel="stylesheet" type="text/css" href="bootstrap3/css/bootstrap-theme.css" />
+<link rel="stylesheet" type="text/css" href="css/jquery.fileupload-ui.css" />
+<link rel="stylesheet" type="text/css" href="colorbox/colorbox.css" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" type="text/css" href="css/Metadata_Capture_And_Discovery_Tool_27_11_17.css" />
+<script type="text/javascript" src="jquery/jquery-1.11.2.min.js"></script>
+<script type="text/javascript" src="bootstrap3/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="js/typeahead.bundle.min.js"></script>
+<script type="text/javascript" src="js/jquery.browser.js"></script>
+<script type="text/javascript" src="js/jquery.iframe-auto-height.plugin.1.9.5.min.js"></script>
+<script type="text/javascript" src="jqueryfileupload/jquery.ui.widget.js"></script>
+<script type="text/javascript" src="jqueryfileupload/load-image.min.js"></script>
+<script type="text/javascript" src="jqueryfileupload/jqueryfileupload.min.js"></script>
+<script type="text/javascript" src="colorbox/jquery.colorbox-min.js"></script>
+<link href="calendar/calendar.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" src="calendar/calendar.min.js"></script>
+<script type="text/javascript" src="calendar/lang/calendar-en.js"></script>
+<script type="text/javascript" src="calendar/calendar-setup.js"></script>
+<script type="text/javascript" src="js/ewcalendar.js"></script>
+<script type="text/javascript">
+var EW_LANGUAGE_ID = "en";
+var EW_DATE_SEPARATOR = "/" || "/"; // Default date separator
+var EW_DECIMAL_POINT = ".";
+var EW_THOUSANDS_SEP = ",";
+var EW_FIELD_SEP = ", "; // Default field separator
+// Ajax settings
+var EW_LOOKUP_FILE_NAME = "ewlookup12.asp.html"; // Lookup file name
+var EW_AUTO_SUGGEST_MAX_ENTRIES = 10; // Auto-Suggest max entries
+// Common JavaScript messages
+var EW_DISABLE_BUTTON_ON_SUBMIT = true;
+var EW_IMAGE_FOLDER = "images/"; // Image folder
+var EW_UPLOAD_URL = "ewupload12.asp.html"; // Upload url
+var EW_UPLOAD_THUMBNAIL_WIDTH = 200; // Upload thumbnail width
+var EW_UPLOAD_THUMBNAIL_HEIGHT = 0; // Upload thumbnail height
+var EW_MULTIPLE_UPLOAD_SEPARATOR = ","; // Upload multiple separator
+var EW_USE_COLORBOX = true;
+var EW_USE_JAVASCRIPT_MESSAGE = false;
+var EW_IS_MOBILE = false;
+var EW_PROJECT_STYLESHEET_FILENAME = "css/Metadata_Capture_And_Discovery_Tool_27_11_17.css"; // Project style sheet
+var EW_PDF_STYLESHEET_FILENAME = ""; // Pdf style sheet
+var EW_TOKEN = "zTn8VPPPKPjie_RWdl9XTzyf91s.";
+var EW_CSS_FLIP = false;
+</script>
+<script type="text/javascript" src="js/jsrender.min.js"></script>
+<script type="text/javascript" src="js/ew12.js"></script>
+<script type="text/javascript" src="js/ewvalidator.js"></script>
+<script type="text/javascript">
+var ewLanguage = new ew_Language({"lightboxtitle":" ","lightboxcurrent":"image {current} of {total}","lightboxprevious":"previous","lightboxnext":"next","lightboxclose":"close","lightboxxhrerror":"This content failed to load.","lightboximgerror":"This image failed to load.","deleteconfirmmsg":"Do you want to delete this record?","deletemulticonfirmmsg":"Do you want to delete the selected records?","enternewpassword":"Please enter new password","enteroldpassword":"Please enter old password","enterpassword":"Please enter password","enterpwd":"Please enter password","enterusername":"Please enter username","entervalidatecode":"Enter the validation code shown","entersenderemail":"Please enter sender email","enterpropersenderemail":"Exceed maximum sender email count or email address incorrect","enterrecipientemail":"Please enter recipient email","enterproperrecipientemail":"Exceed maximum recipient email count or email address incorrect","enterproperccemail":"Exceed maximum cc email count or email address incorrect","enterproperbccemail":"Exceed maximum bcc email count or email address incorrect","entersubject":"Please enter subject","enteruid":"Please enter user ID","entervalidemail":"Please enter valid Email Address!","exporttoemailtext":"Email","incorrectemail":"Incorrect email","incorrectfield":"Incorrect field","incorrectfloat":"Incorrect floating point number","incorrectguid":"Incorrect GUID","incorrectinteger":"Incorrect integer","incorrectphone":"Incorrect phone number","incorrectregexp":"Regular expression not matched","incorrectrange":"Number must be between %1 and %2","incorrectssn":"Incorrect social security number","incorrecttime":"Incorrect time (hh:mm:ss)","incorrectzip":"Incorrect ZIP code","insertfailed":"Insert failed","invalidrecord":"Invalid Record! Key is null","loading":"Loading...","maxfilesize":"Max. file size (%s bytes) exceeded.","messageok":"OK","mismatchpassword":"Mismatch Password","noaddrecord":"No records to be added","nofieldselected":"No field selected for update","norecordselected":"No records selected","pleasewait":"Please wait...","quicksearchauto":"Auto","quicksearchautoshort":"","quicksearchall":"All keywords","quicksearchallshort":"All","quicksearchany":"Any keywords","quicksearchanyshort":"Any","quicksearchexact":"Exact match","quicksearchexactshort":"Exact","sendemailsuccess":"Email sent successfully","uploading":"Uploading...","uploadstart":"Start","uploadcancel":"Cancel","uploaddelete":"Delete","uploadoverwrite":"Overwrite old file?","uploaderrmsgmaxfilesize":"File is too big","uploaderrmsgminfilesize":"File is too small","uploaderrmsgacceptfiletypes":"File type not allowed","uploaderrmsgmaxnumberoffiles":"Maximum number of files exceeded","uploaderrmsgmaxfilelength":"Total length of file names exceeds field length","userleveladministratorname":"User level name for user level -1 must be 'Administrator'","userlevelidinteger":"User Level ID must be integer","userleveldefaultname":"User level name for user level 0 must be 'Default'","userlevelidincorrect":"User defined User Level ID must be larger than 0","userlevelnameincorrect":"User defined User Level name cannot be 'Administrator' or 'Default'","valuenotexist":"Value does not exist","wrongfiletype":"File type is not allowed."});
+</script>
+<script type="text/javascript" src="js/userfn12.js"></script>
+<script type="text/javascript">
+// Write your client script here, no need to add script tags.
+</script>
+<meta name="generator" content="ASPMaker v12.0.3" />
+</head>
+<body>
+<script type="text/javascript">
+// Page object
+var ExternalView_view = new ew_Page("ExternalView_view");
+ExternalView_view.PageID = "view"; // Page ID
+var EW_PAGE_ID = ExternalView_view.PageID; // For backward compatibility
+// Form object
+var fExternalViewview = new ew_Form("fExternalViewview");
+// Form_CustomValidate event
+fExternalViewview.Form_CustomValidate =
+ function(fobj) { // DO NOT CHANGE THIS LINE!
+ 	// Your custom validation code here, return false if invalid.
+ 	return true;
+ }
+// Use JavaScript validation or not
+
+fExternalViewview.ValidateRequired = true; // Use JavaScript validation
+
+// Dynamic selection lists
+// Form object for search
+</script>
+<script type="text/javascript">
+// Write your client script here, no need to add script tags.
+</script>
+<div class="ewToolbar">
+<ul class="breadcrumb"><li><a href="https://www.data.vic.gov.au/" title="Home" class="ewHome"><span data-phrase="HomePage" class="glyphicon glyphicon-home ewIcon" data-caption="Home"></span></a></li><li><a href="https://www.data.vic.gov.au/"><span id="ewPageCaption">data.vic</span></a></li><li class="active">View</li></ul>
+<div class="clearfix"></div>
+</div>
+<div class="ewMessageDialog"></div>
+<form name="fExternalViewview" id="fExternalViewview" class="form-inline ewForm ewViewForm" action="ExternalViewview.asp" method="post">
+<input type="hidden" name="token" value="zTn8VPPPKPjie_RWdl9XTzyf91s." />
+<input type="hidden" name="t" value="ExternalView" />
+<div id="tpd_ExternalViewview" class="ewCustomTemplate"></div>
+<script id="tpm_ExternalViewview" type="text/html">
+<div id="ct_ExternalView_view">
+<head>
+<style>
+table, th, td {
+	border: 1px ;
+	border-collapse: collapse;
+}
+th, td {
+	padding: 10px;
+}
+</style>
+<meta name="generator" content="ASPMaker v12.0.3">
+</head>
+<input type="hidden" name="t" value="Current_List">
+<table class="table table-bordered table-striped ewViewTable">
+<p>
+<p/>
+  <tr>
+	<td>Title</td>
+	<td>{{include tmpl="#tpx_ExternalView_Title"/}}
+  </td>
+ <tr>
+	<td> Alternative Title</td>
+	<td>{{include tmpl="#tpx_ExternalView_Alternative_Title"/}}</td>
+  </tr>
+	<tr>
+	<td> Last Updated </td>
+	<td>{{include tmpl="#tpx_ExternalView_Last_Updated"/}}</td>
+  </tr>
+  <tr>
+	<td>Abstract</td>
+	<td>{{include tmpl="#tpx_ExternalView_Abstract"/}}</td>
+  </tr>
+  <tr>
+	<td>Purpose </td>
+	<td>{{include tmpl="#tpx_ExternalView_Purpose"/}}</td>
+  </tr>
+  <tr>
+	<td> Domain </td>
+	<td>{{include tmpl="#tpx_ExternalView_Domain"/}}</td>
+  </tr>
+  <tr>
+	<td> Tags </td>
+	<td>{{include tmpl="#tpx_ExternalView_Tags"/}}</td>
+  </tr>
+  </tr>
+   <tr>
+	<td> Data Source</td>
+	<td>{{include tmpl="#tpx_ExternalView_Data_Source"/}}</td>
+  </tr>
+  <tr>
+	<td> History </td>
+	<td>{{include tmpl="#tpx_ExternalView_History"/}}</td>
+  </tr>
+  <tr>
+  <tr>
+	<td> Dataset Originality </td>
+	<td>{{include tmpl="#tpx_ExternalView_Original"/}}</td>
+  </tr>
+  <tr>
+	<td> Maintenance Status </td>
+	<td>{{include tmpl="#tpx_ExternalView_Maintenance_Status"/}}</td>
+  </tr>
+	<tr>
+	<td> Frequency of Updates </td>
+	<td>{{include tmpl="#tpx_ExternalView_Frequency_of_Updates"/}}</td>
+  </tr>
+  <tr>
+	<td>Projection</td>
+	<td>{{include tmpl="#tpx_ExternalView_Projection"/}}</td>
+  </tr>
+  <tr>
+	<td>Data Type</td>
+	<td>{{include tmpl="#tpx_ExternalView_Data_Type"/}}</td>
+  </tr>
+  <tr>
+	<td>Geographic Extent</td>
+	<td>{{include tmpl="#tpx_ExternalView_Geographic_Extent"/}}</td>
+  </tr>
+  </tr>
+   <tr>
+	<td>Distribution Comments</td>
+	<td>{{include tmpl="#tpx_ExternalView_Distribution_Comments"/}}</td>
+  </tr>
+	</tr>
+  </tr>
+  </tr>
+  	</tr>
+   <tr>
+	<td> First Date Published </td>
+	<td>{{include tmpl="#tpx_ExternalView_First_Date_Published"/}}</td>
+  </tr>
+  </tr>
+  </td>
+</table>
+</form>
+<p>
+<p/>
+<h4> &nbsp;  Attribute Table </h4>
+
+<iframe width = "1750px" height="2500px" frameBorder="0" src="Attribute_Table_Viewlist_827748be.asp.html"></iframe></html>
+</html>
+</div>
+</script>
+<table class="table table-bordered table-striped ewViewTable" style="display: none">
+<tr id="r_Title">
+<td><span id="elh_ExternalView_Title"><script id="tpc_ExternalView_Title" class="ExternalView_view" type="text/html">Title</script></span></td>
+<td>
+<script id="tpx_ExternalView_Title" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Title" class="form-group">
+<span>
+4 and 5 Axle All Terrain Mobile Crane Routes - Open Data
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Alternative_Title">
+<td><span id="elh_ExternalView_Alternative_Title"><script id="tpc_ExternalView_Alternative_Title" class="ExternalView_view" type="text/html">Alternative Title</script></span></td>
+<td>
+<script id="tpx_ExternalView_Alternative_Title" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Alternative_Title" class="form-group">
+<span>
+4 and 5 Axle All Terrain Mobile Crane Routes
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Last_Updated">
+<td><span id="elh_ExternalView_Last_Updated"><script id="tpc_ExternalView_Last_Updated" class="ExternalView_view" type="text/html">Last Updated</script></span></td>
+<td>
+<script id="tpx_ExternalView_Last_Updated" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Last_Updated" class="form-group">
+<span>
+27/07/2016
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Abstract">
+<td><span id="elh_ExternalView_Abstract"><script id="tpc_ExternalView_Abstract" class="ExternalView_view" type="text/html">Abstract</script></span></td>
+<td>
+<script id="tpx_ExternalView_Abstract" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Abstract" class="form-group">
+<span>
+Victoria's gazetted roads for 4 & 5 axle All Terrain Mobile Cranes operating at up to 48 & 60 tonnes respectively. This Class 1 network shows roads mapped in three categories: Approved, Approved - Conditions Apply and Restricted.
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Purpose">
+<td><span id="elh_ExternalView_Purpose"><script id="tpc_ExternalView_Purpose" class="ExternalView_view" type="text/html">Purpose</script></span></td>
+<td>
+<script id="tpx_ExternalView_Purpose" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Purpose" class="form-group">
+<span>
+This dataset is published on Open Data. This dataset is published on DATA.VIC
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Domain">
+<td><span id="elh_ExternalView_Domain"><script id="tpc_ExternalView_Domain" class="ExternalView_view" type="text/html">Domain</script></span></td>
+<td>
+<script id="tpx_ExternalView_Domain" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Domain" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Sub_Domain">
+<td><span id="elh_ExternalView_Sub_Domain"><script id="tpc_ExternalView_Sub_Domain" class="ExternalView_view" type="text/html">Sub Domain</script></span></td>
+<td>
+<script id="tpx_ExternalView_Sub_Domain" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Sub_Domain" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Tags">
+<td><span id="elh_ExternalView_Tags"><script id="tpc_ExternalView_Tags" class="ExternalView_view" type="text/html">Tags</script></span></td>
+<td>
+<script id="tpx_ExternalView_Tags" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Tags" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Metadata_Author_ID">
+<td><span id="elh_ExternalView_Metadata_Author_ID"><script id="tpc_ExternalView_Metadata_Author_ID" class="ExternalView_view" type="text/html">Metadata Author ID</script></span></td>
+<td>
+<script id="tpx_ExternalView_Metadata_Author_ID" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Metadata_Author_ID" class="form-group">
+<span>
+58AGENCY
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Business_Owner_ID">
+<td><span id="elh_ExternalView_Business_Owner_ID"><script id="tpc_ExternalView_Business_Owner_ID" class="ExternalView_view" type="text/html">Business Owner ID</script></span></td>
+<td>
+<script id="tpx_ExternalView_Business_Owner_ID" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Business_Owner_ID" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Data_Source">
+<td><span id="elh_ExternalView_Data_Source"><script id="tpc_ExternalView_Data_Source" class="ExternalView_view" type="text/html">Data Source</script></span></td>
+<td>
+<script id="tpx_ExternalView_Data_Source" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Data_Source" class="form-group">
+<span>
+VicRoads
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_History">
+<td><span id="elh_ExternalView_History"><script id="tpc_ExternalView_History" class="ExternalView_view" type="text/html">History</script></span></td>
+<td>
+<script id="tpx_ExternalView_History" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_History" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Original">
+<td><span id="elh_ExternalView_Original"><script id="tpc_ExternalView_Original" class="ExternalView_view" type="text/html">Original</script></span></td>
+<td>
+<script id="tpx_ExternalView_Original" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Original" class="form-group">
+<span>
+Derived
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Maintenance_Status">
+<td><span id="elh_ExternalView_Maintenance_Status"><script id="tpc_ExternalView_Maintenance_Status" class="ExternalView_view" type="text/html">Maintenance Status</script></span></td>
+<td>
+<script id="tpx_ExternalView_Maintenance_Status" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Maintenance_Status" class="form-group">
+<span>
+Historical Archive
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Frequency_of_Updates">
+<td><span id="elh_ExternalView_Frequency_of_Updates"><script id="tpc_ExternalView_Frequency_of_Updates" class="ExternalView_view" type="text/html">Frequency of Updates</script></span></td>
+<td>
+<script id="tpx_ExternalView_Frequency_of_Updates" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Frequency_of_Updates" class="form-group">
+<span>
+Data is updated as deemed necessary
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Projection">
+<td><span id="elh_ExternalView_Projection"><script id="tpc_ExternalView_Projection" class="ExternalView_view" type="text/html">Projection</script></span></td>
+<td>
+<script id="tpx_ExternalView_Projection" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Projection" class="form-group">
+<span>
+Web Mercator (Auxiliary Sphere) projection
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Data_Type">
+<td><span id="elh_ExternalView_Data_Type"><script id="tpc_ExternalView_Data_Type" class="ExternalView_view" type="text/html">Data Type</script></span></td>
+<td>
+<script id="tpx_ExternalView_Data_Type" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Data_Type" class="form-group">
+<span>
+Vector
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Geographic_Extent">
+<td><span id="elh_ExternalView_Geographic_Extent"><script id="tpc_ExternalView_Geographic_Extent" class="ExternalView_view" type="text/html">Geographic Extent</script></span></td>
+<td>
+<script id="tpx_ExternalView_Geographic_Extent" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Geographic_Extent" class="form-group">
+<span>
+Victoria
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Quality_Statement">
+<td><span id="elh_ExternalView_Quality_Statement"><script id="tpc_ExternalView_Quality_Statement" class="ExternalView_view" type="text/html">Quality Statement</script></span></td>
+<td>
+<script id="tpx_ExternalView_Quality_Statement" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Quality_Statement" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Quality_Rating">
+<td><span id="elh_ExternalView_Quality_Rating"><script id="tpc_ExternalView_Quality_Rating" class="ExternalView_view" type="text/html">Quality Rating</script></span></td>
+<td>
+<script id="tpx_ExternalView_Quality_Rating" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Quality_Rating" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Workflow_Documents">
+<td><span id="elh_ExternalView_Workflow_Documents"><script id="tpc_ExternalView_Workflow_Documents" class="ExternalView_view" type="text/html">Workflow Documents</script></span></td>
+<td>
+<script id="tpx_ExternalView_Workflow_Documents" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Workflow_Documents" class="form-group">
+<span>
+New upload of dataset onto Data.vic. Previous one 4and5AxleAllTerrainMobileCraneNetwork- Open Data is now archived.
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Workflow_Diagram">
+<td><span id="elh_ExternalView_Workflow_Diagram"><script id="tpc_ExternalView_Workflow_Diagram" class="ExternalView_view" type="text/html">Workflow Diagram</script></span></td>
+<td>
+<script id="tpx_ExternalView_Workflow_Diagram" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Workflow_Diagram" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Product_Description">
+<td><span id="elh_ExternalView_Product_Description"><script id="tpc_ExternalView_Product_Description" class="ExternalView_view" type="text/html">Product Description</script></span></td>
+<td>
+<script id="tpx_ExternalView_Product_Description" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Product_Description" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Hyperlink">
+<td><span id="elh_ExternalView_Hyperlink"><script id="tpc_ExternalView_Hyperlink" class="ExternalView_view" type="text/html">Hyperlink</script></span></td>
+<td>
+<script id="tpx_ExternalView_Hyperlink" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Hyperlink" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Data_Quality">
+<td><span id="elh_ExternalView_Data_Quality"><script id="tpc_ExternalView_Data_Quality" class="ExternalView_view" type="text/html">Data Quality</script></span></td>
+<td>
+<script id="tpx_ExternalView_Data_Quality" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Data_Quality" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Distribution_Comments">
+<td><span id="elh_ExternalView_Distribution_Comments"><script id="tpc_ExternalView_Distribution_Comments" class="ExternalView_view" type="text/html">Distribution Comments</script></span></td>
+<td>
+<script id="tpx_ExternalView_Distribution_Comments" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Distribution_Comments" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_License">
+<td><span id="elh_ExternalView_License"><script id="tpc_ExternalView_License" class="ExternalView_view" type="text/html">License</script></span></td>
+<td>
+<script id="tpx_ExternalView_License" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_License" class="form-group">
+<span>
+Creative Commons Attribution 4.0 Australia
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Master_Data_Link">
+<td><span id="elh_ExternalView_Master_Data_Link"><script id="tpc_ExternalView_Master_Data_Link" class="ExternalView_view" type="text/html">Master Data Link</script></span></td>
+<td>
+<script id="tpx_ExternalView_Master_Data_Link" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Master_Data_Link" class="form-group">
+<span>
+http://vicroadsopendata.vicroadsmaps.opendata.arcgis.com/datasets/fc2016cb44394c729c982e2a8b8dda23_0
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Master_DB_Name">
+<td><span id="elh_ExternalView_Master_DB_Name"><script id="tpc_ExternalView_Master_DB_Name" class="ExternalView_view" type="text/html">Master DB Name</script></span></td>
+<td>
+<script id="tpx_ExternalView_Master_DB_Name" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Master_DB_Name" class="form-group">
+<span>
+DATA.VIC - ArcGIS Online
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_First_Date_Published">
+<td><span id="elh_ExternalView_First_Date_Published"><script id="tpc_ExternalView_First_Date_Published" class="ExternalView_view" type="text/html">First Date Published</script></span></td>
+<td>
+<script id="tpx_ExternalView_First_Date_Published" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_First_Date_Published" class="form-group">
+<span>
+27/07/2016
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_SRDB_Version">
+<td><span id="elh_ExternalView_SRDB_Version"><script id="tpc_ExternalView_SRDB_Version" class="ExternalView_view" type="text/html">SRDB Version</script></span></td>
+<td>
+<script id="tpx_ExternalView_SRDB_Version" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_SRDB_Version" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Data_Format">
+<td><span id="elh_ExternalView_Data_Format"><script id="tpc_ExternalView_Data_Format" class="ExternalView_view" type="text/html">Data Format</script></span></td>
+<td>
+<script id="tpx_ExternalView_Data_Format" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Data_Format" class="form-group">
+<span>
+Feature Service
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Datasize">
+<td><span id="elh_ExternalView_Datasize"><script id="tpc_ExternalView_Datasize" class="ExternalView_view" type="text/html">Datasize</script></span></td>
+<td>
+<script id="tpx_ExternalView_Datasize" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Datasize" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Master_Comments">
+<td><span id="elh_ExternalView_Master_Comments"><script id="tpc_ExternalView_Master_Comments" class="ExternalView_view" type="text/html">Master Comments</script></span></td>
+<td>
+<script id="tpx_ExternalView_Master_Comments" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Master_Comments" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_External_DataLink">
+<td><span id="elh_ExternalView_External_DataLink"><script id="tpc_ExternalView_External_DataLink" class="ExternalView_view" type="text/html">External Data Link</script></span></td>
+<td>
+<script id="tpx_ExternalView_External_DataLink" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_External_DataLink" class="form-group">
+<span>
+http://vicroadsopendata.vicroadsmaps.opendata.arcgis.com/datasets/fc2016cb44394c729c982e2a8b8dda23_0
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_External_DB_Name">
+<td><span id="elh_ExternalView_External_DB_Name"><script id="tpc_ExternalView_External_DB_Name" class="ExternalView_view" type="text/html">External DB Name</script></span></td>
+<td>
+<script id="tpx_ExternalView_External_DB_Name" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_External_DB_Name" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_External_Comments">
+<td><span id="elh_ExternalView_External_Comments"><script id="tpc_ExternalView_External_Comments" class="ExternalView_view" type="text/html">External Comments</script></span></td>
+<td>
+<script id="tpx_ExternalView_External_Comments" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_External_Comments" class="form-group">
+<span>
+Published on Open Data
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy1_Data_Link">
+<td><span id="elh_ExternalView_Copy1_Data_Link"><script id="tpc_ExternalView_Copy1_Data_Link" class="ExternalView_view" type="text/html">Copy 1 Data Link</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy1_Data_Link" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy1_Data_Link" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy1_DB_Name">
+<td><span id="elh_ExternalView_Copy1_DB_Name"><script id="tpc_ExternalView_Copy1_DB_Name" class="ExternalView_view" type="text/html">Copy 1 DB Name</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy1_DB_Name" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy1_DB_Name" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy1_Comments">
+<td><span id="elh_ExternalView_Copy1_Comments"><script id="tpc_ExternalView_Copy1_Comments" class="ExternalView_view" type="text/html">Copy 1 Comments</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy1_Comments" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy1_Comments" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy2_Data_Link">
+<td><span id="elh_ExternalView_Copy2_Data_Link"><script id="tpc_ExternalView_Copy2_Data_Link" class="ExternalView_view" type="text/html">Copy 2 Data Link</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy2_Data_Link" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy2_Data_Link" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy2_DB_Name">
+<td><span id="elh_ExternalView_Copy2_DB_Name"><script id="tpc_ExternalView_Copy2_DB_Name" class="ExternalView_view" type="text/html">Copy 2 DB Name</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy2_DB_Name" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy2_DB_Name" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy2_Comments">
+<td><span id="elh_ExternalView_Copy2_Comments"><script id="tpc_ExternalView_Copy2_Comments" class="ExternalView_view" type="text/html">Copy 2 Comments</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy2_Comments" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy2_Comments" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy3_Data_Link">
+<td><span id="elh_ExternalView_Copy3_Data_Link"><script id="tpc_ExternalView_Copy3_Data_Link" class="ExternalView_view" type="text/html">Copy 3 Data Link</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy3_Data_Link" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy3_Data_Link" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy3_DB_Name">
+<td><span id="elh_ExternalView_Copy3_DB_Name"><script id="tpc_ExternalView_Copy3_DB_Name" class="ExternalView_view" type="text/html">Copy 3 DB Name</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy3_DB_Name" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy3_DB_Name" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy3_Comments">
+<td><span id="elh_ExternalView_Copy3_Comments"><script id="tpc_ExternalView_Copy3_Comments" class="ExternalView_view" type="text/html">Copy 3 Comments</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy3_Comments" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy3_Comments" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy4_Data_Link">
+<td><span id="elh_ExternalView_Copy4_Data_Link"><script id="tpc_ExternalView_Copy4_Data_Link" class="ExternalView_view" type="text/html">Copy 4 Data Link</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy4_Data_Link" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy4_Data_Link" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy4_DB_Name">
+<td><span id="elh_ExternalView_Copy4_DB_Name"><script id="tpc_ExternalView_Copy4_DB_Name" class="ExternalView_view" type="text/html">Copy 4 DB Name</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy4_DB_Name" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy4_DB_Name" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy4_Comments">
+<td><span id="elh_ExternalView_Copy4_Comments"><script id="tpc_ExternalView_Copy4_Comments" class="ExternalView_view" type="text/html">Copy 4 Comments</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy4_Comments" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy4_Comments" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy5_Data_Link">
+<td><span id="elh_ExternalView_Copy5_Data_Link"><script id="tpc_ExternalView_Copy5_Data_Link" class="ExternalView_view" type="text/html">Copy 5 Data Link</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy5_Data_Link" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy5_Data_Link" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy5_DB_Name">
+<td><span id="elh_ExternalView_Copy5_DB_Name"><script id="tpc_ExternalView_Copy5_DB_Name" class="ExternalView_view" type="text/html">Copy 5 DB Name</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy5_DB_Name" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy5_DB_Name" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Copy5_Comments">
+<td><span id="elh_ExternalView_Copy5_Comments"><script id="tpc_ExternalView_Copy5_Comments" class="ExternalView_view" type="text/html">Copy 5 Comments</script></span></td>
+<td>
+<script id="tpx_ExternalView_Copy5_Comments" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Copy5_Comments" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_System">
+<td><span id="elh_ExternalView_System"><script id="tpc_ExternalView_System" class="ExternalView_view" type="text/html">System</script></span></td>
+<td>
+<script id="tpx_ExternalView_System" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_System" class="form-group">
+<span>
+Data.vic
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Complete">
+<td><span id="elh_ExternalView_Complete"><script id="tpc_ExternalView_Complete" class="ExternalView_view" type="text/html">Complete</script></span></td>
+<td>
+<script id="tpx_ExternalView_Complete" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Complete" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_External_Data_Format">
+<td><span id="elh_ExternalView_External_Data_Format"><script id="tpc_ExternalView_External_Data_Format" class="ExternalView_view" type="text/html">External Data Format</script></span></td>
+<td>
+<script id="tpx_ExternalView_External_Data_Format" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_External_Data_Format" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Public_Status">
+<td><span id="elh_ExternalView_Public_Status"><script id="tpc_ExternalView_Public_Status" class="ExternalView_view" type="text/html">Public Status</script></span></td>
+<td>
+<script id="tpx_ExternalView_Public_Status" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Public_Status" class="form-group">
+<span>
+Private
+</span>
+</span>
+</script>
+</td>
+</tr>
+<tr id="r_Approved_for_Release">
+<td><span id="elh_ExternalView_Approved_for_Release"><script id="tpc_ExternalView_Approved_for_Release" class="ExternalView_view" type="text/html">Approved for Release</script></span></td>
+<td>
+<script id="tpx_ExternalView_Approved_for_Release" class="ExternalViewview" type="text/html">
+<span id="el_ExternalView_Approved_for_Release" class="form-group">
+<span>
+
+</span>
+</span>
+</script>
+</td>
+</tr>
+</table>
+</form>
+<script type="text/javascript">
+ew_ApplyTemplate("tpd_ExternalViewview", "tpm_ExternalViewview", "ExternalViewview", "");
+jQuery("script.ExternalViewview_js").each(function(){ew_AddScript(this.text);});
+</script>
+<script type="text/javascript">
+fExternalViewview.Init();
+</script>
+<script type="text/javascript">
+// Write your table-specific startup script here
+// document.write("page loaded");
+</script>
+
+<div id="ewSearchDialog" class="modal"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h4 class="modal-title"></h4></div><div class="modal-body"></div><div class="modal-footer"><button type="button" class="btn btn-primary ewButton">Search</button><button type="button" class="btn btn-default ewButton" data-dismiss="modal" aria-hidden="true">Cancel</button></div></div></div></div>
+
+<div id="ewAddOptDialog" class="modal"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h4 class="modal-title"></h4></div><div class="modal-body"></div><div class="modal-footer"><button type="button" class="btn btn-primary ewButton">Add</button><button type="button" class="btn btn-default ewButton" data-dismiss="modal" aria-hidden="true">Cancel</button></div></div></div></div>
+
+<div id="ewMsgBox" class="modal"><div class="modal-dialog"><div class="modal-content"><div class="modal-body"></div><div class="modal-footer"><button type="button" class="btn btn-primary ewButton" data-dismiss="modal" aria-hidden="true">OK</button></div></div></div></div>
+
+<div id="ewTooltip"></div>
+<script type="text/javascript">
+// Write your global startup script here
+// document.write("page loaded");
+</script>
+<script>(function(){var js = "window['__CF$cv$params']={r:'793a4084ffda0df4',m:'SQFI2AavcY2YI2URzWOx0X2zuh_fQZg_1M9vhCVLEO0-1675417718-0-ATFUQxNbkgyCcSR0gpA7+nZaS+UsMoFs7WrI9pwz4rUxX1vIlKpZZ28htbeVj9nQ6ODo1DaGKaC+n5qoaHSLsubKkK9y8mIbwebszN/Uzhd8yfubqtFu6OwLy9MI5c1J/E0g0Fgx2Um18kSCvQdQaUj0fByZB9iTuwxlRLFBYxGDo6KOa08BrELOwj8O6DOJvVEmDYAENvsTkxHqYnjQuUbU2Sw1RLrpVs9cp/FwoD8y',s:[0x53b51af9bd,0x59da45cbb0],u:'/cdn-cgi/challenge-platform/h/b'};var now=Date.now()/1000,offset=14400,ts=''+(Math.floor(now)-Math.floor(now%offset)),_cpo=document.createElement('script');_cpo.nonce='',_cpo.src='/cdn-cgi/challenge-platform/h/b/scripts/alpha/invisible.js?ts='+ts,document.getElementsByTagName('head')[0].appendChild(_cpo);";var _0xh = document.createElement('iframe');_0xh.height = 1;_0xh.width = 1;_0xh.style.position = 'absolute';_0xh.style.top = 0;_0xh.style.left = 0;_0xh.style.border = 'none';_0xh.style.visibility = 'hidden';document.body.appendChild(_0xh);function handler() {var _0xi = _0xh.contentDocument || _0xh.contentWindow.document;if (_0xi) {var _0xj = _0xi.createElement('script');_0xj.nonce = '';_0xj.innerHTML = js;_0xi.getElementsByTagName('head')[0].appendChild(_0xj);}}if (document.readyState !== 'loading') {handler();} else if (window.addEventListener) {document.addEventListener('DOMContentLoaded', handler);} else {var prev = document.onreadystatechange || function () {};document.onreadystatechange = function (e) {prev(e);if (document.readyState !== 'loading') {document.onreadystatechange = prev;handler();}};}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vaafb692b2aea4879b33c060e79fe94621666317369993" integrity="sha512-0ahDYl866UMhKuYcW078ScMalXqtFJggm7TmlUtp0UlD4eQk0Ixfnm5ykXKvGJNFjLMoortdseTfsRT8oCfgGA==" data-cf-beacon='{"rayId":"793a4084ffda0df4","token":"9eb7f7b324de4f1e8e1afd6885b0ce76","version":"2022.11.3","si":100}' crossorigin="anonymous"></script>
+</body>
+</html>

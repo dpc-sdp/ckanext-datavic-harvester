@@ -1,0 +1,995 @@
+<?xml version="1.0" encoding="UTF-8"?><WMS_Capabilities version="1.3.0" updateSequence="339" xmlns="http://www.opengis.net/wms" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wms http://opendata-uat.maps.vic.gov.au/geoserver/schemas/wms/1.3.0/capabilities_1_3_0.xsd">
+  <Service>
+    <Name>WMS</Name>
+    <Title/>
+    <Abstract/>
+    <KeywordList/>
+    <OnlineResource xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/"/>
+    <ContactInformation>
+      <ContactPersonPrimary>
+        <ContactPerson/>
+        <ContactOrganization/>
+      </ContactPersonPrimary>
+      <ContactPosition/>
+      <ContactAddress>
+        <AddressType/>
+        <Address/>
+        <City/>
+        <StateOrProvince/>
+        <PostCode/>
+        <Country/>
+      </ContactAddress>
+      <ContactVoiceTelephone/>
+      <ContactFacsimileTelephone/>
+      <ContactElectronicMailAddress/>
+    </ContactInformation>
+    <Fees>none</Fees>
+    <AccessConstraints>none</AccessConstraints>
+  </Service>
+  <Capability>
+    <Request>
+      <GetCapabilities>
+        <Format>text/xml</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?SERVICE=WMS&amp;"/>
+            </Get>
+            <Post>
+              <OnlineResource xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?SERVICE=WMS&amp;"/>
+            </Post>
+          </HTTP>
+        </DCPType>
+      </GetCapabilities>
+      <GetMap>
+        <Format>image/png</Format>
+        <Format>application/atom+xml</Format>
+        <Format>application/json;type=geojson</Format>
+        <Format>application/json;type=topojson</Format>
+        <Format>application/json;type=utfgrid</Format>
+        <Format>application/pdf</Format>
+        <Format>application/rss+xml</Format>
+        <Format>application/vnd.google-earth.kml+xml</Format>
+        <Format>application/vnd.google-earth.kml+xml;mode=networklink</Format>
+        <Format>application/vnd.google-earth.kmz</Format>
+        <Format>application/vnd.mapbox-vector-tile</Format>
+        <Format>image/geotiff</Format>
+        <Format>image/geotiff8</Format>
+        <Format>image/gif</Format>
+        <Format>image/jpeg</Format>
+        <Format>image/png; mode=8bit</Format>
+        <Format>image/svg+xml</Format>
+        <Format>image/tiff</Format>
+        <Format>image/tiff8</Format>
+        <Format>image/vnd.jpeg-png</Format>
+        <Format>image/vnd.jpeg-png8</Format>
+        <Format>text/html; subtype=openlayers</Format>
+        <Format>text/html; subtype=openlayers2</Format>
+        <Format>text/html; subtype=openlayers3</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </GetMap>
+      <GetFeatureInfo>
+        <Format>text/plain</Format>
+        <Format>application/vnd.ogc.gml</Format>
+        <Format>text/xml</Format>
+        <Format>application/vnd.ogc.gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/html</Format>
+        <Format>application/json</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </GetFeatureInfo>
+    </Request>
+    <Exception>
+      <Format>XML</Format>
+      <Format>INIMAGE</Format>
+      <Format>BLANK</Format>
+      <Format>JSON</Format>
+    </Exception>
+    <Layer>
+      <Title/>
+      <Abstract/>
+      <!--Limited list of EPSG projections:-->
+      <CRS>EPSG:3111</CRS>
+      <CRS>EPSG:3857</CRS>
+      <CRS>EPSG:4283</CRS>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:28354</CRS>
+      <CRS>EPSG:28355</CRS>
+      <CRS>EPSG:28356</CRS>
+      <CRS>EPSG:900913</CRS>
+      <CRS>EPSG:7844</CRS>
+      <CRS>EPSG:7854</CRS>
+      <CRS>EPSG:7855</CRS>
+      <CRS>EPSG:7856</CRS>
+      <CRS>EPSG:7899</CRS>
+      <CRS>CRS:84</CRS>
+      <EX_GeographicBoundingBox>
+        <westBoundLongitude>139.0013885498047</westBoundLongitude>
+        <eastBoundLongitude>152.59405517578125</eastBoundLongitude>
+        <southBoundLatitude>-41.99998859614421</southBoundLatitude>
+        <northBoundLatitude>-32.99998477221746</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="CRS:84" minx="139.0013885498047" miny="-41.99998859614421" maxx="152.59405517578125" maxy="-32.99998477221746"/>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:bores_bed_fa</Name>
+        <Title>bores_bed_fa</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:bores_bed_fa</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>bores_bed_fa</Keyword>
+          <Keyword>LayerName=open-data-platform:bores_bed_fa</Keyword>
+          <Keyword>MetadataID=8ad36246-9a39-53aa-bcbc-8b33aec63cde</Keyword>
+          <Keyword>ResourceIdentifier=water:bores_bed_fa</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.9621059644466</westBoundLongitude>
+          <eastBoundLongitude>149.97521746201792</eastBoundLongitude>
+          <southBoundLatitude>-39.134141752577435</southBoundLatitude>
+          <northBoundLatitude>-33.99107498817209</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.9621059644466" miny="-39.134141752577435" maxx="149.97521746201792" maxy="-33.99107498817209"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.134141714229635" miny="140.9621059644466" maxx="-33.9910749557372" maxy="149.97521746201792"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Abores_bed_fa"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:env_audit_point</Name>
+        <Title>env_audit_point</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:env_audit_point</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>env_audit_point</Keyword>
+          <Keyword>LayerName=open-data-platform:env_audit_point</Keyword>
+          <Keyword>MetadataID=8f944191-c34c-4476-8407-91368a882320</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:env_audit_point</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>141.58335876464844</westBoundLongitude>
+          <eastBoundLongitude>148.4581298828125</eastBoundLongitude>
+          <southBoundLatitude>-38.760501899592136</southBoundLatitude>
+          <northBoundLatitude>-34.18278506688211</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="141.58335876464844" miny="-38.760501899592136" maxx="148.4581298828125" maxy="-34.18278506688211"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.760501861572266" miny="141.58335876464844" maxx="-34.18278503417969" maxy="148.4581298828125"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aenv_audit_point"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:env_audit_point_test1</Name>
+        <Title>env_audit_point_test1</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:env_audit_point_test1</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>env_audit_point_test1</Keyword>
+          <Keyword>LayerName=open-data-platform:env_audit_point_test1</Keyword>
+          <Keyword>MetadataID=78ecc9fe-d812-45d0-8ba0-63344162a5f7</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:env_audit_point_test1</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>141.58335876464844</westBoundLongitude>
+          <eastBoundLongitude>148.4581298828125</eastBoundLongitude>
+          <southBoundLatitude>-38.760501899592136</southBoundLatitude>
+          <northBoundLatitude>-34.18278506688211</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="141.58335876464844" miny="-38.760501899592136" maxx="148.4581298828125" maxy="-34.18278506688211"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.760501861572266" miny="141.58335876464844" maxx="-34.18278503417969" maxy="148.4581298828125"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aenv_audit_point_test1"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:env_audit_polygon</Name>
+        <Title>env_audit_polygon</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:env_audit_polygon</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>env_audit_polygon</Keyword>
+          <Keyword>LayerName=open-data-platform:env_audit_polygon</Keyword>
+          <Keyword>MetadataID=9dfd4d05-f868-412b-a1d0-9d7520f851c3</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:env_audit_polygon</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>141.5772247314453</westBoundLongitude>
+          <eastBoundLongitude>148.45843505859375</eastBoundLongitude>
+          <southBoundLatitude>-38.649578132401494</southBoundLatitude>
+          <northBoundLatitude>-34.180248293196954</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="141.5772247314453" miny="-38.649578132401494" maxx="148.45843505859375" maxy="-34.180248293196954"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.64957809448242" miny="141.5772247314453" maxx="-34.18024826049805" maxy="148.45843505859375"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aenv_audit_polygon"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:extent_100y_ari</Name>
+        <Title>extent_100y_ari</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:extent_100y_ari</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>extent_100y_ari</Keyword>
+          <Keyword>LayerName=open-data-platform:extent_100y_ari</Keyword>
+          <Keyword>MetadataID=23331157-60c0-525f-81df-8a154c35f2b9</Keyword>
+          <Keyword>ResourceIdentifier=flood:extent_100y_ari</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.96987915039062</westBoundLongitude>
+          <eastBoundLongitude>149.97622680664062</eastBoundLongitude>
+          <southBoundLatitude>-39.13950351735628</southBoundLatitude>
+          <northBoundLatitude>-35.18425372667576</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.96987915039062" miny="-39.13950351735628" maxx="149.97622680664062" maxy="-35.18425372667576"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.139503479003906" miny="140.96987915039062" maxx="-35.18425369262695" maxy="149.97622680664062"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aextent_100y_ari"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:gnr</Name>
+        <Title>gnr</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:gnr</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>gnr</Keyword>
+          <Keyword>LayerName=open-data-platform:gnr</Keyword>
+          <Keyword>MetadataID=54322f3a-6c06-5c48-831c-45214f6d6aa0</Keyword>
+          <Keyword>ResourceIdentifier=vmfeat:gnr</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.95138549804688</westBoundLongitude>
+          <eastBoundLongitude>149.97653198242188</eastBoundLongitude>
+          <southBoundLatitude>-39.207931556965114</southBoundLatitude>
+          <northBoundLatitude>-34.02252963452976</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.95138549804688" miny="-39.207931556965114" maxx="149.97653198242188" maxy="-34.02252963452976"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.20793151855469" miny="140.95138549804688" maxx="-34.02252960205078" maxy="149.97653198242188"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Agnr"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:gsvmi</Name>
+        <Title>gsvmi</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:gsvmi</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>gsvmi</Keyword>
+          <Keyword>LayerName=open-data-platform:gsvmi</Keyword>
+          <Keyword>MetadataID=1c3b8a2d-b15e-505d-945e-f4bb5c7b488a</Keyword>
+          <Keyword>ResourceIdentifier=minerals:gsvmi</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>139.0013885498047</westBoundLongitude>
+          <eastBoundLongitude>150.12631225585938</eastBoundLongitude>
+          <southBoundLatitude>-40.65176777020275</southBoundLatitude>
+          <northBoundLatitude>-33.91598513975116</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="139.0013885498047" miny="-40.65176777020275" maxx="150.12631225585938" maxy="-33.91598513975116"/>
+        <BoundingBox CRS="EPSG:7844" minx="-40.65176773071289" miny="139.0013885498047" maxx="-33.915985107421875" maxy="150.12631225585938"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Agsvmi"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:iwsfootprint</Name>
+        <Title>iwsfootprint</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:iwsfootprint</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>iwsfootprint</Keyword>
+          <Keyword>LayerName=open-data-platform:iwsfootprint</Keyword>
+          <Keyword>MetadataID=101b1ddc-b6a9-5db0-8414-9303a905be9c</Keyword>
+          <Keyword>ResourceIdentifier=corporate:iwsfootprint</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>143.38694619327984</westBoundLongitude>
+          <eastBoundLongitude>146.6480757819567</eastBoundLongitude>
+          <southBoundLatitude>-38.586426827339515</southBoundLatitude>
+          <northBoundLatitude>-36.88032679394198</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="143.38694619327984" miny="-38.586426827339515" maxx="146.6480757819567" maxy="-36.88032679394198"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.58642678947851" miny="143.38694619327984" maxx="-36.880326757832584" maxy="146.6480757819567"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aiwsfootprint"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:melbourne_water_corp</Name>
+        <Title>melbourne_water_corp</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:melbourne_water_corp</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>melbourne_water_corp</Keyword>
+          <Keyword>LayerName=open-data-platform:melbourne_water_corp</Keyword>
+          <Keyword>MetadataID=9ee9d41a-93dc-5e13-9ad8-69c64c22249d</Keyword>
+          <Keyword>ResourceIdentifier=water:melbourne_water_corp</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>144.11688366971688</westBoundLongitude>
+          <eastBoundLongitude>146.16343404624467</eastBoundLongitude>
+          <southBoundLatitude>-38.56752042291388</southBoundLatitude>
+          <northBoundLatitude>-37.20826055913757</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="144.11688366971688" miny="-38.56752042291388" maxx="146.16343404624467" maxy="-37.20826055913757"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.567520385070345" miny="144.11688366971688" maxx="-37.208260522665064" maxy="146.16343404624467"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Amelbourne_water_corp"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:melbourne_water_retailer</Name>
+        <Title>melbourne_water_retailer</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:melbourne_water_retailer</Abstract>
+        <KeywordList>
+          <Keyword>melbourne_water_retailer</Keyword>
+          <Keyword>features</Keyword>
+          <Keyword>LayerName=open-data-platform:melbourne_water_retailer</Keyword>
+          <Keyword>MetadataID=60bfa03f-4a74-5d8e-82a3-c55cd8dac79e</Keyword>
+          <Keyword>ResourceIdentifier=water:melbourne_water_retailer</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>144.17295310668004</westBoundLongitude>
+          <eastBoundLongitude>146.16325620193498</eastBoundLongitude>
+          <southBoundLatitude>-38.500218198375556</southBoundLatitude>
+          <northBoundLatitude>-37.20826055713759</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="144.17295310668004" miny="-38.500218198375556" maxx="146.16325620193498" maxy="-37.20826055713759"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.50021816059463" miny="144.17295310668004" maxx="-37.208260520665085" maxy="146.16325620193498"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Amelbourne_water_retailer"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:minten</Name>
+        <Title>minten</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:minten</Abstract>
+        <KeywordList>
+          <Keyword>minten</Keyword>
+          <Keyword>features</Keyword>
+          <Keyword>LayerName=open-data-platform:minten</Keyword>
+          <Keyword>MetadataID=aeb60861-f25e-534e-b946-2f90f3fcb674</Keyword>
+          <Keyword>ResourceIdentifier=minerals:minten</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>139.11578369140625</westBoundLongitude>
+          <eastBoundLongitude>152.59405517578125</eastBoundLongitude>
+          <southBoundLatitude>-38.94658664707214</southBoundLatitude>
+          <northBoundLatitude>-33.98163226508765</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="139.11578369140625" miny="-38.94658664707214" maxx="152.59405517578125" maxy="-33.98163226508765"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.94658660888672" miny="139.11578369140625" maxx="-33.981632232666016" maxy="152.59405517578125"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aminten"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:operating_licence_point</Name>
+        <Title>operating_licence_point</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:operating_licence_point</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>operating_licence_point</Keyword>
+          <Keyword>LayerName=open-data-platform:operating_licence_point</Keyword>
+          <Keyword>MetadataID=62098986-1ba4-4a69-95e2-6f9cb24eed26</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:operating_licence_point</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.99227905273438</westBoundLongitude>
+          <eastBoundLongitude>149.7340850830078</eastBoundLongitude>
+          <southBoundLatitude>-39.031181373708435</southBoundLatitude>
+          <northBoundLatitude>-34.155536684275894</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.99227905273438" miny="-39.031181373708435" maxx="149.7340850830078" maxy="-34.155536684275894"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.03118133544922" miny="140.99227905273438" maxx="-34.15553665161133" maxy="149.7340850830078"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aoperating_licence_point"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:operating_licence_polygon</Name>
+        <Title>operating_licence_polygon</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:operating_licence_polygon</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>operating_licence_polygon</Keyword>
+          <Keyword>LayerName=open-data-platform:operating_licence_polygon</Keyword>
+          <Keyword>MetadataID=97634d88-fbe0-4231-8481-4122c9dc0731</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:operating_licence_polygon</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.99143981933594</westBoundLongitude>
+          <eastBoundLongitude>149.7409210205078</eastBoundLongitude>
+          <southBoundLatitude>-39.067031898641794</southBoundLatitude>
+          <northBoundLatitude>-34.15134051727787</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.99143981933594" miny="-39.067031898641794" maxx="149.7409210205078" maxy="-34.15134051727787"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.06703186035156" miny="140.99143981933594" maxx="-34.15134048461914" maxy="149.7409210205078"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aoperating_licence_polygon"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:property_view</Name>
+        <Title>property_view</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:property_view</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>property_view</Keyword>
+          <Keyword>LayerName=open-data-platform:property_view</Keyword>
+          <Keyword>MetadataID=295f83bc-e029-5379-afab-b32d1d42d196</Keyword>
+          <Keyword>ResourceIdentifier=vmprop:property_view</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.96212768554688</westBoundLongitude>
+          <eastBoundLongitude>149.97673034667972</eastBoundLongitude>
+          <southBoundLatitude>-39.18611911798184</southBoundLatitude>
+          <northBoundLatitude>-33.981266054149636</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.96212768554688" miny="-39.18611911798184" maxx="149.97673034667972" maxy="-33.981266054149636"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.186119079589844" miny="140.96212768554688" maxx="-33.981266021728516" maxy="149.9767303466797"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aproperty_view"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:prsa_point</Name>
+        <Title>prsa_point</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:prsa_point</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>prsa_point</Keyword>
+          <Keyword>LayerName=open-data-platform:prsa_point</Keyword>
+          <Keyword>MetadataID=9e9f51aa-efe1-4447-ac5a-7641e00a7f85</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:prsa_point</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>145.0404510498047</westBoundLongitude>
+          <eastBoundLongitude>145.5084686279297</eastBoundLongitude>
+          <southBoundLatitude>-37.82358936207172</southBoundLatitude>
+          <northBoundLatitude>-37.81273654833998</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="145.0404510498047" miny="-37.82358936207172" maxx="145.5084686279297" maxy="-37.81273654833998"/>
+        <BoundingBox CRS="EPSG:7844" minx="-37.82358932495117" miny="145.0404510498047" maxx="-37.81273651123047" maxy="145.5084686279297"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aprsa_point"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:prsa_polygon</Name>
+        <Title>prsa_polygon</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:prsa_polygon</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>prsa_polygon</Keyword>
+          <Keyword>LayerName=open-data-platform:prsa_polygon</Keyword>
+          <Keyword>MetadataID=02db2be3-1949-421f-81f2-45b09b5cfa41</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:prsa_polygon</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>144.96009826660156</westBoundLongitude>
+          <eastBoundLongitude>144.96731567382812</eastBoundLongitude>
+          <southBoundLatitude>-37.811496771727384</southBoundLatitude>
+          <northBoundLatitude>-37.80547336473882</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="144.96009826660156" miny="-37.811496771727384" maxx="144.96731567382812" maxy="-37.80547336473882"/>
+        <BoundingBox CRS="EPSG:7844" minx="-37.81149673461914" miny="144.96009826660156" maxx="-37.80547332763672" maxy="144.96731567382812"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aprsa_polygon"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:psr_point</Name>
+        <Title>psr_point</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:psr_point</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>psr_point</Keyword>
+          <Keyword>LayerName=open-data-platform:psr_point</Keyword>
+          <Keyword>MetadataID=5f9d0046-ea02-44a4-80e3-66947a03060e</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:psr_point</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>142.17784118652344</westBoundLongitude>
+          <eastBoundLongitude>147.06781005859375</eastBoundLongitude>
+          <southBoundLatitude>-38.412178077248974</southBoundLatitude>
+          <northBoundLatitude>-34.18687060765925</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="142.17784118652344" miny="-38.412178077248974" maxx="147.06781005859375" maxy="-34.18687060765925"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.41217803955078" miny="142.17784118652344" maxx="-34.18687057495117" maxy="147.06781005859375"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Apsr_point"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:psr_polygon</Name>
+        <Title>psr_polygon</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:psr_polygon</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>psr_polygon</Keyword>
+          <Keyword>LayerName=open-data-platform:psr_polygon</Keyword>
+          <Keyword>MetadataID=fd91bc76-8431-43a0-b8fa-78dfd0063b88</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:psr_polygon</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>142.17347717285156</westBoundLongitude>
+          <eastBoundLongitude>147.06822204589844</eastBoundLongitude>
+          <southBoundLatitude>-38.19963077479917</southBoundLatitude>
+          <northBoundLatitude>-34.18387988499886</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="142.17347717285156" miny="-38.19963077479917" maxx="147.06822204589844" maxy="-34.18387988499886"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.19963073730469" miny="142.17347717285156" maxx="-34.18387985229492" maxy="147.06822204589844"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Apsr_polygon"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:resourcefootprint</Name>
+        <Title>resourcefootprint</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:resourcefootprint</Abstract>
+        <KeywordList>
+          <Keyword>resourcefootprint</Keyword>
+          <Keyword>features</Keyword>
+          <Keyword>LayerName=open-data-platform:resourcefootprint</Keyword>
+          <Keyword>MetadataID=7523ef1f-08de-5636-86ba-1fb65d51754f</Keyword>
+          <Keyword>ResourceIdentifier=corporate:resourcefootprint</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.875</westBoundLongitude>
+          <eastBoundLongitude>150.00001525878906</eastBoundLongitude>
+          <southBoundLatitude>-39.499988594559554</southBoundLatitude>
+          <northBoundLatitude>-33.99998477365832</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.875" miny="-39.499988594559554" maxx="150.00001525878906" maxy="-33.99998477365832"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.4999885559082" miny="140.875" maxx="-33.99998474121094" maxy="150.00001525878906"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aresourcefootprint"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:road_casement_polygon</Name>
+        <Title>road_casement_polygon</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:road_casement_polygon</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>road_casement_polygon</Keyword>
+          <Keyword>LayerName=open-data-platform:road_casement_polygon</Keyword>
+          <Keyword>MetadataID=8f038fe6-db8a-5e29-b9b4-738d20f9c4d5</Keyword>
+          <Keyword>ResourceIdentifier=vmprop:road_casement_polygon</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.96189880371094</westBoundLongitude>
+          <eastBoundLongitude>149.8295440673828</eastBoundLongitude>
+          <southBoundLatitude>-38.90510181427195</southBoundLatitude>
+          <northBoundLatitude>-33.982051881787456</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.96189880371094" miny="-38.90510181427195" maxx="149.8295440673828" maxy="-33.982051881787456"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.90510177612305" miny="140.96189880371094" maxx="-33.982051849365234" maxy="149.8295440673828"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aroad_casement_polygon"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:rural_water_corp</Name>
+        <Title>rural_water_corp</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:rural_water_corp</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>rural_water_corp</Keyword>
+          <Keyword>LayerName=open-data-platform:rural_water_corp</Keyword>
+          <Keyword>MetadataID=2d2036d4-90e5-59a6-9901-99efa62ab668</Keyword>
+          <Keyword>ResourceIdentifier=water:rural_water_corp</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.965733812895</westBoundLongitude>
+          <eastBoundLongitude>149.97502280706323</eastBoundLongitude>
+          <southBoundLatitude>-39.15926737453909</southBoundLatitude>
+          <northBoundLatitude>-33.9861693210795</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.965733812895" miny="-39.15926737453909" maxx="149.97502280706323" maxy="-33.9861693210795"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.15926733616989" miny="140.965733812895" maxx="-33.9861692886515" maxy="149.97502280706323"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Arural_water_corp"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:sg_geological_unit_50k</Name>
+        <Title>sg_geological_unit_50k</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:sg_geological_unit_50k</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>sg_geological_unit_50k</Keyword>
+          <Keyword>LayerName=open-data-platform:sg_geological_unit_50k</Keyword>
+          <Keyword>MetadataID=b16d9cce-8613-5e05-acc0-1aa60d37a2ab</Keyword>
+          <Keyword>ResourceIdentifier=minerals:sg_geological_unit_50k</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.97091674804688</westBoundLongitude>
+          <eastBoundLongitude>149.50125122070312</eastBoundLongitude>
+          <southBoundLatitude>-38.857681312520945</southBoundLatitude>
+          <northBoundLatitude>-35.92853168171774</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.97091674804688" miny="-38.857681312520945" maxx="149.50125122070312" maxy="-35.92853168171774"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.85768127441406" miny="140.97091674804688" maxx="-35.928531646728516" maxy="149.50125122070312"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Asg_geological_unit_50k"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:shalld100_polygon</Name>
+        <Title>shalld100_polygon</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:shalld100_polygon</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>shalld100_polygon</Keyword>
+          <Keyword>LayerName=open-data-platform:shalld100_polygon</Keyword>
+          <Keyword>MetadataID=a8ea0e8d-8bfc-5cf3-9930-192256946414</Keyword>
+          <Keyword>ResourceIdentifier=minerals:shalld100_polygon</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>143.0173492431641</westBoundLongitude>
+          <eastBoundLongitude>148.5013427734375</eastBoundLongitude>
+          <southBoundLatitude>-37.170204199028646</southBoundLatitude>
+          <northBoundLatitude>-36.31875232427844</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="143.0173492431641" miny="-37.170204199028646" maxx="148.5013427734375" maxy="-36.31875232427844"/>
+        <BoundingBox CRS="EPSG:7844" minx="-37.170204162597656" miny="143.01734924316406" maxx="-36.31875228881836" maxy="148.5013427734375"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Ashalld100_polygon"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:urban_water_corp</Name>
+        <Title>urban_water_corp</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:urban_water_corp</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>urban_water_corp</Keyword>
+          <Keyword>LayerName=open-data-platform:urban_water_corp</Keyword>
+          <Keyword>MetadataID=18f0d03c-2f92-58e0-8029-ba6aea63f44c</Keyword>
+          <Keyword>ResourceIdentifier=water:urban_water_corp</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.9621059644466</westBoundLongitude>
+          <eastBoundLongitude>149.97521746201792</eastBoundLongitude>
+          <southBoundLatitude>-39.134141752577435</southBoundLatitude>
+          <northBoundLatitude>-33.99107498817209</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.9621059644466" miny="-39.134141752577435" maxx="149.97521746201792" maxy="-33.99107498817209"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.134141714229635" miny="140.9621059644466" maxx="-33.9910749557372" maxy="149.97521746201792"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Aurban_water_corp"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:vlr_point</Name>
+        <Title>vlr_point</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:vlr_point</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>vlr_point</Keyword>
+          <Keyword>LayerName=open-data-platform:vlr_point</Keyword>
+          <Keyword>MetadataID=673678b6-f8c4-450a-8b6a-8bb295bc0928</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:vlr_point</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>141.00848388671875</westBoundLongitude>
+          <eastBoundLongitude>149.74557495117188</eastBoundLongitude>
+          <southBoundLatitude>-38.817993202133984</southBoundLatitude>
+          <northBoundLatitude>-34.18358996800627</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="141.00848388671875" miny="-38.817993202133984" maxx="149.74557495117188" maxy="-34.18358996800627"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.8179931640625" miny="141.00848388671875" maxx="-34.183589935302734" maxy="149.74557495117188"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Avlr_point"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:vlr_polygon</Name>
+        <Title>vlr_polygon</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:vlr_polygon</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>vlr_polygon</Keyword>
+          <Keyword>LayerName=open-data-platform:vlr_polygon</Keyword>
+          <Keyword>MetadataID=2b907103-6f69-4264-82cd-d26bad374613</Keyword>
+          <Keyword>ResourceIdentifier=environprotect:vlr_polygon</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>141.2235107421875</westBoundLongitude>
+          <eastBoundLongitude>148.4757843017578</eastBoundLongitude>
+          <southBoundLatitude>-38.77803806293801</southBoundLatitude>
+          <northBoundLatitude>-34.26687243882467</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="141.2235107421875" miny="-38.77803806293801" maxx="148.4757843017578" maxy="-34.26687243882467"/>
+        <BoundingBox CRS="EPSG:7844" minx="-38.778038024902344" miny="141.2235107421875" maxx="-34.26687240600586" maxy="148.4757843017578"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Avlr_polygon"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:water_corp</Name>
+        <Title>water_corp</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:water_corp</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>water_corp</Keyword>
+          <Keyword>LayerName=open-data-platform:water_corp</Keyword>
+          <Keyword>MetadataID=82794bd0-771f-5e44-b0ac-e736fce55286</Keyword>
+          <Keyword>ResourceIdentifier=water:water_corp</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>140.96209716796875</westBoundLongitude>
+          <eastBoundLongitude>149.9752197265625</eastBoundLongitude>
+          <southBoundLatitude>-39.15926746390632</southBoundLatitude>
+          <northBoundLatitude>-33.98616794014284</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="140.96209716796875" miny="-39.15926746390632" maxx="149.9752197265625" maxy="-33.98616794014284"/>
+        <BoundingBox CRS="EPSG:7844" minx="-39.15926742553711" miny="140.96209716796875" maxx="-33.986167907714844" maxy="149.9752197265625"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Awater_corp"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>open-data-platform:wspa</Name>
+        <Title>wspa</Title>
+        <Abstract>Layer-Group type layer: open-data-platform:wspa</Abstract>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>wspa</Keyword>
+          <Keyword>LayerName=open-data-platform:wspa</Keyword>
+          <Keyword>MetadataID=6b1ab79a-71c1-5484-ba56-8a5df4700eef</Keyword>
+          <Keyword>ResourceIdentifier=corporate:wspa</Keyword>
+        </KeywordList>
+        <CRS>EPSG:7844</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>139.46667480468753</westBoundLongitude>
+          <eastBoundLongitude>150.50001525878906</eastBoundLongitude>
+          <southBoundLatitude>-41.99998859614421</southBoundLatitude>
+          <northBoundLatitude>-32.99998477221746</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="139.46667480468753" miny="-41.99998859614421" maxx="150.50001525878906" maxy="-32.99998477221746"/>
+        <BoundingBox CRS="EPSG:7844" minx="-41.9999885559082" miny="139.4666748046875" maxx="-32.99998474121094" maxy="150.50001525878906"/>
+        <Style>
+          <Name>generic</Name>
+          <Title>Generic</Title>
+          <Abstract>Generic style</Abstract>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://opendata-uat.maps.vic.gov.au/geoserver/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=open-data-platform%3Awspa"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+  </Capability>
+</WMS_Capabilities>

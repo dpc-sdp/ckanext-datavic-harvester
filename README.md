@@ -17,7 +17,7 @@ To install ``ckanext-datavic-harvester``:
         cd /app/src/ckan/default/src/ckanext-datavic-harvester
         python setup.py develop
 
-3. Add ``datavic_ckan_harvester`` to the ``ckan.plugins`` setting in your CKAN
+3. Add ``datavic_dcat_json_harvester delwp_harvester`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
    ``/app/ckan/default/ckan.ini``).
 

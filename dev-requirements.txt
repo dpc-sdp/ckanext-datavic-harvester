@@ -1,0 +1,5 @@
+pytest-ckan
+pytest-mock
+pytest-factoryboy
+pytest==4.6.5
+black

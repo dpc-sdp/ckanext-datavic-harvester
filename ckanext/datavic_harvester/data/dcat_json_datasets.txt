@@ -3,78 +3,80 @@
 	"@type": "dcat:Catalog",
 	"conformsTo": "https://project-open-data.cio.gov/v1.1/schema",
 	"describedBy": "https://project-open-data.cio.gov/v1.1/schema/catalog.json",
-	"dataset": [
-		{
-			"@type": "dcat:Dataset",
-			"identifier": "https://www.arcgis.com/home/item.html?id=4a3f184ced3d48c883917804393ad420&sublayer=0",
-			"landingPage": "https://data-melbournewater.opendata.arcgis.com/maps/melbournewater::melbourne-water-land-availability-for-our-space-your-place",
-			"title": "Melbourne Water Land Availability for Our Space Your Place",
-			"description": "<div><div>This dataset shows land parcels owned by Melbourne Water that have potential to be utilised for liveability related projects. The data does not provide a guarantee that the land can be used, or used by any particular activity. Authority to use the land will still need to be assessed and granted by Melbourne Water. Due to the restrictive nature of potentially using land containing assets such as pipes, pits, retarding basins etc the land has been classified into three landuse types. These types describe the potential for using the land area for different purposes. Land classified as &quot;A&quot; (or &quot;Likely Available&quot;) are those area that are likely to be available for community projects and could be used for a variety of purposes depending on the space. Land classified as &quot;L&quot; (or &quot;Restrictions Apply&quot;) are areas likely to be available for small scale or portable infrastructure such as park benches, goal posts, landscaping and temporary food vans. They are unlikely to be available for large scale infrastructure due to access, drainage, safety, current lease or licence agreements or other requirements. Land classified as &quot;X&quot; (or &quot;Access Only&quot;) are areas likely to be available for access related activities such as walking, running or yoga. 24 hour access is usually required and infrastructure is unlikely to be permitted. To apply, visit: <a href='https://melbournewater.maps.arcgis.com/apps/MapJournal/index.html?appid=e60e956c9f304027802e9bef6177fac1' target='_blank'>Our Space Your Place</a></div><div><br /></div><div>Approximately 100 Melbourne Water asset datasets were used in the creation of this dataset. Rules governing the use of land on and around each asset class were established and applied to these areas. Coverage is across approximately 80% of MW owned land areas. The next edition aims to increase this to all applicable MW owned land.</div><div><br /></div><div>For more details: <a href='https://www.melbournewater.com.au/community-and-education/use-our-land/land-community-projects' target='_blank'>Land and Community Projects (link to MW website)</a></div><div><br /></div><div>NOTE: Whilst every effort has been taken in collecting, validating and providing the attached data, Melbourne Water Corporation makes no representations or guarantees as to the accuracy or completeness of this data. Any person or group that uses this data does so at its own risk and should make their own assessment and investigations as to the suitability and/or application of the data. Melbourne Water Corporation shall not be liable in any way to any person or group for loss of any kind including damages, costs, interest, loss of profits or special loss or damage, arising from any use, error, inaccuracy, incompleteness or other defect in this data.</div></div>",
-			"keyword": [
-				"Land Availability Conditions"
-			],
-			"issued": "2017-08-02T07:18:27.000Z",
-			"modified": "2022-05-06T05:29:14.178Z",
-			"publisher": {
-				"source": "Melbourne Water Corporation",
-				"name": "Melbourne Water Corporation"
-			},
-			"contactPoint": {
-				"fn": "Melbourne Water Corporation",
-				"hasEmail": "mailto:enquiry@melbournewater.com.au",
-				"@type": "vcard:Contact"
-			},
-			"accessLevel": "public",
-			"spatial": "144.3896,-38.5081,146.4106,-37.1463",
-			"license": "Creative Commons Attribution Share-Alike 4.0 International",
-			"distribution": [
-				{
-					"@type": "dcat:Distribution",
-					"title": "ArcGIS Hub Dataset",
-					"format": "Web Page",
-					"mediaType": "text/html",
-					"accessURL": "https://data-melbournewater.opendata.arcgis.com/maps/melbournewater::melbourne-water-land-availability-for-our-space-your-place"
-				},
-				{
-					"@type": "dcat:Distribution",
-					"title": "ArcGIS GeoService",
-					"format": "ArcGIS GeoServices REST API",
-					"mediaType": "application/json",
-					"accessURL": "https://services5.arcgis.com/ZSYwjtv8RKVhkXIL/arcgis/rest/services/Land_Availability_Conditions/FeatureServer/0"
-				},
-				{
-					"@type": "dcat:Distribution",
-					"title": "GeoJSON",
-					"format": "GeoJSON",
-					"mediaType": "application/vnd.geo+json",
-					"accessURL": "https://data-melbournewater.opendata.arcgis.com/datasets/melbournewater::melbourne-water-land-availability-for-our-space-your-place.geojson?outSR=%7B%22latestWkid%22%3A3857%2C%22wkid%22%3A102100%7D"
-				},
-				{
-					"@type": "dcat:Distribution",
-					"title": "CSV",
-					"format": "CSV",
-					"mediaType": "text/csv",
-					"accessURL": "https://data-melbournewater.opendata.arcgis.com/datasets/melbournewater::melbourne-water-land-availability-for-our-space-your-place.csv?outSR=%7B%22latestWkid%22%3A3857%2C%22wkid%22%3A102100%7D"
-				},
-				{
-					"@type": "dcat:Distribution",
-					"title": "KML",
-					"format": "KML",
-					"mediaType": "application/vnd.google-earth.kml+xml",
-					"accessURL": "https://data-melbournewater.opendata.arcgis.com/datasets/melbournewater::melbourne-water-land-availability-for-our-space-your-place.kml?outSR=%7B%22latestWkid%22%3A3857%2C%22wkid%22%3A102100%7D"
-				},
-				{
-					"@type": "dcat:Distribution",
-					"title": "Shapefile",
-					"format": "ZIP",
-					"mediaType": "application/zip",
-					"accessURL": "https://data-melbournewater.opendata.arcgis.com/datasets/melbournewater::melbourne-water-land-availability-for-our-space-your-place.zip?outSR=%7B%22latestWkid%22%3A3857%2C%22wkid%22%3A102100%7D"
-				}
-			],
-			"theme": [
-				"geospatial"
-			]
-		},
+    "dataset": [
+        {
+        "@type": "dcat:Dataset",
+        "identifier": "https://www.arcgis.com/home/item.html?id=74dd92127eea4404b0dad1d7e39bf0e3&sublayer=1",
+        "landingPage": "https://vicroadsopendata-vicroadsmaps.opendata.arcgis.com/maps/vicroadsmaps::road-crashes-for-five-years-victoria",
+        "title": "Road Crashes for five Years Victoria",
+        "description": "<span style='color:rgb(83, 86, 90); font-family:&quot;Avenir Next&quot;, &quot;Avenir Next&quot;; font-size:18px;'>Fatal and injury crashes on Victorian roads during the latest five year reporting period. This data allows users to analyse Victorian fatal and injury crash data based on time, location, conditions, crash type, road user type, object hit etc. Road Safety data is provided by VicRoads for educational and research purposes. This data is in Web Mercator (Auxiliary Sphere) projection.</span><div><span style='color:rgb(83, 86, 90); font-family:&quot;Avenir Next&quot;, &quot;Avenir Next&quot;; font-size:18px;'> </span><a href='https://data.vicroads.vic.gov.au/metadata/Crashes_Last_Five_Years%20-%20Open%20Data.html' rel='nofollow ugc' target='_blank'>About this Data</a></div>",
+        "keyword": [
+            "Crash",
+            "RCIS",
+            "DoT",
+            "EIM"
+        ],
+        "issued": "2021-02-19T11:02:30.000Z",
+        "modified": "2021-10-05T02:14:37.000Z",
+        "publisher": {
+            "name": "Department of Transport"
+        },
+        "contactPoint": {
+            "@type": "vcard:Contact",
+            "fn": "VicRoads",
+            "hasEmail": "mailto:sissupport@roads.vic.gov.au"
+        },
+        "accessLevel": "public",
+        "spatial": "140.7174,-38.9561,149.5451,-34.0182",
+        "license": "http://creativecommons.org/licenses/by/4.0",
+        "distribution": [
+            {
+            "@type": "dcat:Distribution",
+            "title": "ArcGIS Hub Dataset",
+            "format": "Web Page",
+            "mediaType": "text/html",
+            "accessURL": "https://vicroadsopendata-vicroadsmaps.opendata.arcgis.com/maps/vicroadsmaps::road-crashes-for-five-years-victoria"
+            },
+            {
+            "@type": "dcat:Distribution",
+            "title": "ArcGIS GeoService",
+            "format": "ArcGIS GeoServices REST API",
+            "mediaType": "application/json",
+            "accessURL": "https://vicdata.vicroads.vic.gov.au/server/rest/services/SMOP/SMOP_Open_Data_040521/FeatureServer/1"
+            },
+            {
+            "@type": "dcat:Distribution",
+            "title": "GeoJSON",
+            "format": "GeoJSON",
+            "mediaType": "application/vnd.geo+json",
+            "accessURL": "https://vicroadsopendata-vicroadsmaps.opendata.arcgis.com/datasets/vicroadsmaps::road-crashes-for-five-years-victoria.geojson?outSR=%7B%22latestWkid%22%3A3111%2C%22wkid%22%3A102171%7D"
+            },
+            {
+            "@type": "dcat:Distribution",
+            "title": "CSV",
+            "format": "CSV",
+            "mediaType": "text/csv",
+            "accessURL": "https://vicroadsopendata-vicroadsmaps.opendata.arcgis.com/datasets/vicroadsmaps::road-crashes-for-five-years-victoria.csv?outSR=%7B%22latestWkid%22%3A3111%2C%22wkid%22%3A102171%7D"
+            },
+            {
+            "@type": "dcat:Distribution",
+            "title": "KML",
+            "format": "KML",
+            "mediaType": "application/vnd.google-earth.kml+xml",
+            "accessURL": "https://vicroadsopendata-vicroadsmaps.opendata.arcgis.com/datasets/vicroadsmaps::road-crashes-for-five-years-victoria.kml?outSR=%7B%22latestWkid%22%3A3111%2C%22wkid%22%3A102171%7D"
+            },
+            {
+            "@type": "dcat:Distribution",
+            "title": "Shapefile",
+            "format": "ZIP",
+            "mediaType": "application/zip",
+            "accessURL": "https://vicroadsopendata-vicroadsmaps.opendata.arcgis.com/datasets/vicroadsmaps::road-crashes-for-five-years-victoria.zip?outSR=%7B%22latestWkid%22%3A3111%2C%22wkid%22%3A102171%7D"
+            }
+        ],
+        "theme": [
+            "geospatial"
+        ]
+        },
 		{
 			"@type": "dcat:Dataset",
 			"identifier": "https://www.arcgis.com/home/item.html?id=dba0069ce11940bab87420344abdff78&sublayer=0",

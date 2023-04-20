@@ -70,13 +70,13 @@ class DelwpHarvester(DataVicBaseHarvester):
             raise ValueError("organisation_mapping must be a *list* of organisations")
 
         for organisation in config["organisation_mapping"]:
-            resowner: Optional[str] = organisation.get("resowner")
-            org_name: Optional[str] = organisation.get("org-name")
-
             if not isinstance(organisation, dict):
                 raise ValueError(
                     'organisation_mapping item must be a *dict*. eg {"resowner": "Organisation A", "org-name": "organisation-a"}'
                 )
+
+            resowner: Optional[str] = organisation.get("resowner")
+            org_name: Optional[str] = organisation.get("org-name")
 
             if not resowner:
                 raise ValueError(
@@ -85,7 +85,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
             if not org_name:
                 raise ValueError(
-                    'organisation_mapping item must have property *org-name*. eg "org-name": "organisation-a"}'
+                    'organisation_mapping item must have property "org-name". eg "org-name": "organisation-a"}'
                 )
 
             try:
@@ -112,7 +112,9 @@ class DelwpHarvester(DataVicBaseHarvester):
         harvest_source_url: str = harvest_job.source.url.rstrip("?")
 
         while True:
-            log.debug(f"{self.HARVESTER} fetching records by url: {harvest_source_url}, page: {page}")
+            log.debug(
+                f"{self.HARVESTER} fetching records by url: {harvest_source_url}, page: {page}"
+            )
             records = self._fetch_records(harvest_source_url, page, records_per_page)
 
             batch_guids = []
@@ -151,6 +153,9 @@ class DelwpHarvester(DataVicBaseHarvester):
 
             if len(batch_guids) > 0:
                 guids_in_source.extend(set(batch_guids) - set(previous_guids))
+
+            if self.test:
+                break
 
             page = page + 1
             previous_guids = batch_guids
@@ -194,9 +199,13 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
         log.debug(f"{self.HARVESTER}: getting page of records {request_url}")
 
-        resp_text: Optional[str] = self._make_request(
-            request_url,
-            {"Authorization": self.config["api_auth"]},
+        resp_text: Optional[str] = (
+            self._get_mocked_records()
+            if self.test
+            else self._make_request(
+                request_url,
+                {"Authorization": self.config["api_auth"]},
+            )
         )
 
         if not resp_text:
@@ -256,12 +265,9 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         if previous_harvest_object:
             previous_harvest_object.current = False
-            # previous_harvest_object.add()
         harvest_object.current = True
 
         pkg_dict = self._get_pkg_dict(harvest_object)
-
-        # harvest_object.add()
 
         if status not in ["new", "change"]:
             return True
@@ -269,11 +275,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         if status == "new":
             pkg_dict["id"] = str(uuid.uuid4())
             harvest_object.package_id = pkg_dict["id"]
-            # harvest_object.add()
 
-            # Defer constraints and flush so the dataset can be indexed with
-            # the harvest object id (on the after_show hook from the harvester
-            # plugin)
             model.Session.execute(
                 "SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED"
             )
@@ -453,13 +455,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         try:
             org_id = tk.get_action("organization_create")(
-                {
-                    "user": self._get_user_name(),
-                    "return_id_only": True,
-                    "ignore_auth": True,
-                    "model": model,
-                    "session": model.Session,
-                },
+                self._make_context(),
                 {"name": org_name, "title": resowner},
             )
         except Exception as e:
@@ -592,7 +588,11 @@ class DelwpHarvester(DataVicBaseHarvester):
         self, geoserver_url: str, metadata_uuid: Optional[str]
     ) -> Optional[Union[Tag, NavigableString]]:
 
-        resp_text: Optional[str] = self._make_request(geoserver_url)
+        resp_text: Optional[str] = (
+            self._get_mocked_geores()
+            if self.test
+            else self._make_request(geoserver_url)
+        )
 
         if not resp_text:
             return

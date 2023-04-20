@@ -47,6 +47,8 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
 
         soup: BeautifulSoup = BeautifulSoup(pkg_dict["notes"], "html.parser")
 
+        pkg_dict["name"] = self._get_package_name(harvest_object, pkg_dict["title"])
+
         self._set_description_and_extract(pkg_dict, soup)
         self._set_full_metadata_url_and_update_frequency(pkg_dict, soup)
         self._mutate_tags(pkg_dict)
@@ -60,10 +62,8 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
             pkg_dict["notes"] = "No description has been entered for this dataset."
             pkg_dict["extract"] = "No abstract has been entered for this dataset."
         else:
-            allowed_tags: list[str] = ["a", "br"]
             pkg_dict["notes"] = helpers.unwrap_all_except(
-                helpers.remove_all_attrs_except_for(soup, allowed_tags),
-                allowed_tags,
+                helpers.remove_all_attrs_except_for(soup),
             )
             pkg_dict["extract"] = self._generate_extract(soup)
 
@@ -77,6 +77,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
         except Exception as ex:
             log.error(f"Generate extract error for: {soup}")
             log.error(str(ex))
+            return ""
         return notes
 
     def _set_full_metadata_url_and_update_frequency(
@@ -104,7 +105,11 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
 
         default_udp_frequency: str = "unknown"
 
-        resp_text: Optional[str] = self._make_request(full_metadata_url)
+        resp_text: Optional[str] = (
+            self._get_mocked_full_metadata()
+            if self.test
+            else self._make_request(full_metadata_url)
+        )
 
         if not resp_text:
             log.error(f"Request error occured during fetching update_frequency")
@@ -124,10 +129,8 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
         for tag in soup(
             "script", attrs={"id": "tpx_ExternalView_Frequency_of_Updates"}
         ):
-            tag_text: str = tag.get_text()
-
             for k, v in frequency_mapping.items():
-                if k in tag_text:
+                if k in tag.string:
                     return v
 
         return default_udp_frequency
@@ -162,7 +165,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
 
             pkg_dict["groups"].extend(
                 [
-                    group
+                    {"id": group["id"], "name": group["name"]}
                     for group in default_groups
                     if group["id"] not in existing_group_ids
                 ]
@@ -180,9 +183,6 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
 
         if not self._get_extra(pkg_dict, "protective_marking"):
             pkg_dict["protective_marking"] = "official"
-
-        if not self._get_extra(pkg_dict, "update_frequency"):
-            pkg_dict["update_frequency"] = "unknown"
 
         if not self._get_extra(pkg_dict, "organization_visibility"):
             pkg_dict["organization_visibility"] = "current"
@@ -228,11 +228,20 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
             {"id": datasets[0][0]},
         )
 
-    def __get_content_and_type(self, url, harvest_job, page=1, content_type=None):
+    def _get_content_and_type(self, url, harvest_job, page=1, content_type=None):
         """Mock data, use it instead of actual request for develop process"""
-        return self._get_mocked_content(), ""
+
+        if self.test:
+            return self._get_mocked_content(), ""
+
+        return super()._get_content_and_type(url, harvest_job, page, content_type)
 
     def _get_mocked_content(self) -> str:
         here: str = path.abspath(path.dirname(__file__))
         with open(path.join(here, "../data/dcat_json_datasets.txt")) as f:
+            return f.read()
+
+    def _get_mocked_full_metadata(self):
+        here: str = path.abspath(path.dirname(__file__))
+        with open(path.join(here, "../data/dcat_json_full_metadata.txt")) as f:
             return f.read()

@@ -4,6 +4,7 @@ import json
 import logging
 import traceback
 import uuid
+from hashlib import sha256
 from os import path
 from typing import Iterator, Optional, Any, Union
 
@@ -20,6 +21,7 @@ from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester
 
 
 log = logging.getLogger(__name__)
+HASH_FIELD = "harvester_data_hash"
 
 
 class DelwpHarvester(DataVicBaseHarvester):
@@ -191,7 +193,6 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _fetch_records(
         self, url: str, page: int, records_per_page: int = 100
     ) -> Optional[list[dict[str, Any]]]:
-
         _from, _to = helpers.get_from_to(page, records_per_page)
 
         request_url: str = "{}?dataset={}&start={}&rows={}&format=json".format(
@@ -265,30 +266,53 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         if previous_harvest_object:
             previous_harvest_object.current = False
+            model.Session.add(previous_harvest_object)
+
         harvest_object.current = True
+        model.Session.add(harvest_object)
 
         pkg_dict = self._get_pkg_dict(harvest_object)
 
         if status not in ["new", "change"]:
             return True
 
+        context = self._make_context()
+
         if status == "new":
+            context["schema"] = self._create_custom_package_create_schema()
+
             pkg_dict["id"] = str(uuid.uuid4())
+
             harvest_object.package_id = pkg_dict["id"]
+            model.Session.add(harvest_object)
 
             model.Session.execute(
                 "SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED"
             )
             model.Session.flush()
-
         elif status == "change":
             pkg_dict["id"] = harvest_object.package_id
+            pkg = model.Session.query(model.Package).get(pkg_dict["id"])
+
+            if not pkg:
+                status = "new"
+            else:
+                data_hash = self._calculate_hash_for_data_dict(pkg_dict)
+                previous_hash = pkg.extras.get(HASH_FIELD)
+
+                if previous_hash == data_hash:
+                    log.info(
+                        f"No changes to dataset with ID {harvest_object.package_id}, skipping..."
+                    )
+                    return False
+                else:
+                    log.info(
+                        f"Dataset {harvest_object.package_id} is being changed, updating."
+                    )
+                    pkg_dict[HASH_FIELD] = data_hash
 
         action: str = "package_create" if status == "new" else "package_update"
         status: str = "Created" if status == "new" else "Updated"
-
-        context = self._make_context()
-        context["schema"] = self._create_custom_package_create_schema()
 
         try:
             package_id = tk.get_action(action)(context, pkg_dict)
@@ -384,8 +408,10 @@ class DelwpHarvester(DataVicBaseHarvester):
         return pkg_dict
 
     def _create_custom_package_create_schema(self) -> dict[str, Any]:
+        from ckanext.harvest.logic.schema import unicode_safe
+
         package_schema: dict[str, Any] = default_create_package_schema()  # type: ignore
-        package_schema["id"] = [str]
+        package_schema["id"] = [unicode_safe]
 
         return package_schema
 
@@ -460,7 +486,7 @@ class DelwpHarvester(DataVicBaseHarvester):
             )
         except Exception as e:
             log.warning(
-                f"{self.HARVESTER} get_organisation: Failed to create organisation {org_name}"
+                f"{self.HARVESTER} get_organisation: Failed to create organisation {org_name}: {e}"
             )
 
             source_dict: dict[str, Any] = tk.get_action("package_show")(
@@ -597,7 +623,6 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _get_geoserver_content_with_uuid(
         self, geoserver_url: str, metadata_uuid: Optional[str]
     ) -> Optional[Union[Tag, NavigableString]]:
-
         resp_text: Optional[str] = (
             self._get_mocked_geores()
             if self.test
@@ -621,3 +646,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         here: str = path.abspath(path.dirname(__file__))
         with open(path.join(here, "../data/delwp_geo_resource.txt")) as f:
             return f.read()
+
+    def _calculate_hash_for_data_dict(self, pkg_dict: dict[str, Any]) -> str:
+        """Calculate a hash for a package_dict to understand if it's changed"""
+        return sha256(str(pkg_dict).encode()).hexdigest()

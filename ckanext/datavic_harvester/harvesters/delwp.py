@@ -100,6 +100,7 @@ class DelwpHarvester(DataVicBaseHarvester):
     def gather_stage(self, harvest_job):
         log.debug(f"In {self.HARVESTER} gather_stage")
         self._set_config(harvest_job.source.config)
+        self.test = bool(self.config.get("test"))
 
         ids = []
         guid_to_package_id: dict[str, str] = self._get_guids_to_package_ids(
@@ -277,6 +278,7 @@ class DelwpHarvester(DataVicBaseHarvester):
             return True
 
         context = self._make_context()
+        data_hash = self._calculate_hash_for_data_dict(pkg_dict)
 
         if status == "new":
             context["schema"] = self._create_custom_package_create_schema()
@@ -290,6 +292,8 @@ class DelwpHarvester(DataVicBaseHarvester):
                 "SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED"
             )
             model.Session.flush()
+
+            pkg_dict[HASH_FIELD] = data_hash
         elif status == "change":
             pkg_dict["id"] = harvest_object.package_id
             pkg = model.Session.query(model.Package).get(pkg_dict["id"])
@@ -297,7 +301,6 @@ class DelwpHarvester(DataVicBaseHarvester):
             if not pkg:
                 status = "new"
             else:
-                data_hash = self._calculate_hash_for_data_dict(pkg_dict)
                 previous_hash = pkg.extras.get(HASH_FIELD)
 
                 if previous_hash == data_hash:

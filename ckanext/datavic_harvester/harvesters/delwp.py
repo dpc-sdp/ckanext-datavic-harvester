@@ -229,7 +229,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         for dataset in datasets:
             yield dataset.get("fields", {})
 
-    def import_stage(self, harvest_object: HarvestObject) -> bool:
+    def import_stage(self, harvest_object: HarvestObject) -> bool | str:
         log.debug(f"{self.HARVESTER}: starting import stage")
 
         if not harvest_object:
@@ -307,7 +307,7 @@ class DelwpHarvester(DataVicBaseHarvester):
                     log.info(
                         f"No changes to dataset with ID {harvest_object.package_id}, skipping..."
                     )
-                    return False
+                    return "unchanged"
                 else:
                     log.info(
                         f"Dataset {harvest_object.package_id} is being changed, updating."

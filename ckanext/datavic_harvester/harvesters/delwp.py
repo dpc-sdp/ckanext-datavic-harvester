@@ -355,7 +355,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict["protective_marking"] = "official"
         pkg_dict["access"] = "yes"
         pkg_dict["organization_visibility"] = "all"
-        pkg_dict["workflow_status"] = "published"
+        pkg_dict["workflow_status"] = self._get_workflow_status(metashare_dict)
         pkg_dict["license_id"] = self.config.get("license_id", "cc-by")
 
         pkg_dict["title"] = metashare_dict.get("title")
@@ -417,6 +417,12 @@ class DelwpHarvester(DataVicBaseHarvester):
         package_schema["id"] = [unicode_safe]
 
         return package_schema
+
+    def _get_workflow_status(self, remote_dict: dict[str, Any]) -> str:
+        if remote_dict.get("resclassification") in ("limitedDistribution", "restricted"):
+            return "draft"
+
+        return "published"
 
     def _get_organisation(
         self,

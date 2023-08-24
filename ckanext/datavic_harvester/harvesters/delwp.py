@@ -355,9 +355,9 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict["protective_marking"] = "official"
         pkg_dict["access"] = "yes"
         pkg_dict["organization_visibility"] = "all"
-        pkg_dict["workflow_status"] = self._get_workflow_status(metashare_dict)
+        pkg_dict["workflow_status"] = "published"
         pkg_dict["license_id"] = self.config.get("license_id", "cc-by")
-
+        pkg_dict["private"] = self._is_pkg_private(metashare_dict)
         pkg_dict["title"] = metashare_dict.get("title")
         pkg_dict["notes"] = metashare_dict.get("abstract", "")
         pkg_dict["tags"] = helpers.get_tags(metashare_dict.get("topiccat"))
@@ -418,11 +418,13 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         return package_schema
 
-    def _get_workflow_status(self, remote_dict: dict[str, Any]) -> str:
-        if remote_dict.get("resclassification") in ("limitedDistribution", "restricted"):
-            return "draft"
-
-        return "published"
+    def _is_pkg_private(self, remote_dict: dict[str, Any]) -> bool:
+        """Check if the dataset should be private by `resclassification` field
+        value"""
+        return remote_dict.get("resclassification") in (
+            "limitedDistribution",
+            "restricted",
+        )
 
     def _get_organisation(
         self,

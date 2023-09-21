@@ -343,7 +343,6 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         remote_pkg_name: Optional[str] = metashare_dict.get("name")
         remote_topiccat: Optional[str] = metashare_dict.get("topiccat")
-        remote_resowner: Optional[str] = metashare_dict.get("resowner")
 
         full_metadata_url = (
             self.config["full_metadata_url_prefix"].format(**{"UUID": uuid})
@@ -362,12 +361,12 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         pkg_dict["title"] = metashare_dict.get("title")
         pkg_dict["notes"] = metashare_dict.get("abstract", "")
-        pkg_dict["tags"] = helpers.get_tags(remote_topiccat) if remote_topiccat else ""
+        pkg_dict["tags"] = helpers.get_tags(remote_topiccat) if remote_topiccat else []
         pkg_dict["last_updated"] = metashare_dict.get("geonet_info_changedate")
         pkg_dict["extract"] = f"{pkg_dict['notes'].split('.')[0]}..."
         pkg_dict["owner_org"] = self._get_organisation(
             self.config.get("organisation_mapping"),
-            remote_resowner.split(";")[0] if remote_resowner else "",
+            metashare_dict.get("resowner", "").split(";")[0],
             harvest_object,
         )
 

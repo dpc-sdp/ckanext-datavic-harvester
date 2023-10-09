@@ -183,7 +183,8 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
         query = (
             model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(HarvestObject.current == True)
+            # .filter(HarvestObject.current == True) # I've commented it, because
+            # otherwise we were getting duplicates.
             .filter(HarvestObject.harvest_source_id == source_id)
         )
 
@@ -357,6 +358,9 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict["organization_visibility"] = "all"
         pkg_dict["workflow_status"] = "published"
         pkg_dict["license_id"] = self.config.get("license_id", "cc-by")
+        pkg_dict["private"] = self._is_pkg_private(
+            metashare_dict
+        )
 
         pkg_dict["title"] = metashare_dict.get("title")
         pkg_dict["notes"] = metashare_dict.get("abstract", "")
@@ -408,6 +412,15 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         pkg_dict["resources"] = self._fetch_resources(metashare_dict)
 
+        for key, value in [
+            ("harvest_source_id", harvest_object.source.id),
+            ("harvest_source_title", harvest_object.source.title),
+            ("harvest_source_type", harvest_object.source.type),
+            ("delwp_restricted", pkg_dict["private"])
+        ]:
+            pkg_dict.setdefault("extras", [])
+            pkg_dict["extras"].append({"key": key, "value": value})
+
         return pkg_dict
 
     def _create_custom_package_create_schema(self) -> dict[str, Any]:
@@ -417,6 +430,14 @@ class DelwpHarvester(DataVicBaseHarvester):
         package_schema["id"] = [unicode_safe]
 
         return package_schema
+
+    def _is_pkg_private(self, remote_dict: dict[str, Any]) -> bool:
+        """Check if the dataset should be private by `resclassification` field
+        value"""
+        return remote_dict.get("resclassification") in (
+            "limitedDistribution",
+            "restricted",
+        )
 
     def _get_organisation(
         self,

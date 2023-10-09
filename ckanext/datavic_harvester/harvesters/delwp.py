@@ -183,7 +183,8 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
         query = (
             model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(HarvestObject.current == True)
+            # .filter(HarvestObject.current == True) # I've commented it, because
+            # otherwise we were getting duplicates.
             .filter(HarvestObject.harvest_source_id == source_id)
         )
 
@@ -359,6 +360,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict["workflow_status"] = "published"
         pkg_dict["license_id"] = self.config.get("license_id", "cc-by")
         pkg_dict["private"] = self._is_pkg_private(metashare_dict)
+
         pkg_dict["title"] = metashare_dict.get("title")
         pkg_dict["notes"] = metashare_dict.get("abstract", "")
         pkg_dict["tags"] = helpers.get_tags(remote_topiccat) if remote_topiccat else []
@@ -408,6 +410,15 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
 
         pkg_dict["resources"] = self._fetch_resources(metashare_dict)
+
+        for key, value in [
+            ("harvest_source_id", harvest_object.source.id),
+            ("harvest_source_title", harvest_object.source.title),
+            ("harvest_source_type", harvest_object.source.type),
+            ("delwp_restricted", pkg_dict["private"]),
+        ]:
+            pkg_dict.setdefault("extras", [])
+            pkg_dict["extras"].append({"key": key, "value": value})
 
         return pkg_dict
 

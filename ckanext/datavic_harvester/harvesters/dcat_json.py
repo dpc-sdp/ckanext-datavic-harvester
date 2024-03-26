@@ -187,8 +187,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
         if not self._get_extra(pkg_dict, "organization_visibility"):
             pkg_dict["organization_visibility"] = "current"
 
-        if not self._get_extra(pkg_dict, "workflow_status"):
-            pkg_dict["workflow_status"] = "draft"
+        pkg_dict["workflow_status"] = "published"
 
         issued: Optional[str] = dcat_dict.get("issued")
         if issued and not self._get_extra(pkg_dict, "date_created_data_asset"):
@@ -211,6 +210,8 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
             pkg_dict["custom_licence_text"] = self.config["default_license"]["title"]
 
         pkg_dict["tag_string"] = dcat_dict.get("keyword", [])
+
+        pkg_dict.setdefault("update_frequency", "unknown")
 
     def _get_existing_dataset(self, guid: str) -> Optional[dict[str, Any]]:
         """Return a package with specific guid extra if exists"""

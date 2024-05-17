@@ -369,7 +369,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict["extract"] = f"{pkg_dict['notes'].split('.')[0]}..."
         pkg_dict["owner_org"] = self._get_organisation(
             self.config.get("organisation_mapping"),
-            metashare_dict.get("resowner").split(";")[0],
+            metashare_dict.get("resowner", "").split(";")[0],
             harvest_object,
         )
 

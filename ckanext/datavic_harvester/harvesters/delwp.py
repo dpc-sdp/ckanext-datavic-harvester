@@ -281,6 +281,13 @@ class DelwpHarvester(DataVicBaseHarvester):
             )
             return False
 
+        # Remove restricted Datasets
+        if pkg_dict["private"]:
+            log.info(
+                f"Dataset is Restricted for object {harvest_object.id}, skipping..."
+            )
+            return False
+
         if status not in ["new", "change"]:
             return True
 

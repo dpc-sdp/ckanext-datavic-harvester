@@ -183,7 +183,8 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
         query = (
             model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(HarvestObject.current == True)
+            # .filter(HarvestObject.current == True) # I've commented it, because
+            # otherwise we were getting duplicates.
             .filter(HarvestObject.harvest_source_id == source_id)
         )
 
@@ -274,6 +275,19 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         pkg_dict = self._get_pkg_dict(harvest_object)
 
+        if not pkg_dict["notes"] or not pkg_dict["owner_org"]:
+            log.info(
+                f"Description or organization field is missing for object {harvest_object.id}, skipping..."
+            )
+            return False
+
+        # Remove restricted Datasets
+        if pkg_dict["private"]:
+            log.info(
+                f"Dataset is Restricted for object {harvest_object.id}, skipping..."
+            )
+            return False
+
         if status not in ["new", "change"]:
             return True
 
@@ -342,12 +356,21 @@ class DelwpHarvester(DataVicBaseHarvester):
         metashare_dict["_uuid"] = uuid
 
         remote_pkg_name: Optional[str] = metashare_dict.get("name")
+        remote_topiccat: Optional[str] = metashare_dict.get("topiccat")
 
         full_metadata_url = (
             self.config["full_metadata_url_prefix"].format(**{"UUID": uuid})
             if self.config.get("full_metadata_url_prefix")
             else ""
         )
+
+        access_notes = """
+            Aerial imagery and elevation datasets\n
+            You can access high-resolution aerial imagery and elevation (LiDAR point cloud) datasets by contacting a business that holds a commercial license.\n
+            We have two types of commercial licensing:\n
+            Data Service Providers (DSPs) provide access to the source imagery or elevation data.\n
+            Value Added Retailers (VARs ) use the imagery and elevation data to create new products and services. This includes advisory services and new knowledge products.
+        """
 
         pkg_dict = {}
 
@@ -356,24 +379,19 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict["access"] = "yes"
         pkg_dict["organization_visibility"] = "all"
         pkg_dict["workflow_status"] = "published"
-        pkg_dict["license_id"] = self.config.get("license_id", "cc-by")
-        pkg_dict["private"] = self._is_pkg_private(metashare_dict)
         pkg_dict["title"] = metashare_dict.get("title")
         pkg_dict["notes"] = metashare_dict.get("abstract", "")
-        pkg_dict["tags"] = helpers.get_tags(metashare_dict.get("topiccat"))
+        pkg_dict["tags"] = helpers.get_tags(remote_topiccat) if remote_topiccat else []
         pkg_dict["last_updated"] = metashare_dict.get("geonet_info_changedate")
         pkg_dict["extract"] = f"{pkg_dict['notes'].split('.')[0]}..."
         pkg_dict["owner_org"] = self._get_organisation(
             self.config.get("organisation_mapping"),
-            metashare_dict.get("resowner").split(";")[0],
+            metashare_dict.get("resowner", "").split(";")[0],
             harvest_object,
         )
 
         if not pkg_dict.get("name"):
             pkg_dict["name"] = self._get_package_name(harvest_object, pkg_dict["title"])
-
-        if full_metadata_url:
-            pkg_dict["full_metadata_url"] = full_metadata_url
 
         if uuid:
             pkg_dict["primary_purpose_of_collection"] = uuid
@@ -408,6 +426,31 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         pkg_dict["resources"] = self._fetch_resources(metashare_dict)
 
+        pkg_dict["private"] = self._is_pkg_private(
+            metashare_dict,
+            pkg_dict["resources"]
+        )
+
+        pkg_dict["license_id"] = self.config.get("license_id", "cc-by")
+
+        if pkg_dict["private"]:
+            pkg_dict["license_id"] = "other-closed"
+
+        if self._is_delwp_raster_data(pkg_dict["resources"]):
+            pkg_dict["full_metadata_url"] = f"https://metashare.maps.vic.gov.au/geonetwork/srv/api/records/{uuid}/formatters/cip-pdf?root=export&output=pdf"
+            pkg_dict["access_description"] = access_notes
+        elif full_metadata_url:
+            pkg_dict["full_metadata_url"] = full_metadata_url
+
+        for key, value in [
+            ("harvest_source_id", harvest_object.source.id),
+            ("harvest_source_title", harvest_object.source.title),
+            ("harvest_source_type", harvest_object.source.type),
+            ("delwp_restricted", pkg_dict["private"])
+        ]:
+            pkg_dict.setdefault("extras", [])
+            pkg_dict["extras"].append({"key": key, "value": value})
+
         return pkg_dict
 
     def _create_custom_package_create_schema(self) -> dict[str, Any]:
@@ -418,13 +461,50 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         return package_schema
 
-    def _is_pkg_private(self, remote_dict: dict[str, Any]) -> bool:
-        """Check if the dataset should be private by `resclassification` field
-        value"""
-        return remote_dict.get("resclassification") in (
-            "limitedDistribution",
-            "restricted",
-        )
+    def _is_delwp_vector_data(self, resources: list[dict[str, Any]]) -> bool:
+        for res in resources:
+            if res["format"].lower() in [
+                "dwg",
+                "dxf",
+                "gdb",
+                "shp",
+                "mif",
+                "tab",
+                "extended tab",
+                "mapinfo",
+            ]:
+                return True
+
+        return False
+
+    def _is_delwp_raster_data(self, resources: list[dict[str, Any]]) -> bool:
+        for res in resources:
+            if res["format"].lower() in [
+                "ecw",
+                "geotiff",
+                "jpeg",
+                "jp2",
+                "jpeg 2000",
+                "tiff",
+                "lass",
+                "xyz",
+            ]:
+                return True
+
+        return False
+
+    def _is_pkg_private(
+        self,
+        remote_dict: dict[str, Any],
+        resources: list[dict[str, Any]]
+    ) -> bool:
+        """Check if the dataset should be private"""
+        if (self._is_delwp_vector_data(resources) and
+            remote_dict.get("mdclassification") == "unclassified" and
+            remote_dict.get("resclassification") == "unclassified"):
+            return False
+
+        return True
 
     def _get_organisation(
         self,

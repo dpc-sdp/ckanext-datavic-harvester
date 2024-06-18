@@ -15,6 +15,10 @@ from ckanext.harvest.harvesters import HarvesterBase
 
 log = logging.getLogger(__name__)
 
+MAX_CONTENT_LENGTH = int(tk.config.get('ckanext.datavic_harvester.max_content_length') or 1e+8)
+CHUNK_SIZE = 16 * 1024
+DOWNLOAD_TIMEOUT = 30
+
 
 class DataVicBaseHarvester(HarvesterBase):
     def __init__(self, **kwargs):
@@ -139,3 +143,83 @@ class DataVicBaseHarvester(HarvesterBase):
             "model": model,
             "session": model.Session,
         }
+
+
+class DataTooBigWarning(Exception):
+    pass
+
+
+def get_resource_size(resource_url: str) -> int:
+    """Return external resource size in bytes
+
+    Args:
+        resource_url (str): a URL for the resource’s source
+
+    Returns:
+        int: resource size in bytes
+    """
+
+    length = 0
+    cl = None
+
+    try:
+        headers = {}
+
+        response = _get_response(resource_url, headers)
+        cl = response.headers.get('content-length')
+
+        if cl:
+            response.close()
+            log.info(f"Resource from url <{resource_url}> length is {cl} bytes.")
+            return int(cl)
+
+        for chunk in response.iter_content(CHUNK_SIZE):
+            length += len(chunk)
+            if length > MAX_CONTENT_LENGTH:
+                response.close
+                raise DataTooBigWarning()
+
+        response.close()
+
+    except DataTooBigWarning:
+        message = f"Resource from url <{resource_url}> is more " \
+            f"than {MAX_CONTENT_LENGTH} bytes. Skip its size calculation."
+        log.warning(message)
+        length = -1 # for the purpose of search possibility in the db
+        return length
+
+    except requests.exceptions.HTTPError as error:
+        log.debug(f"HTTP error: {error}")
+
+    except requests.exceptions.Timeout:
+        log.warning(f"URL time out after {DOWNLOAD_TIMEOUT}s")
+
+    except requests.exceptions.RequestException as error:
+        log.warning(f"URL error: {error}")
+
+    log.info(f"Resource from url <{resource_url}> length is {length} bytes.")
+
+    return length
+
+
+def _get_response(url, headers):
+    def get_url():
+        kwargs = {"headers": headers, "timeout": 30, "stream": True}
+
+        if "ckan.download_proxy" in tk.config:
+            proxy = tk.config.get("ckan.download_proxy")
+            kwargs["proxies"] = {"http": proxy, "https": proxy}
+
+        return requests.get(url, **kwargs)
+
+    response = get_url()
+    if response.status_code == 202:
+        wait = 1
+        while wait < 120 and response.status_code == 202:
+            import time
+            time.sleep(wait)
+            response = get_url()
+            wait *= 3
+    response.raise_for_status()
+
+    return response

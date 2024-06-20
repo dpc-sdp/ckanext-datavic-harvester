@@ -190,7 +190,9 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
                 "organization_visibility"
             ]
         else:
-            pkg_dict["organization_visibility"] = "current"
+            pkg_dict["organization_visibility"] = self._get_extra(
+                pkg_dict, "organization_visibility"
+            ) or "current"
 
         pkg_dict["workflow_status"] = "published"
 

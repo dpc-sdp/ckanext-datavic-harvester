@@ -15,7 +15,7 @@ from ckanext.harvest.harvesters import HarvesterBase
 
 log = logging.getLogger(__name__)
 
-MAX_CONTENT_LENGTH = int(tk.config.get('ckanext.datavic_harvester.max_content_length') or 1e+8)
+MAX_CONTENT_LENGTH = int(tk.config.get('ckanext.datavic_harvester.max_content_length') or 104857600)
 CHUNK_SIZE = 16 * 1024
 DOWNLOAD_TIMEOUT = 30
 
@@ -161,17 +161,26 @@ def get_resource_size(resource_url: str) -> int:
 
     length = 0
     cl = None
+    
+    if not resource_url or MAX_CONTENT_LENGTH <= 0:
+        return length
 
     try:
         headers = {}
 
         response = _get_response(resource_url, headers)
-        cl = response.headers.get('content-length')
+        ct = response.headers.get("content-type")
+        cl = response.headers.get("content-length")
 
-        if cl:
-            response.close()
-            log.info(f"Resource from url <{resource_url}> length is {cl} bytes.")
-            return int(cl)
+        if ct and "text/html" in ct:
+            message = f"Resource from url <{resource_url}> is of HTML type. " \
+            "Skip its size calculation."
+            log.warning(message)
+            return length
+
+        if cl and int(cl) > MAX_CONTENT_LENGTH:
+            response.close
+            raise DataTooBigWarning()
 
         for chunk in response.iter_content(CHUNK_SIZE):
             length += len(chunk)

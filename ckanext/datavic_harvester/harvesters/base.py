@@ -165,7 +165,7 @@ def get_resource_size(resource_url: str) -> int:
     length = 0
     cl = None
 
-    if not resource_url or MAX_CONTENT_LENGTH <= 0:
+    if not resource_url or MAX_CONTENT_LENGTH < 0:
         return length
 
     try:
@@ -187,7 +187,7 @@ def get_resource_size(resource_url: str) -> int:
             return length
 
         if cl:
-            if int(cl) > MAX_CONTENT_LENGTH:
+            if int(cl) > MAX_CONTENT_LENGTH and MAX_CONTENT_LENGTH > 0:
                 response.close()
                 raise DataTooBigWarning()
 
@@ -208,8 +208,8 @@ def get_resource_size(resource_url: str) -> int:
 
     except DataTooBigWarning:
         message = (
-            f"Resource from url <{resource_url}> is more "
-            f"than {MAX_CONTENT_LENGTH} bytes. Skip its size calculation."
+            f"Resource from url <{resource_url}> is more than the set limit "
+            f"{MAX_CONTENT_LENGTH} bytes. Skip its size calculation."
         )
         log.warning(message)
         length = -1  # for the purpose of search possibility in the db

@@ -4,6 +4,7 @@ import logging
 from typing import Optional, Any
 
 import requests
+import time
 
 from ckan import model
 from ckan.plugins import toolkit as tk
@@ -15,7 +16,9 @@ from ckanext.harvest.harvesters import HarvesterBase
 
 log = logging.getLogger(__name__)
 
-MAX_CONTENT_LENGTH = int(tk.config.get('ckanext.datavic_harvester.max_content_length') or 104857600)
+MAX_CONTENT_LENGTH = int(
+    tk.config.get("ckanext.datavic_harvester.max_content_length") or 104857600
+)
 CHUNK_SIZE = 16 * 1024
 DOWNLOAD_TIMEOUT = 30
 
@@ -161,7 +164,7 @@ def get_resource_size(resource_url: str) -> int:
 
     length = 0
     cl = None
-    
+
     if not resource_url or MAX_CONTENT_LENGTH <= 0:
         return length
 
@@ -171,30 +174,45 @@ def get_resource_size(resource_url: str) -> int:
         response = _get_response(resource_url, headers)
         ct = response.headers.get("content-type")
         cl = response.headers.get("content-length")
+        cl_enabled = tk.asbool(tk.config.get(
+            "ckanext.datavic_harvester.content_length_enabled", False)
+        )
 
         if ct and "text/html" in ct:
-            message = f"Resource from url <{resource_url}> is of HTML type. " \
-            "Skip its size calculation."
+            message = (
+                f"Resource from url <{resource_url}> is of HTML type. "
+                "Skip its size calculation."
+            )
             log.warning(message)
             return length
 
-        if cl and int(cl) > MAX_CONTENT_LENGTH:
-            response.close
-            raise DataTooBigWarning()
+        if cl:
+            if int(cl) > MAX_CONTENT_LENGTH:
+                response.close()
+                raise DataTooBigWarning()
+
+            if cl_enabled:
+                response.close()
+                log.info(
+                    f"Resource from url <{resource_url}> content-length is {int(cl)} bytes."
+                )
+                return int(cl)
 
         for chunk in response.iter_content(CHUNK_SIZE):
             length += len(chunk)
             if length > MAX_CONTENT_LENGTH:
-                response.close
+                response.close()
                 raise DataTooBigWarning()
 
         response.close()
 
     except DataTooBigWarning:
-        message = f"Resource from url <{resource_url}> is more " \
+        message = (
+            f"Resource from url <{resource_url}> is more "
             f"than {MAX_CONTENT_LENGTH} bytes. Skip its size calculation."
+        )
         log.warning(message)
-        length = -1 # for the purpose of search possibility in the db
+        length = -1  # for the purpose of search possibility in the db
         return length
 
     except requests.exceptions.HTTPError as error:
@@ -225,7 +243,6 @@ def _get_response(url, headers):
     if response.status_code == 202:
         wait = 1
         while wait < 120 and response.status_code == 202:
-            import time
             time.sleep(wait)
             response = get_url()
             wait *= 3

@@ -128,8 +128,11 @@ class DataVicBaseHarvester(HarvesterBase):
         return True
 
     def _delete_package(self, package_id: str, guid: str):
-        tk.get_action("package_delete")(self._make_context(), {"id": package_id})
-        log.info(f"Deleted package {package_id} with guid {guid}")
+        try:
+            tk.get_action("package_delete")(self._make_context(), {"id": package_id})
+            log.info(f"Deleted package {package_id} with guid {guid}")
+        except tk.ObjectNotFound:
+            log.error(f"Package {package_id} not found")
 
     def _make_context(self) -> dict[str, Any]:
         return {

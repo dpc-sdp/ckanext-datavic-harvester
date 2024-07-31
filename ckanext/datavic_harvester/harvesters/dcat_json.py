@@ -184,8 +184,15 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
         if not self._get_extra(pkg_dict, "protective_marking"):
             pkg_dict["protective_marking"] = "official"
 
-        if not self._get_extra(pkg_dict, "organization_visibility"):
-            pkg_dict["organization_visibility"] = "current"
+        if not self._get_extra(pkg_dict, "organization_visibility") \
+            and "default_visibility" in self.config:
+            pkg_dict["organization_visibility"] = self.config["default_visibility"][
+                "organization_visibility"
+            ]
+        else:
+            pkg_dict["organization_visibility"] = self._get_extra(
+                pkg_dict, "organization_visibility"
+            ) or "current"
 
         pkg_dict["workflow_status"] = "published"
 

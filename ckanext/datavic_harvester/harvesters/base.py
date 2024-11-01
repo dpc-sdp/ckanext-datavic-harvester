@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import Optional, Any
+from urllib.parse import urlparse
 
 import requests
 import time
@@ -21,6 +22,9 @@ MAX_CONTENT_LENGTH = int(
 )
 CHUNK_SIZE = 16 * 1024
 DOWNLOAD_TIMEOUT = 30
+CONFIG_FSC_EXCLUDED_DOMAINS = tk.aslist(
+    tk.config.get("ckanext.datavic_harvester.filesize_excluded_domains", "")
+)
 
 
 class DataVicBaseHarvester(HarvesterBase):
@@ -166,6 +170,10 @@ def get_resource_size(resource_url: str) -> int:
     cl = None
 
     if not resource_url or MAX_CONTENT_LENGTH < 0:
+        return length
+
+    hostname = urlparse(resource_url).hostname
+    if hostname in CONFIG_FSC_EXCLUDED_DOMAINS:
         return length
 
     try:

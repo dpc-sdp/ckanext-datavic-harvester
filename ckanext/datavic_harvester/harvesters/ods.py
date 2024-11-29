@@ -15,6 +15,7 @@ from markdownify import markdownify
 
 import ckan.plugins.toolkit as tk
 from ckanext.harvest_basket.harvesters import ODSHarvester
+from .base import get_resource_size
 
 class DataVicODSHarvester(ODSHarvester):
 
@@ -38,4 +39,8 @@ class DataVicODSHarvester(ODSHarvester):
         for res in resources:
             if res["format"] == "CSV":
                 res["url"] = f'{res["url"]}?delimiter=%2C'
+
+            res["size"] = get_resource_size(res["url"])
+            res["filesize"] = res["size"]
+
         return resources

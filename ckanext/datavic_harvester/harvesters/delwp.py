@@ -17,7 +17,7 @@ from ckan.logic.schema import default_create_package_schema
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 
 import ckanext.datavic_harvester.helpers as helpers
-from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester
+from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester, get_resource_size
 
 
 log = logging.getLogger(__name__)
@@ -649,6 +649,9 @@ class DelwpHarvester(DataVicBaseHarvester):
             }
 
             res["name"] = f"{res['name']} {res_format}".replace("_", "")
+
+            res["size"] = get_resource_size(res_url)
+            res["filesize"] = res["size"]
 
             if attribution:
                 res["attribution"] = attribution

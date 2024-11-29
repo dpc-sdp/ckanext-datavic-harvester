@@ -14,7 +14,7 @@ from ckanext.dcat.harvesters._json import DCATJSONHarvester
 from ckanext.harvest.model import HarvestObject
 
 from ckanext.datavic_harvester import helpers
-from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester
+from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester, get_resource_size
 
 
 log = logging.getLogger(__name__)
@@ -272,3 +272,14 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
         here: str = path.abspath(path.dirname(__file__))
         with open(path.join(here, "../data/dcat_json_full_metadata.txt")) as f:
             return f.read()
+        
+    def modify_package_dict(self, package_dict, dcat_dict, harvest_object):
+        '''
+            Allows custom harvesters to modify the package dict before
+            creating or updating the actual package.
+        '''
+        resources = package_dict["resources"]
+        for resource in resources:
+            resource["size"] = get_resource_size(resource["url"])
+            resource["filesize"] = resource["size"]
+        return package_dict

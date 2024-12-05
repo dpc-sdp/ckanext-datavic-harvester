@@ -34,25 +34,6 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
 
     def import_stage(self, harvest_object):
         self._set_config(harvest_object.source.config)
-
-        package_dict, dcat_dict = self._get_package_dict(harvest_object)
-        dcat_modified = dcat_dict.get("modified")
-        existing_dataset = self._get_existing_dataset(harvest_object.guid)
-
-        if dcat_modified and existing_dataset:
-            dcat_modified = helpers.convert_date_to_isoformat(
-                dcat_modified, "modified", dcat_dict["title"]
-            ).lower().split("t")[0]
-
-            pkg_modified = existing_dataset['date_modified_data_asset']
-            
-            if pkg_modified and pkg_modified == dcat_modified:
-                log.info(
-                    f"Dataset with id {existing_dataset['id']} wasn't modified "
-                    "from the last harvest. Skipping this dataset..."
-                )
-                return False
-
         return super().import_stage(harvest_object)
 
     def _get_package_dict(
@@ -62,7 +43,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
         conversions of the data"""
 
         dcat_dict: dict[str, Any] = json.loads(harvest_object.content)
-        pkg_dict = converters.dcat_to_ckan(dcat_dict) 
+        pkg_dict = converters.dcat_to_ckan(dcat_dict)
 
         soup: BeautifulSoup = BeautifulSoup(pkg_dict["notes"], "html.parser")
 

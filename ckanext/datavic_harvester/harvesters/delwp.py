@@ -17,7 +17,10 @@ from ckan.logic.schema import default_create_package_schema
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 
 import ckanext.datavic_harvester.helpers as helpers
-from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester, get_resource_size
+from ckanext.datavic_harvester.harvesters.base import (
+    DataVicBaseHarvester,
+    get_resource_size,
+)
 
 
 log = logging.getLogger(__name__)
@@ -277,14 +280,18 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         if not pkg_dict["notes"] or not pkg_dict["owner_org"]:
             log.info(
-                f"Description or organization field is missing for object {harvest_object.id}, skipping..."
+                "Description or organization field for package %s is missing for object %s, skipping...",
+                pkg_dict["title"],
+                harvest_object.id,
             )
             return False
 
         # Remove restricted Datasets
         if pkg_dict["private"]:
             log.info(
-                f"Dataset is Restricted for object {harvest_object.id}, skipping..."
+                "Dataset %s is Restricted for object %s, skipping...",
+                pkg_dict["title"],
+                harvest_object.id,
             )
             return False
 
@@ -319,12 +326,16 @@ class DelwpHarvester(DataVicBaseHarvester):
 
                 if previous_hash == data_hash:
                     log.info(
-                        f"No changes to dataset with ID {harvest_object.package_id}, skipping..."
+                        "No changes to dataset with ID %s (%s), skipping...",
+                        harvest_object.package_id,
+                        pkg.title,
                     )
                     return "unchanged"
                 else:
                     log.info(
-                        f"Dataset {harvest_object.package_id} is being changed, updating."
+                        "Dataset %s (%s) is being changed, updating.",
+                        harvest_object.package_id,
+                        pkg.title,
                     )
                     pkg_dict[HASH_FIELD] = data_hash
 
@@ -332,10 +343,21 @@ class DelwpHarvester(DataVicBaseHarvester):
         status: str = "Created" if status == "new" else "Updated"
 
         try:
-            package_id = tk.get_action(action)(context, pkg_dict)
-            log.info("%s: %s dataset with id %s", self.HARVESTER, status, package_id)
+            dataset = tk.get_action(action)(context, pkg_dict)
+            log.info(
+                "%s: %s dataset with id %s (%s)",
+                self.HARVESTER,
+                status,
+                dataset["id"],
+                dataset["title"],
+            )
         except Exception as e:
-            log.error(f"{self.HARVESTER}: error creating dataset: {e}")
+            log.error(
+                "%s: error creating dataset %s: %s",
+                self.HARVESTER,
+                pkg_dict.get("name", ""),
+                e,
+            )
             self._save_object_error(
                 f"Error importing dataset {pkg_dict.get('name', '')}: {e} / {traceback.format_exc()}",
                 harvest_object,
@@ -372,7 +394,7 @@ class DelwpHarvester(DataVicBaseHarvester):
             Value Added Retailers (VARs ) use the imagery and elevation data to create new products and services. This includes advisory services and new knowledge products.
         """
 
-        pkg_dict = {}
+        self.pkg_dict = pkg_dict = {}
 
         pkg_dict["personal_information"] = "no"
         pkg_dict["protective_marking"] = "official"
@@ -427,8 +449,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict["resources"] = self._fetch_resources(metashare_dict)
 
         pkg_dict["private"] = self._is_pkg_private(
-            metashare_dict,
-            pkg_dict["resources"]
+            metashare_dict, pkg_dict["resources"]
         )
 
         pkg_dict["license_id"] = self.config.get("license_id", "cc-by")
@@ -437,7 +458,9 @@ class DelwpHarvester(DataVicBaseHarvester):
             pkg_dict["license_id"] = "other-closed"
 
         if self._is_delwp_raster_data(pkg_dict["resources"]):
-            pkg_dict["full_metadata_url"] = f"https://metashare.maps.vic.gov.au/geonetwork/srv/api/records/{uuid}/formatters/cip-pdf?root=export&output=pdf"
+            pkg_dict["full_metadata_url"] = (
+                f"https://metashare.maps.vic.gov.au/geonetwork/srv/api/records/{uuid}/formatters/cip-pdf?root=export&output=pdf"
+            )
             pkg_dict["access_description"] = access_notes
         elif full_metadata_url:
             pkg_dict["full_metadata_url"] = full_metadata_url
@@ -494,14 +517,14 @@ class DelwpHarvester(DataVicBaseHarvester):
         return False
 
     def _is_pkg_private(
-        self,
-        remote_dict: dict[str, Any],
-        resources: list[dict[str, Any]]
+        self, remote_dict: dict[str, Any], resources: list[dict[str, Any]]
     ) -> bool:
         """Check if the dataset should be private"""
-        if (self._is_delwp_vector_data(resources) and
-            remote_dict.get("mdclassification") == "unclassified" and
-            remote_dict.get("resclassification") == "unclassified"):
+        if (
+            self._is_delwp_vector_data(resources)
+            and remote_dict.get("mdclassification") == "unclassified"
+            and remote_dict.get("resclassification") == "unclassified"
+        ):
             return False
 
         return True
@@ -542,7 +565,10 @@ class DelwpHarvester(DataVicBaseHarvester):
             return org_name
 
         log.warning(
-            f"{self.HARVESTER} get_organisation: No mapping found for resowner {resowner}"
+            "%s get_organisation: No mapping found for resowner %s for dataset %s",
+            self.HARVESTER,
+            resowner,
+            self.pkg_dict["title"],
         )
         org_name = helpers.munge_title_to_name(resowner)
 
@@ -561,7 +587,10 @@ class DelwpHarvester(DataVicBaseHarvester):
             )
         except tk.ObjectNotFound:
             log.warning(
-                f"{self.HARVESTER} get_organisation: organisation does not exist: {org_name}"
+                "%s get_organisation: organisation does not exist: %s, dataset %s",
+                self.HARVESTER,
+                org_name,
+                self.pkg_dict["title"],
             )
         else:
             return organisation.get("id")
@@ -577,7 +606,11 @@ class DelwpHarvester(DataVicBaseHarvester):
             )
         except Exception as e:
             log.warning(
-                f"{self.HARVESTER} get_organisation: Failed to create organisation {org_name}: {e}"
+                "%s get_organisation: Failed to create organisation %s: %s, dataset %s",
+                self.HARVESTER,
+                org_name,
+                e,
+                self.pkg_dict["title"],
             )
 
             source_dict: dict[str, Any] = tk.get_action("package_show")(

@@ -332,8 +332,15 @@ class DelwpHarvester(DataVicBaseHarvester):
         status: str = "Created" if status == "new" else "Updated"
 
         try:
-            package_id = tk.get_action(action)(context, pkg_dict)
-            log.info("%s: %s dataset with id %s", self.HARVESTER, status, package_id)
+            context["return_id_only"] = False
+            dataset = tk.get_action(action)(context, pkg_dict)
+            log.info(
+                "%s: %s dataset with id %s (%s)",
+                self.HARVESTER,
+                status,
+                dataset["id"],
+                dataset["title"],
+            )
         except Exception as e:
             log.error(f"{self.HARVESTER}: error creating dataset: {e}")
             self._save_object_error(

@@ -4,7 +4,7 @@ from typing import Any
 
 import json
 import pytest
-import mock
+from unittest import mock
 
 from ckanext.datavic_harvester.harvesters import DelwpHarvester as Base
 from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester
@@ -83,7 +83,7 @@ class TestDelwpConfig:
         with pytest.raises(ValueError, match="Organisation test not found"):  # type: ignore
             harvester._validate_organisation_mapping(config)
 
-    @pytest.mark.usefixtures("clean_db")
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_validate_return_dumped_json(self, harvester: Base, delwp_config):
         config: str = harvester.validate_config(json.dumps(delwp_config))
 

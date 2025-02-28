@@ -1,8 +1,10 @@
+import pytest
 from bs4 import BeautifulSoup
 
 import ckanext.datavic_harvester.helpers as h
 
 
+@pytest.mark.usefixtures("with_plugins")
 class TestHelpers:
     def test_get_update_frequencies(self):
         result = h.get_datavic_update_frequencies()
@@ -42,11 +44,11 @@ class TestHelpers:
 
     def test_remote_attrs(self, dcat_description: str):
         soup = BeautifulSoup(dcat_description)
-        assert "style" in soup.find("span").attrs # type: ignore
+        assert "style" in soup.find("span").attrs  # type: ignore
 
         result: BeautifulSoup = h.remove_all_attrs_except_for(soup)
 
-        assert "style" not in soup.find("span").attrs # type: ignore
+        assert "style" not in soup.find("span").attrs  # type: ignore
         assert "href" in result.find("a").attrs  # type: ignore
 
     def test_unwrap(self, dcat_description: str):

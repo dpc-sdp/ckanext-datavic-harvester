@@ -343,6 +343,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         status: str = "Created" if status == "new" else "Updated"
 
         try:
+            context["return_id_only"] = False
             dataset = tk.get_action(action)(context, pkg_dict)
             log.info(
                 "%s: %s dataset with id %s (%s)",

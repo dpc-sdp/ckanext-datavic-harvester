@@ -67,19 +67,6 @@ def convert_date_to_isoformat(
     return date.isoformat() if date else None
 
 
-def get_from_to(page: int, datasets_per_page: int) -> tuple[int, int]:
-    """Calculate offset to make request with pagination by N records"""
-
-    if page == 1:
-        _from: int = 1
-        _to: int = page * datasets_per_page
-    else:
-        _from: int = ((page - 1) * datasets_per_page) + 1
-        _to: int = page * datasets_per_page
-
-    return _from, _to
-
-
 def munge_title_to_name(value: str) -> str:
     return munge_title(value)
 

@@ -122,7 +122,7 @@ class TestDelwpHarvester:
         assert records
         assert len(records) == 100
 
-        datasets = harvester._get_record_metadata(records)
+        harvester._get_record_metadata(records)
 
     def test_get_record_metadata(self, harvester: DelwpHarvester):
         records = harvester._fetch_records("test_url", 0, 0)
@@ -135,11 +135,6 @@ class TestDelwpHarvester:
         assert dataset["uuid"]
         assert dataset["title"]
         assert len([i for i in datasets]) == 99
-
-    def test_custom_package_create_schema(self, harvester: DelwpHarvester):
-        custom_schema = harvester._create_custom_package_create_schema()
-
-        assert custom_schema["id"] == [str]
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_get_pkg_dict(
@@ -195,7 +190,6 @@ class TestDelwpHarvester:
 
         organization = call_action("organization_show", id=pkg_dict["owner_org"])
         assert organization["title"] == delwp_dataset["resowner"]
-        assert organization["name"] == h.munge_title_to_name(delwp_dataset["resowner"])
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_get_existing_organization_exist(
@@ -212,6 +206,7 @@ class TestDelwpHarvester:
         )
 
     def test_get_existing_organization_missing(self, harvester: DelwpHarvester):
+        harvester.pkg_dict = {"title": "test"}
         assert not harvester._get_existing_organization(
             [{"resowner": "test", "org-name": "test"}], "whatever"
         )

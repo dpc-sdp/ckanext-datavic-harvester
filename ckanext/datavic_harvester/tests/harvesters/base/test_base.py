@@ -12,7 +12,7 @@ def harvester():
 
 
 class TestBaseHarvester:
-    @pytest.mark.usefixtures("clean_db")
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_delete_package(self, dataset, harvester: Base):
         dataset_id: str = dataset["id"]
         assert dataset_id

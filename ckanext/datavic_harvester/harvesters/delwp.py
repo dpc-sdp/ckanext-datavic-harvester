@@ -6,15 +6,15 @@ import traceback
 import uuid
 from hashlib import sha256
 from os import path
-from typing import Iterator, Optional, Any, Union
+from typing import Iterator, Optional, Any
 
-from bs4 import BeautifulSoup, Tag, NavigableString
+from bs4 import BeautifulSoup, Tag
 
 from ckan import model
 from ckan.plugins import toolkit as tk
 from ckan.logic.schema import default_create_package_schema
 
-from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
+from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestObjectExtra
 
 import ckanext.datavic_harvester.helpers as helpers
 from ckanext.datavic_harvester.harvesters.base import (
@@ -93,101 +93,129 @@ class DelwpHarvester(DataVicBaseHarvester):
                     'organisation_mapping item must have property "org-name". eg "org-name": "organisation-a"}'
                 )
 
-            try:
-                tk.get_action("organization_show")(
-                    self._make_context(), {"id": org_name}
-                )
-            except tk.ObjectNotFound:
+            if not self._get_organization(org_name):
                 raise ValueError(f"Organisation {org_name} not found")
+
+    def _get_organization(self, org_name: str) -> model.Group | None:
+        return (
+            model.Session.query(model.Group)
+            .filter_by(name=org_name, is_organization=True)
+            .first()
+        )
 
     def gather_stage(self, harvest_job):
         log.debug(f"In {self.HARVESTER} gather_stage")
-        self._set_config(harvest_job.source.config)
-        self.test = bool(self.config.get("test"))
 
-        ids = []
-        guid_to_package_id: dict[str, str] = self._get_guids_to_package_ids(
-            harvest_job.source.id
-        )
-        guids_in_db: list[str] = list(guid_to_package_id.keys())
+        self._set_config(harvest_job)
+
+        harvest_object_ids = []
+        guid_to_package_id = self._get_guids_to_package_ids(harvest_job.source.id)
+        guids_in_db = list(guid_to_package_id.keys())
         guids_in_source: list[str] = []
-        previous_guids: list[str] = []
 
-        page: int = 1
-        records_per_page: int = 500
-        harvest_source_url: str = harvest_job.source.url.rstrip("?")
+        for record in self._fetch_records_from_remote_portal(
+            harvest_job.source.url.rstrip("?")
+        ):
+            uuid = record["fields"]["uuid"]
 
-        while True:
-            log.debug(
-                f"{self.HARVESTER} fetching records by url: {harvest_source_url}, page: {page}"
+            # Create harvest object with appropriate status based on if dataset
+            # already exists in the database
+            obj = HarvestObject(
+                guid=uuid,
+                job=harvest_job,
+                content=json.dumps(record["fields"]),
+                extras=[
+                    HarvestObjectExtra(
+                        key="status", value="change" if uuid in guids_in_db else "new"
+                    )
+                ],
             )
-            records = self._fetch_records(harvest_source_url, page, records_per_page)
 
-            batch_guids = []
+            if uuid in guids_in_db:
+                obj.package_id = guid_to_package_id[uuid]  # type: ignore
 
-            if not records:
-                log.debug(f"{self.HARVESTER} empty document, no more records")
-                break
+            obj.save()
 
-            for record_metadata in self._get_record_metadata(records):
-                guid: str = record_metadata["uuid"]
-                batch_guids.append(guid)
+            harvest_object_ids.append(obj.id)
+            guids_in_source.append(uuid)
 
-                if guid in previous_guids:
-                    continue
-
-                if guid in guids_in_db:
-                    # Dataset needs to be updated
-                    obj = HarvestObject(
-                        guid=guid,
-                        job=harvest_job,
-                        package_id=guid_to_package_id[guid],
-                        content=json.dumps(record_metadata),
-                        extras=[HarvestObjectExtra(key="status", value="change")],
-                    )
-                else:
-                    # Dataset needs to be created
-                    obj = HarvestObject(
-                        guid=guid,
-                        job=harvest_job,
-                        content=json.dumps(record_metadata),
-                        extras=[HarvestObjectExtra(key="status", value="new")],
-                    )
-
-                obj.save()
-                ids.append(obj.id)
-
-            if len(batch_guids) > 0:
-                guids_in_source.extend(set(batch_guids) - set(previous_guids))
-
-            if self.test:
-                break
-
-            page = page + 1
-            previous_guids = batch_guids
-
-        # Check datasets that need to be deleted
-        guids_to_delete = set(guids_in_db) - set(guids_in_source)
-        for guid in guids_to_delete:
+        # Check datasets that are in the database but not in the source
+        # therefore they need to be deleted
+        for guid in set(guids_in_db) - set(guids_in_source):
             obj = HarvestObject(
                 guid=guid,
                 job=harvest_job,
                 package_id=guid_to_package_id[guid],
                 extras=[HarvestObjectExtra(key="status", value="delete")],
             )
-            ids.append(obj.id)
+
             model.Session.query(HarvestObject).filter_by(guid=guid).update(
                 {"current": False}, False
             )
+
             obj.save()
 
-        return ids
+            harvest_object_ids.append(obj.id)
+
+        return harvest_object_ids
+
+    def _set_config(self, harvest_job: HarvestJob) -> None:
+        super()._set_config(harvest_job.source.config)
+
+        self.test = bool(self.config.get("test"))
+        self.source_org_id = self._get_source_owner_org_id(harvest_job.source.id)
+
+        if "geoserver_dns" in self.config:
+            geoserver_dns = self.config["geoserver_dns"]
+
+            self.geoserver_urls = {
+                "WMS": {
+                    "geoserver_url": f"{geoserver_dns}/geoserver/ows?service=WMS&request=getCapabilities",
+                    "resource_url": f"{geoserver_dns}/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={{layername}}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665",
+                },
+                "WFS": {
+                    "geoserver_url": f"{geoserver_dns}/geoserver/ows?service=WFS&request=getCapabilities",
+                    "resource_url": f"{geoserver_dns}/geoserver/wfs?request=GetCapabilities&service=WFS",
+                },
+            }
+
+    def _get_source_owner_org_id(self, source_id: str) -> str:
+        source_package = model.Package.get(source_id)
+
+        if not hasattr(source_package, "owner_org"):
+            # should never happen
+            raise ValueError(f"Source package {source_id} does not have an owner_org")
+
+        return source_package.owner_org  # type: ignore
+
+    def _fetch_records_from_remote_portal(
+        self, harvest_source_url: str
+    ) -> list[dict[str, Any]]:
+        page: int = 1
+        records_per_page: int = 500
+
+        records = []
+
+        while True:
+            result = self._fetch_records(harvest_source_url, page, records_per_page)
+
+            if not result:
+                log.debug(f"{self.HARVESTER} empty document, no more records")
+                break
+
+            records.extend(result)
+
+            if self.test:
+                break
+
+            page = page + 1
+
+        return records
 
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
         query = (
             model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            # .filter(HarvestObject.current == True) # I've commented it, because
-            # otherwise we were getting duplicates.
+            .filter(HarvestObject.current == True)
             .filter(HarvestObject.harvest_source_id == source_id)
         )
 
@@ -198,11 +226,12 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _fetch_records(
         self, url: str, page: int, records_per_page: int = 100
     ) -> Optional[list[dict[str, Any]]]:
-        _from, _to = helpers.get_from_to(page, records_per_page)
+        start = 0 if page == 1 else ((page - 1) * records_per_page)
 
         request_url: str = "{}?dataset={}&start={}&rows={}&format=json".format(
-            url, self.config["dataset_type"], _from, _to
+            url, self.config["dataset_type"], start, records_per_page
         )
+
         log.debug(f"{self.HARVESTER}: getting page of records {request_url}")
 
         resp_text: Optional[str] = (
@@ -217,8 +246,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         if not resp_text:
             return
 
-        data = json.loads(resp_text)
-        return data.get("records")
+        return json.loads(resp_text).get("records")
 
     def _get_record_metadata(self, datasets) -> Iterator[dict[str, Any]]:
         """Fetch remote portal record data from `fields` field. The field
@@ -234,16 +262,16 @@ class DelwpHarvester(DataVicBaseHarvester):
             yield dataset.get("fields", {})
 
     def import_stage(self, harvest_object: HarvestObject) -> bool | str:
-        log.debug(f"{self.HARVESTER}: starting import stage")
-
         if not harvest_object:
             log.error(f"{self.HARVESTER}: no harvest object received")
             return False
 
-        status = self._get_object_extra(harvest_object, "status")
+        status = self._get_object_extra(harvest_object, "status") # type: ignore
 
         if status == "delete":
-            self._delete_package(harvest_object.package_id, harvest_object.guid)
+            self._delete_package(
+                str(harvest_object.package_id), str(harvest_object.guid)
+            )
             return True
 
         if harvest_object.content is None:
@@ -260,7 +288,7 @@ class DelwpHarvester(DataVicBaseHarvester):
             )
             return False
 
-        self._set_config(harvest_object.source.config)
+        self._set_config(harvest_object)
 
         previous_harvest_object = (
             model.Session.query(HarvestObject)
@@ -279,20 +307,16 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict = self._get_pkg_dict(harvest_object)
 
         if not pkg_dict["notes"] or not pkg_dict["owner_org"]:
-            log.info(
-                "Description or organization field for package %s is missing for object %s, skipping...",
-                pkg_dict["title"],
-                harvest_object.id,
-            )
+            msg = f"Description or organization field is missing for object {harvest_object.id}, skipping..."
+            log.info(msg)
+            self._save_object_error(msg, harvest_object, "Import")
             return False
 
         # Remove restricted Datasets
         if pkg_dict["private"]:
-            log.info(
-                "Dataset %s is Restricted for object %s, skipping...",
-                pkg_dict["title"],
-                harvest_object.id,
-            )
+            msg = f"Dataset is Restricted for object {harvest_object.id}, skipping..."
+            log.info(msg)
+            self._save_object_error(msg, harvest_object, "Import")
             return False
 
         if status not in ["new", "change"]:
@@ -317,7 +341,7 @@ class DelwpHarvester(DataVicBaseHarvester):
             pkg_dict[HASH_FIELD] = data_hash
         elif status == "change":
             pkg_dict["id"] = harvest_object.package_id
-            pkg = model.Session.query(model.Package).get(pkg_dict["id"])
+            pkg = model.Package.get(pkg_dict["id"])
 
             if not pkg:
                 status = "new"
@@ -469,7 +493,7 @@ class DelwpHarvester(DataVicBaseHarvester):
             ("harvest_source_id", harvest_object.source.id),
             ("harvest_source_title", harvest_object.source.title),
             ("harvest_source_type", harvest_object.source.type),
-            ("delwp_restricted", pkg_dict["private"])
+            ("delwp_restricted", pkg_dict["private"]),
         ]:
             pkg_dict.setdefault("extras", [])
             pkg_dict["extras"].append({"key": key, "value": value})
@@ -477,7 +501,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         return pkg_dict
 
     def _create_custom_package_create_schema(self) -> dict[str, Any]:
-        from ckanext.harvest.logic.schema import unicode_safe
+        from ckan.lib.navl.validators import unicode_safe
 
         package_schema: dict[str, Any] = default_create_package_schema()  # type: ignore
         package_schema["id"] = [unicode_safe]
@@ -538,6 +562,14 @@ class DelwpHarvester(DataVicBaseHarvester):
         """Get existing organization from the config `organization_mapping`
         field or create a new one"""
 
+        if not resowner:
+            log.warning(
+                "%s: resowner for harvest object %s is empty, using source organization: %s",
+                self.HARVESTER,
+                harvest_object.id,
+                self.source_org_id,
+            )
+            return self.source_org_id
         owner_org = None
 
         if organisation_mapping:
@@ -572,28 +604,12 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
         org_name = helpers.munge_title_to_name(resowner)
 
-        try:
-            organisation = tk.get_action("organization_show")(
-                self._make_context(),
-                {
-                    "id": org_name,
-                    "include_dataset_count": False,
-                    "include_extras": False,
-                    "include_users": False,
-                    "include_groups": False,
-                    "include_tags": False,
-                    "include_followers": False,
-                },
-            )
-        except tk.ObjectNotFound:
-            log.warning(
-                "%s get_organisation: organisation does not exist: %s, dataset %s",
-                self.HARVESTER,
-                org_name,
-                self.pkg_dict["title"],
-            )
-        else:
-            return organisation.get("id")
+        if organization := self._get_organization(org_name):
+            return organization.id
+
+        log.warning(
+            f"{self.HARVESTER} get_organisation: organisation does not exist: {org_name}"
+        )
 
     def _create_organization(self, resowner: str, harvest_object: HarvestObject) -> str:
         """Create organization from a resowner field"""
@@ -612,17 +628,17 @@ class DelwpHarvester(DataVicBaseHarvester):
                 e,
                 self.pkg_dict["title"],
             )
-
-            source_dict: dict[str, Any] = tk.get_action("package_show")(
-                self._make_context(), {"id": harvest_object.harvest_source_id}
+            log.warning(
+                "%s: using source organization: %s", self.HARVESTER, self.source_org_id
             )
-            org_id = source_dict["owner_org"]
+
+            org_id = self.source_org_id
 
         return org_id
 
     def _get_package_name(self, harvest_object: HarvestObject, title: str) -> str:
         """Generate package name from title"""
-        package: model.Package = harvest_object.package
+        package = harvest_object.package
 
         if package is None or package.title != title:
             name = self._gen_new_name(title)
@@ -658,26 +674,27 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
         attribution = self.config.get("resource_attribution")
 
-        pkg_name: Optional[str] = metashare_dict.get("name")
-        formats: Optional[str] = metashare_dict.get("available_formats")
-
-        if not formats:
+        if metashare_dict.get("available_formats") is None:
             return resources
 
-        for res_format in formats.split(","):
+        tempextentbegin = helpers.convert_date_to_isoformat(
+            metashare_dict.get("tempextentbegin"),
+            "tempextentbegin",
+            metashare_dict.get("title"),
+        )
+
+        tempextentend = helpers.convert_date_to_isoformat(
+            metashare_dict.get("tempextentend"),
+            "tempextentend",
+            metashare_dict.get("title"),
+        )
+
+        for res_format in metashare_dict.get("available_formats", "").split(","):
             res = {
                 "name": metashare_dict.get("alttitle") or metashare_dict.get("title"),
                 "format": res_format,
-                "period_start": helpers.convert_date_to_isoformat(
-                    metashare_dict.get("tempextentbegin"),
-                    "tempextentbegin",
-                    pkg_name,
-                ),
-                "period_end": helpers.convert_date_to_isoformat(
-                    metashare_dict.get("tempextentend"),
-                    "tempextentend",
-                    pkg_name,
-                ),
+                "period_start": tempextentbegin,
+                "period_end": tempextentend,
                 "url": res_url,
             }
 
@@ -701,23 +718,9 @@ class DelwpHarvester(DataVicBaseHarvester):
         if "geoserver_dns" not in self.config:
             return resources
 
-        geoserver_dns = self.config["geoserver_dns"]
-        metadata_uuid: Optional[str] = metashare_dict["_uuid"]
-
-        dict_geoserver_urls = {
-            "WMS": {
-                "geoserver_url": f"{geoserver_dns}/geoserver/ows?service=WMS&request=getCapabilities",
-                "resource_url": f"{geoserver_dns}/geoserver/wms?service=wms&request=getmap&format=image%2Fpng8&transparent=true&layers={{layername}}&width=512&height=512&crs=epsg%3A3857&bbox=16114148.554967716%2C-4456584.4971389165%2C16119040.524777967%2C-4451692.527328665",
-            },
-            "WFS": {
-                "geoserver_url": f"{geoserver_dns}/geoserver/ows?service=WFS&request=getCapabilities",
-                "resource_url": f"{geoserver_dns}/geoserver/wfs?request=GetCapabilities&service=WFS",
-            },
-        }
-
-        for res_fmt in dict_geoserver_urls:
+        for res_fmt in self.geoserver_urls:
             layer_data = self._get_geoserver_content_with_uuid(
-                dict_geoserver_urls[res_fmt]["geoserver_url"], metadata_uuid
+                self.geoserver_urls[res_fmt]["geoserver_url"], metashare_dict["_uuid"]
             )
 
             if not layer_data:
@@ -725,7 +728,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
             layer_title: str = layer_data.find_previous("Title").text.upper()
             layer_name: str = layer_data.find_previous("Name").text
-            resource_url: str = dict_geoserver_urls[res_fmt]["resource_url"]
+            resource_url: str = self.geoserver_urls[res_fmt]["resource_url"]
 
             resources.append(
                 {
@@ -749,7 +752,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
     def _get_geoserver_content_with_uuid(
         self, geoserver_url: str, metadata_uuid: Optional[str]
-    ) -> Optional[Union[Tag, NavigableString]]:
+    ) -> Optional[Tag]:
         resp_text: Optional[str] = (
             self._get_mocked_geores()
             if self.test
@@ -759,8 +762,9 @@ class DelwpHarvester(DataVicBaseHarvester):
         if not resp_text:
             return
 
-        geoserver_data: BeautifulSoup = BeautifulSoup(resp_text, "lxml-xml")
-        return geoserver_data.find("Keyword", string=f"MetadataID={metadata_uuid}")
+        return BeautifulSoup(resp_text, "lxml-xml").find(  # type: ignore
+            "Keyword", string=f"MetadataID={metadata_uuid}"
+        )
 
     def _get_mocked_records(self) -> str:
         """Mock data, use it instead _make_request for develop process"""
@@ -776,4 +780,5 @@ class DelwpHarvester(DataVicBaseHarvester):
 
     def _calculate_hash_for_data_dict(self, pkg_dict: dict[str, Any]) -> str:
         """Calculate a hash for a package_dict to understand if it's changed"""
-        return sha256(str(pkg_dict).encode()).hexdigest()
+        json_str = json.dumps(pkg_dict, sort_keys=True)
+        return sha256(json_str.encode()).hexdigest()

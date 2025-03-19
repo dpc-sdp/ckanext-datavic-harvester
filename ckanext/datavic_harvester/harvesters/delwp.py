@@ -307,14 +307,14 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict = self._get_pkg_dict(harvest_object)
 
         if not pkg_dict["notes"] or not pkg_dict["owner_org"]:
-            msg = f"Description or organization field is missing for object {harvest_object.id}, skipping..."
+            msg = "Description or organization field for package {} is missing for object {}, skipping...".format(pkg_dict["title"], harvest_object.id)
             log.info(msg)
             self._save_object_error(msg, harvest_object, "Import")
             return False
 
         # Remove restricted Datasets
         if pkg_dict["private"]:
-            msg = f"Dataset is Restricted for object {harvest_object.id}, skipping..."
+            msg = "Dataset {} is Restricted for object {}, skipping...".format(pkg_dict["title"], harvest_object.id)
             log.info(msg)
             self._save_object_error(msg, harvest_object, "Import")
             return False
@@ -350,12 +350,16 @@ class DelwpHarvester(DataVicBaseHarvester):
 
                 if previous_hash == data_hash:
                     log.info(
-                        f"No changes to dataset with ID {harvest_object.package_id}, skipping..."
+                        "No changes to dataset with ID %s (%s), skipping...",
+                        harvest_object.package_id,
+                        pkg.title,
                     )
                     return "unchanged"
                 else:
                     log.info(
-                        f"Dataset {harvest_object.package_id} is being changed, updating."
+                        "Dataset %s (%s) is being changed, updating.",
+                        harvest_object.package_id,
+                        pkg.title,
                     )
                     pkg_dict[HASH_FIELD] = data_hash
 
@@ -363,10 +367,22 @@ class DelwpHarvester(DataVicBaseHarvester):
         status: str = "Created" if status == "new" else "Updated"
 
         try:
-            package_id = tk.get_action(action)(context, pkg_dict)
-            log.info("%s: %s dataset with id %s", self.HARVESTER, status, package_id)
+            context["return_id_only"] = False
+            dataset = tk.get_action(action)(context, pkg_dict)
+            log.info(
+                "%s: %s dataset with id %s (%s)",
+                self.HARVESTER,
+                status,
+                dataset["id"],
+                dataset["title"],
+            )
         except Exception as e:
-            log.error(f"{self.HARVESTER}: error creating dataset: {e}")
+            log.error(
+                "%s: error creating dataset %s: %s",
+                self.HARVESTER,
+                pkg_dict.get("name", ""),
+                e,
+            )
             self._save_object_error(
                 f"Error importing dataset {pkg_dict.get('name', '')}: {e} / {traceback.format_exc()}",
                 harvest_object,
@@ -403,7 +419,7 @@ class DelwpHarvester(DataVicBaseHarvester):
             Value Added Retailers (VARs ) use the imagery and elevation data to create new products and services. This includes advisory services and new knowledge products.
         """
 
-        pkg_dict = {}
+        self.pkg_dict = pkg_dict = {}
 
         pkg_dict["personal_information"] = "no"
         pkg_dict["protective_marking"] = "official"
@@ -582,7 +598,10 @@ class DelwpHarvester(DataVicBaseHarvester):
             return org_name
 
         log.warning(
-            f"{self.HARVESTER} get_organisation: No mapping found for resowner {resowner}"
+            "%s get_organisation: No mapping found for resowner %s for dataset %s",
+            self.HARVESTER,
+            resowner,
+            self.pkg_dict["title"],
         )
         org_name = helpers.munge_title_to_name(resowner)
 
@@ -590,7 +609,10 @@ class DelwpHarvester(DataVicBaseHarvester):
             return organization.id
 
         log.warning(
-            f"{self.HARVESTER} get_organisation: organisation does not exist: {org_name}"
+            "%s get_organisation: organisation does not exist: %s, dataset %s",
+            self.HARVESTER,
+            org_name,
+            self.pkg_dict["title"],
         )
 
     def _create_organization(self, resowner: str, harvest_object: HarvestObject) -> str:
@@ -604,7 +626,11 @@ class DelwpHarvester(DataVicBaseHarvester):
             )
         except Exception as e:
             log.warning(
-                f"{self.HARVESTER} get_organisation: Failed to create organisation {org_name}: {e}"
+                "%s get_organisation: Failed to create organisation %s: %s, dataset %s",
+                self.HARVESTER,
+                org_name,
+                e,
+                self.pkg_dict["title"],
             )
             log.warning(
                 "%s: using source organization: %s", self.HARVESTER, self.source_org_id

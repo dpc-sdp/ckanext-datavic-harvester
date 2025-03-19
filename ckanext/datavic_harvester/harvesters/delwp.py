@@ -266,7 +266,7 @@ class DelwpHarvester(DataVicBaseHarvester):
             log.error(f"{self.HARVESTER}: no harvest object received")
             return False
 
-        status = self._get_object_extra(harvest_object, "status") # type: ignore
+        status = self._get_object_extra(harvest_object, "status")  # type: ignore
 
         if status == "delete":
             self._delete_package(
@@ -307,14 +307,18 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict = self._get_pkg_dict(harvest_object)
 
         if not pkg_dict["notes"] or not pkg_dict["owner_org"]:
-            msg = f"Description or organization field is missing for object {harvest_object.id}, skipping..."
+            msg = "Description or organization field for package {} is missing for object {}, skipping...".format(
+                pkg_dict["title"], harvest_object.id
+            )
             log.info(msg)
             self._save_object_error(msg, harvest_object, "Import")
             return False
 
         # Remove restricted Datasets
         if pkg_dict["private"]:
-            msg = f"Dataset is Restricted for object {harvest_object.id}, skipping..."
+            msg = "Dataset {} is Restricted for object {}, skipping...".format(
+                pkg_dict["title"], harvest_object.id
+            )
             log.info(msg)
             self._save_object_error(msg, harvest_object, "Import")
             return False
@@ -367,6 +371,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         status: str = "Created" if status == "new" else "Updated"
 
         try:
+            context["return_id_only"] = False
             dataset = tk.get_action(action)(context, pkg_dict)
             log.info(
                 "%s: %s dataset with id %s (%s)",
@@ -608,7 +613,10 @@ class DelwpHarvester(DataVicBaseHarvester):
             return organization.id
 
         log.warning(
-            f"{self.HARVESTER} get_organisation: organisation does not exist: {org_name}"
+            "%s get_organisation: organisation does not exist: %s, dataset %s",
+            self.HARVESTER,
+            org_name,
+            self.pkg_dict["title"],
         )
 
     def _create_organization(self, resowner: str, harvest_object: HarvestObject) -> str:

@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 import requests
 import time
 
-from ckan import model
+from ckan import model, types
 from ckan.plugins import toolkit as tk
 from ckan.lib.helpers import json
 
@@ -38,8 +38,6 @@ class DataVicBaseHarvester(HarvesterBase):
 
             if "api_version" in self.config:
                 self.api_version = int(self.config["api_version"])
-
-            log.debug("Using config: %r", self.config)
         else:
             self.config = {}
 
@@ -140,12 +138,12 @@ class DataVicBaseHarvester(HarvesterBase):
 
     def _delete_package(self, package_id: str, guid: str):
         try:
-            tk.get_action("package_delete")(self._make_context(), {"id": package_id})
+            tk.get_action("dataset_purge")(self._make_context(), {"id": package_id})
             log.info(f"Deleted package {package_id} with guid {guid}")
         except tk.ObjectNotFound:
-            log.error(f"Package {package_id} not found")
+            log.error(f"Package {package_id} not found. Skipping purge")
 
-    def _make_context(self) -> dict[str, Any]:
+    def _make_context(self) -> types.Context:
         return {
             "user": self._get_user_name(),
             "return_id_only": True,

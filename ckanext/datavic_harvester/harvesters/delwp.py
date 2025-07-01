@@ -307,7 +307,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict = self._get_pkg_dict(harvest_object)
 
         if not pkg_dict["notes"] or not pkg_dict["owner_org"]:
-            msg = "Description or organization field for package %s is missing for object %s, skipping...".format(
+            msg = "Description or organization field for package {} is missing for object {}, skipping...".format(
                 pkg_dict["title"], harvest_object.id
             )
             log.info(msg)
@@ -316,7 +316,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         # Remove restricted Datasets
         if pkg_dict["private"]:
-            msg = "Dataset %s is Restricted for object %s, skipping...".format(
+            msg = "Dataset {} is Restricted for object {}, skipping...".format(
                 pkg_dict["title"], harvest_object.id
             )
             log.info(msg)

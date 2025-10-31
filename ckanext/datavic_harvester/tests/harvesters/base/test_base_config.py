@@ -57,7 +57,7 @@ class TestBaseConfig:
         with pytest.raises(ValueError, match=f"Default group {group_name} not found"):  # type: ignore
             harvester.validate_config(json.dumps({"default_groups": [group_name]}))
 
-    @pytest.mark.usefixtures("clean_db")
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_validate_default_group_exist(self, harvester: Base, group):
         """If group exists, the `default_group_dicts` will be populated with a list
         of group data"""
@@ -80,7 +80,7 @@ class TestBaseConfig:
                 {"default_groups": [group["id"]], "default_license": "test"}
             )
 
-    @pytest.mark.usefixtures("clean_db")
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_validate_default_license_missing_id_or_title(self, harvester: Base, group):
 
         with pytest.raises(
@@ -90,7 +90,7 @@ class TestBaseConfig:
                 {"default_groups": [group["id"]], "default_license": {"id": "test"}}
             )
 
-    @pytest.mark.usefixtures("clean_db")
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_validate_return_dumped_json(self, harvester: Base, valid_config):
         config: str = harvester.validate_config(json.dumps(valid_config))
 

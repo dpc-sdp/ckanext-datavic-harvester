@@ -45,6 +45,7 @@ class DatasetFactory(factories.Dataset):
     workflow_status = "test"
     protective_marking = "official"
     enable_dtv = False
+    owner_org = factory.LazyFunction(lambda: OrganizationFactory()["id"])
 
 
 register(DatasetFactory, "dataset")
@@ -53,6 +54,7 @@ register(DatasetFactory, "dataset")
 @register
 class HarvestSourceFactory(HarvestSource):
     owner_org = factory.LazyFunction(lambda: OrganizationFactory()["id"])
+    source_type = "delwp"
     _return_type = "obj"
 
 
@@ -108,15 +110,18 @@ def harvest_object():
 
 
 @pytest.fixture
-def clean_db(reset_db):
+def clean_db(reset_db, migrate_db_for):
     reset_db()
-    harvest_model.setup()
+    migrate_db_for("harvest")
+    migrate_db_for("activity")
+
 
 
 @pytest.fixture
 def delwp_config(group, organization_factory):
-    org1 = organization_factory()
-    org2 = organization_factory()
+    org1 = organization_factory(title="Department of Environment, Land, Water & Planning")
+    org2 = organization_factory(title="Department of Health & Human Services")
+
     return {
         "default_groups": [group["id"]],
         "default_group_dicts": [group],
@@ -130,13 +135,14 @@ def delwp_config(group, organization_factory):
         "organisation_mapping": [
             {
                 "resowner": org1["title"],
-                "org-name": org2["name"],
+                "org-name": org1["name"],
             },
             {
-                "resowner": org1["title"],
+                "resowner": org2["title"],
                 "org-name": org2["name"],
             },
         ],
+        "test": True,
     }
 
 
@@ -219,6 +225,7 @@ def dcat_dataset():
         ],
         "theme": ["geospatial"],
     }
+
 
 @pytest.fixture
 def dcat_description(dcat_dataset: dict[str, Any]):

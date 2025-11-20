@@ -132,7 +132,7 @@ class TestDcatHarvester:
         assert pkg_dict["protective_marking"] == "official"
         assert pkg_dict["access"] == "yes"
         assert pkg_dict["organization_visibility"] == "current"
-        assert pkg_dict["workflow_status"] == "draft"
+        assert pkg_dict["workflow_status"] == "published"
 
         assert pkg_dict["resources"]
         assert pkg_dict["resources"][0]["format"]

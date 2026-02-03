@@ -118,6 +118,8 @@ class DelwpHarvester(DataVicBaseHarvester):
         ):
             uuid = record["fields"]["uuid"]
 
+            status = "change" if uuid in guids_in_db and guid_to_package_id[uuid] is not None else "new"
+
             # Create harvest object with appropriate status based on if dataset
             # already exists in the database
             obj = HarvestObject(
@@ -125,23 +127,29 @@ class DelwpHarvester(DataVicBaseHarvester):
                 job=harvest_job,
                 content=json.dumps(record["fields"]),
                 extras=[
-                    HarvestObjectExtra(
-                        key="status", value="change" if uuid in guids_in_db else "new"
-                    )
+                    HarvestObjectExtra(key="status", value=status)
                 ],
             )
 
-            if uuid in guids_in_db:
+            if status == "change":
                 obj.package_id = guid_to_package_id[uuid]  # type: ignore
 
             obj.save()
 
             harvest_object_ids.append(obj.id)
             guids_in_source.append(uuid)
+            log.debug("%s: harvest object id=%s guid=%s status=%s", self.HARVESTER, obj.id, uuid, status)
 
         # Check datasets that are in the database but not in the source
         # therefore they need to be deleted
-        for guid in set(guids_in_db) - set(guids_in_source):
+        guids_to_delete = set(guids_in_db) - set(guids_in_source)
+        if guids_to_delete:
+            log.info(
+                "%s: marking %d dataset(s) for deletion (not in source)",
+                self.HARVESTER,
+                len(guids_to_delete),
+            )
+        for guid in guids_to_delete:
             obj = HarvestObject(
                 guid=guid,
                 job=harvest_job,
@@ -157,6 +165,13 @@ class DelwpHarvester(DataVicBaseHarvester):
 
             harvest_object_ids.append(obj.id)
 
+        log.info(
+            "%s: gather_stage finished, total harvest objects: %d (from source: %d, to delete: %d)",
+            self.HARVESTER,
+            len(harvest_object_ids),
+            len(guids_in_source),
+            len(guids_to_delete),
+        )
         return harvest_object_ids
 
     def _set_config(self, harvest_job: HarvestJob) -> None:
@@ -200,16 +215,22 @@ class DelwpHarvester(DataVicBaseHarvester):
             result = self._fetch_records(harvest_source_url, page, records_per_page)
 
             if not result:
-                log.debug(f"{self.HARVESTER} empty document, no more records")
+                log.debug("%s: empty document at page %d, no more records", self.HARVESTER, page)
                 break
 
             records.extend(result)
+            log.debug(
+                "%s: page %d returned %d records (total so far: %d)",
+                self.HARVESTER, page, len(result), len(records)
+            )
 
             if self.test:
+                log.debug("%s: test mode, stopping after first page", self.HARVESTER)
                 break
 
             page = page + 1
 
+        log.info("%s: fetched %d total records from remote portal", self.HARVESTER, len(records))
         return records
 
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
@@ -244,6 +265,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
 
         if not resp_text:
+            log.warning("%s: empty response from %s (page %d)", self.HARVESTER, request_url, page)
             return
 
         return json.loads(resp_text).get("records")
@@ -267,8 +289,22 @@ class DelwpHarvester(DataVicBaseHarvester):
             return False
 
         status = self._get_object_extra(harvest_object, "status")  # type: ignore
+        log.debug(
+            "%s: import_stage object id=%s guid=%s status=%s package_id=%s",
+            self.HARVESTER,
+            harvest_object.id,
+            harvest_object.guid,
+            status,
+            harvest_object.package_id,
+        )
 
         if status == "delete":
+            log.info(
+                "%s: deleting package id=%s (guid=%s)",
+                self.HARVESTER,
+                harvest_object.package_id,
+                harvest_object.guid,
+            )
             self._delete_package(
                 str(harvest_object.package_id), str(harvest_object.guid)
             )
@@ -348,13 +384,28 @@ class DelwpHarvester(DataVicBaseHarvester):
             pkg = model.Package.get(pkg_dict["id"])
 
             if not pkg:
-                status = "new"
+                msg = "Harvest object missing its package_id. GUID: {}; Title:{}.".format(
+                    harvest_object.guid, pkg_dict.get("title", "")
+                )
+                log.info(msg)
+                self._save_object_error(msg, harvest_object, "Import")
+
+                # Stop it right here, otherwise it will create detached duplicate dataset.
+                #
+                # This block of code should not be reached,
+                # in gather stage object that doesn't have a package_id will be marked as new.
+                #
+                # If in some cases, this block of code is reached,
+                # it will return errored status in the harvest job,
+                # and the error above will be shown in the harvester's job logs.
+                return False
             else:
                 previous_hash = pkg.extras.get(HASH_FIELD)
 
                 if previous_hash == data_hash:
                     log.info(
-                        "No changes to dataset with ID %s (%s), skipping...",
+                        "%s: no changes to dataset id=%s (%s), skipping (hash unchanged)",
+                        self.HARVESTER,
                         harvest_object.package_id,
                         pkg.title,
                     )
@@ -369,6 +420,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         action: str = "package_create" if status == "new" else "package_update"
         status: str = "Created" if status == "new" else "Updated"
+        log.debug("%s: calling action=%s for guid=%s", self.HARVESTER, action, harvest_object.guid)
 
         try:
             context["return_id_only"] = False
@@ -382,10 +434,13 @@ class DelwpHarvester(DataVicBaseHarvester):
             )
         except Exception as e:
             log.error(
-                "%s: error creating dataset %s: %s",
+                "%s: error %s dataset %s (guid=%s): %s",
                 self.HARVESTER,
+                action,
                 pkg_dict.get("name", ""),
+                harvest_object.guid,
                 e,
+                exc_info=True,
             )
             self._save_object_error(
                 f"Error importing dataset {pkg_dict.get('name', '')}: {e} / {traceback.format_exc()}",
@@ -649,6 +704,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         package = harvest_object.package
 
         if package is None or package.title != title:
+            log.debug("%s: generating new package name for title=%s (object %s)", self.HARVESTER, title, harvest_object.id)
             name = self._gen_new_name(title)
 
             if not name:

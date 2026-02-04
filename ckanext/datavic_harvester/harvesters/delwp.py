@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import traceback
 import uuid
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from os import path
 from typing import Iterator, Optional, Any
@@ -13,6 +15,7 @@ from bs4 import BeautifulSoup, Tag
 from ckan import model
 from ckan.plugins import toolkit as tk
 from ckan.logic.schema import default_create_package_schema
+from ckan.lib.uploader import get_storage_path
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestObjectExtra
 
@@ -103,6 +106,113 @@ class DelwpHarvester(DataVicBaseHarvester):
             .first()
         )
 
+    def _get_harvest_json_retention_days(self) -> int:
+        """Return retention days from env; 0 disables storing. Default 7 if unset or invalid."""
+        raw = os.environ.get("DELWP_HARVEST_JSON_RETENTION_DAYS", "7")
+        try:
+            return int(raw)
+        except ValueError:
+            return 7
+
+    def _get_harvest_filestore_dir(self) -> Optional[str]:
+        storage_path = get_storage_path()
+        if not storage_path:
+            return None
+        return path.join(storage_path, "harvest", "delwp")
+
+    def _parse_date_from_harvest_filename(self, filename: str) -> Optional[datetime]:
+        """Parse YYYY-MM-DD from filename like YYYY-MM-DD_HH-MM-SS_<job_id>.json."""
+        if not filename.endswith(".json"):
+            return None
+        parts = filename.split("_")
+        if len(parts) < 1:
+            return None
+        try:
+            return datetime.strptime(parts[0], "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    def _cleanup_old_harvest_json_files(
+        self, dir_path: str, retention_days: int
+    ) -> None:
+        if not path.isdir(dir_path):
+            return
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=retention_days)).date()
+        for name in os.listdir(dir_path):
+            if not name.endswith(".json"):
+                continue
+            file_date = self._parse_date_from_harvest_filename(name)
+            if file_date is None:
+                continue
+            if file_date.date() < cutoff_date:
+                filepath = path.join(dir_path, name)
+                try:
+                    os.remove(filepath)
+                    log.info(
+                        "%s: removed old harvest JSON (retention): %s",
+                        self.HARVESTER,
+                        name,
+                    )
+                except OSError as e:
+                    log.warning(
+                        "%s: failed to remove harvest JSON %s: %s",
+                        self.HARVESTER,
+                        name,
+                        e,
+                    )
+
+    def _save_harvest_json_to_filestore(
+        self, records: list[dict[str, Any]], job_id: Any
+    ) -> None:
+        retention_days = self._get_harvest_json_retention_days()
+        if retention_days == 0:
+            return
+        dir_path = self._get_harvest_filestore_dir()
+        if not dir_path:
+            log.warning(
+                "%s: ckan.storage_path not set, skipping harvest JSON filestore save",
+                self.HARVESTER,
+            )
+            return
+
+        self._cleanup_old_harvest_json_files(dir_path, retention_days)
+
+        try:
+            os.makedirs(dir_path, exist_ok=True)
+        except OSError as e:
+            log.warning(
+                "%s: could not create harvest filestore dir %s: %s",
+                self.HARVESTER,
+                dir_path,
+                e,
+            )
+            return
+
+        # Re-playable shape: same as API response with "records" key, other keys are ignored.
+        payload = {"records": records}
+
+        # Filename: date + time + job_id so multiple runs per day are allowed.
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"{timestamp}_{job_id}.json"
+        filepath = path.join(dir_path, filename)
+
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+            log.info(
+                "%s: saved harvest JSON to %s (%d records)",
+                self.HARVESTER,
+                filename,
+                len(records),
+            )
+        except OSError as e:
+            log.warning(
+                "%s: could not write harvest JSON %s: %s",
+                self.HARVESTER,
+                filepath,
+                e,
+            )
+
     def gather_stage(self, harvest_job):
         log.debug(f"In {self.HARVESTER} gather_stage")
 
@@ -113,9 +223,12 @@ class DelwpHarvester(DataVicBaseHarvester):
         guids_in_db = list(guid_to_package_id.keys())
         guids_in_source: list[str] = []
 
-        for record in self._fetch_records_from_remote_portal(
+        records = self._fetch_records_from_remote_portal(
             harvest_job.source.url.rstrip("?")
-        ):
+        )
+        self._save_harvest_json_to_filestore(records, harvest_job.id)
+
+        for record in records:
             uuid = record["fields"]["uuid"]
 
             status = "change" if uuid in guids_in_db and guid_to_package_id[uuid] is not None else "new"

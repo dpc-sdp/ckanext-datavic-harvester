@@ -439,20 +439,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         self._set_config(harvest_object)
 
-        previous_harvest_object = (
-            model.Session.query(HarvestObject)
-            .filter(HarvestObject.guid == harvest_object.guid)
-            .filter(HarvestObject.current == True)
-            .first()
-        )
-
-        if previous_harvest_object:
-            previous_harvest_object.current = False
-            model.Session.add(previous_harvest_object)
-
-        harvest_object.current = True
-        model.Session.add(harvest_object)
-
+        # Validate before setting current=True to prevent orphaned harvest_objects
         pkg_dict = self._get_pkg_dict(harvest_object)
 
         if not pkg_dict["notes"] or not pkg_dict["owner_org"]:
@@ -474,6 +461,21 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         if status not in ["new", "change"]:
             return True
+
+        # Set current=True only after validation passes
+        previous_harvest_object = (
+            model.Session.query(HarvestObject)
+            .filter(HarvestObject.guid == harvest_object.guid)
+            .filter(HarvestObject.current == True)
+            .first()
+        )
+
+        if previous_harvest_object:
+            previous_harvest_object.current = False
+            model.Session.add(previous_harvest_object)
+
+        harvest_object.current = True
+        model.Session.add(harvest_object)
 
         context = self._make_context()
         data_hash = self._calculate_hash_for_data_dict(pkg_dict)
@@ -497,21 +499,28 @@ class DelwpHarvester(DataVicBaseHarvester):
             pkg = model.Package.get(pkg_dict["id"])
 
             if not pkg:
-                msg = "Harvest object missing its package_id. GUID: {}; Title:{}.".format(
-                    harvest_object.guid, pkg_dict.get("title", "")
+                # Package was likely purged after gather stage.
+                # Re-create it as a new dataset to keep in sync with harvest source.
+                log.warning(
+                    f"Dataset not found for status='change'. "
+                    f"GUID: {harvest_object.guid}; package_id: {harvest_object.package_id}. "
+                    f"Re-creating as new dataset."
                 )
-                log.info(msg)
-                self._save_object_error(msg, harvest_object, "Import")
 
-                # Stop it right here, otherwise it will create detached duplicate dataset.
-                #
-                # This block of code should not be reached,
-                # in gather stage object that doesn't have a package_id will be marked as new.
-                #
-                # If in some cases, this block of code is reached,
-                # it will return errored status in the harvest job,
-                # and the error above will be shown in the harvester's job logs.
-                return False
+                # Treat as new: generate new ID and set up for package_create
+                status = "new"
+                context["schema"] = self._create_custom_package_create_schema()
+
+                pkg_dict["id"] = str(uuid.uuid4())
+                harvest_object.package_id = pkg_dict["id"]
+                model.Session.add(harvest_object)
+
+                model.Session.execute(
+                    "SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED"
+                )
+                model.Session.flush()
+
+                pkg_dict[HASH_FIELD] = data_hash
             else:
                 previous_hash = pkg.extras.get(HASH_FIELD)
 
@@ -545,6 +554,8 @@ class DelwpHarvester(DataVicBaseHarvester):
                 dataset["id"],
                 dataset["title"],
             )
+            model.Session.commit()
+            return True
         except Exception as e:
             log.error(
                 "%s: error %s dataset %s (guid=%s): %s",
@@ -555,16 +566,14 @@ class DelwpHarvester(DataVicBaseHarvester):
                 e,
                 exc_info=True,
             )
+            # Rollback before _save_object_error (which commits)
+            model.Session.rollback()
             self._save_object_error(
                 f"Error importing dataset {pkg_dict.get('name', '')}: {e} / {traceback.format_exc()}",
                 harvest_object,
                 "Import",
             )
             return False
-        finally:
-            model.Session.commit()
-
-        return True
 
     def _get_pkg_dict(self, harvest_object):
         """Create a pkg_dict from remote portal data"""

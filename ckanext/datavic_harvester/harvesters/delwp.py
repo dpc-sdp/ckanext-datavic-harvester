@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import traceback
 import uuid
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from os import path
 from typing import Iterator, Optional, Any
@@ -13,6 +15,7 @@ from bs4 import BeautifulSoup, Tag
 from ckan import model
 from ckan.plugins import toolkit as tk
 from ckan.logic.schema import default_create_package_schema
+from ckan.lib.uploader import get_storage_path
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestObjectExtra
 
@@ -103,6 +106,113 @@ class DelwpHarvester(DataVicBaseHarvester):
             .first()
         )
 
+    def _get_harvest_json_retention_days(self) -> int:
+        """Return retention days from env; 0 disables storing. Default 7 if unset or invalid."""
+        raw = os.environ.get("DELWP_HARVEST_JSON_RETENTION_DAYS", "7")
+        try:
+            return int(raw)
+        except ValueError:
+            return 7
+
+    def _get_harvest_filestore_dir(self) -> Optional[str]:
+        storage_path = get_storage_path()
+        if not storage_path:
+            return None
+        return path.join(storage_path, "harvest", "delwp")
+
+    def _parse_date_from_harvest_filename(self, filename: str) -> Optional[datetime]:
+        """Parse YYYY-MM-DD from filename like YYYY-MM-DD_HH-MM-SS_<job_id>.json."""
+        if not filename.endswith(".json"):
+            return None
+        parts = filename.split("_")
+        if len(parts) < 1:
+            return None
+        try:
+            return datetime.strptime(parts[0], "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    def _cleanup_old_harvest_json_files(
+        self, dir_path: str, retention_days: int
+    ) -> None:
+        if not path.isdir(dir_path):
+            return
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=retention_days)).date()
+        for name in os.listdir(dir_path):
+            if not name.endswith(".json"):
+                continue
+            file_date = self._parse_date_from_harvest_filename(name)
+            if file_date is None:
+                continue
+            if file_date.date() < cutoff_date:
+                filepath = path.join(dir_path, name)
+                try:
+                    os.remove(filepath)
+                    log.info(
+                        "%s: removed old harvest JSON (retention): %s",
+                        self.HARVESTER,
+                        name,
+                    )
+                except OSError as e:
+                    log.warning(
+                        "%s: failed to remove harvest JSON %s: %s",
+                        self.HARVESTER,
+                        name,
+                        e,
+                    )
+
+    def _save_harvest_json_to_filestore(
+        self, records: list[dict[str, Any]], job_id: Any
+    ) -> None:
+        retention_days = self._get_harvest_json_retention_days()
+        if retention_days == 0:
+            return
+        dir_path = self._get_harvest_filestore_dir()
+        if not dir_path:
+            log.warning(
+                "%s: ckan.storage_path not set, skipping harvest JSON filestore save",
+                self.HARVESTER,
+            )
+            return
+
+        self._cleanup_old_harvest_json_files(dir_path, retention_days)
+
+        try:
+            os.makedirs(dir_path, exist_ok=True)
+        except OSError as e:
+            log.warning(
+                "%s: could not create harvest filestore dir %s: %s",
+                self.HARVESTER,
+                dir_path,
+                e,
+            )
+            return
+
+        # Re-playable shape: same as API response with "records" key, other keys are ignored.
+        payload = {"records": records}
+
+        # Filename: date + time + job_id so multiple runs per day are allowed.
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"{timestamp}_{job_id}.json"
+        filepath = path.join(dir_path, filename)
+
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+            log.info(
+                "%s: saved harvest JSON to %s (%d records)",
+                self.HARVESTER,
+                filename,
+                len(records),
+            )
+        except OSError as e:
+            log.warning(
+                "%s: could not write harvest JSON %s: %s",
+                self.HARVESTER,
+                filepath,
+                e,
+            )
+
     def gather_stage(self, harvest_job):
         log.debug(f"In {self.HARVESTER} gather_stage")
 
@@ -113,10 +223,15 @@ class DelwpHarvester(DataVicBaseHarvester):
         guids_in_db = list(guid_to_package_id.keys())
         guids_in_source: list[str] = []
 
-        for record in self._fetch_records_from_remote_portal(
+        records = self._fetch_records_from_remote_portal(
             harvest_job.source.url.rstrip("?")
-        ):
+        )
+        self._save_harvest_json_to_filestore(records, harvest_job.id)
+
+        for record in records:
             uuid = record["fields"]["uuid"]
+
+            status = "change" if uuid in guids_in_db and guid_to_package_id[uuid] is not None else "new"
 
             # Create harvest object with appropriate status based on if dataset
             # already exists in the database
@@ -125,23 +240,29 @@ class DelwpHarvester(DataVicBaseHarvester):
                 job=harvest_job,
                 content=json.dumps(record["fields"]),
                 extras=[
-                    HarvestObjectExtra(
-                        key="status", value="change" if uuid in guids_in_db else "new"
-                    )
+                    HarvestObjectExtra(key="status", value=status)
                 ],
             )
 
-            if uuid in guids_in_db:
+            if status == "change":
                 obj.package_id = guid_to_package_id[uuid]  # type: ignore
 
             obj.save()
 
             harvest_object_ids.append(obj.id)
             guids_in_source.append(uuid)
+            log.debug("%s: harvest object id=%s guid=%s status=%s", self.HARVESTER, obj.id, uuid, status)
 
         # Check datasets that are in the database but not in the source
         # therefore they need to be deleted
-        for guid in set(guids_in_db) - set(guids_in_source):
+        guids_to_delete = set(guids_in_db) - set(guids_in_source)
+        if guids_to_delete:
+            log.info(
+                "%s: marking %d dataset(s) for deletion (not in source)",
+                self.HARVESTER,
+                len(guids_to_delete),
+            )
+        for guid in guids_to_delete:
             obj = HarvestObject(
                 guid=guid,
                 job=harvest_job,
@@ -157,6 +278,13 @@ class DelwpHarvester(DataVicBaseHarvester):
 
             harvest_object_ids.append(obj.id)
 
+        log.info(
+            "%s: gather_stage finished, total harvest objects: %d (from source: %d, to delete: %d)",
+            self.HARVESTER,
+            len(harvest_object_ids),
+            len(guids_in_source),
+            len(guids_to_delete),
+        )
         return harvest_object_ids
 
     def _set_config(self, harvest_job: HarvestJob) -> None:
@@ -200,16 +328,22 @@ class DelwpHarvester(DataVicBaseHarvester):
             result = self._fetch_records(harvest_source_url, page, records_per_page)
 
             if not result:
-                log.debug(f"{self.HARVESTER} empty document, no more records")
+                log.debug("%s: empty document at page %d, no more records", self.HARVESTER, page)
                 break
 
             records.extend(result)
+            log.debug(
+                "%s: page %d returned %d records (total so far: %d)",
+                self.HARVESTER, page, len(result), len(records)
+            )
 
             if self.test:
+                log.debug("%s: test mode, stopping after first page", self.HARVESTER)
                 break
 
             page = page + 1
 
+        log.info("%s: fetched %d total records from remote portal", self.HARVESTER, len(records))
         return records
 
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
@@ -244,6 +378,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
 
         if not resp_text:
+            log.warning("%s: empty response from %s (page %d)", self.HARVESTER, request_url, page)
             return
 
         return json.loads(resp_text).get("records")
@@ -267,8 +402,22 @@ class DelwpHarvester(DataVicBaseHarvester):
             return False
 
         status = self._get_object_extra(harvest_object, "status")  # type: ignore
+        log.debug(
+            "%s: import_stage object id=%s guid=%s status=%s package_id=%s",
+            self.HARVESTER,
+            harvest_object.id,
+            harvest_object.guid,
+            status,
+            harvest_object.package_id,
+        )
 
         if status == "delete":
+            log.info(
+                "%s: deleting package id=%s (guid=%s)",
+                self.HARVESTER,
+                harvest_object.package_id,
+                harvest_object.guid,
+            )
             self._delete_package(
                 str(harvest_object.package_id), str(harvest_object.guid)
             )
@@ -290,20 +439,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         self._set_config(harvest_object)
 
-        previous_harvest_object = (
-            model.Session.query(HarvestObject)
-            .filter(HarvestObject.guid == harvest_object.guid)
-            .filter(HarvestObject.current == True)
-            .first()
-        )
-
-        if previous_harvest_object:
-            previous_harvest_object.current = False
-            model.Session.add(previous_harvest_object)
-
-        harvest_object.current = True
-        model.Session.add(harvest_object)
-
+        # Validate before setting current=True to prevent orphaned harvest_objects
         pkg_dict = self._get_pkg_dict(harvest_object)
 
         if not pkg_dict["notes"] or not pkg_dict["owner_org"]:
@@ -325,6 +461,21 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         if status not in ["new", "change"]:
             return True
+
+        # Set current=True only after validation passes
+        previous_harvest_object = (
+            model.Session.query(HarvestObject)
+            .filter(HarvestObject.guid == harvest_object.guid)
+            .filter(HarvestObject.current == True)
+            .first()
+        )
+
+        if previous_harvest_object:
+            previous_harvest_object.current = False
+            model.Session.add(previous_harvest_object)
+
+        harvest_object.current = True
+        model.Session.add(harvest_object)
 
         context = self._make_context()
         data_hash = self._calculate_hash_for_data_dict(pkg_dict)
@@ -348,13 +499,35 @@ class DelwpHarvester(DataVicBaseHarvester):
             pkg = model.Package.get(pkg_dict["id"])
 
             if not pkg:
+                # Package was likely purged after gather stage.
+                # Re-create it as a new dataset to keep in sync with harvest source.
+                log.warning(
+                    f"Dataset not found for status='change'. "
+                    f"GUID: {harvest_object.guid}; package_id: {harvest_object.package_id}. "
+                    f"Re-creating as new dataset."
+                )
+
+                # Treat as new: generate new ID and set up for package_create
                 status = "new"
+                context["schema"] = self._create_custom_package_create_schema()
+
+                pkg_dict["id"] = str(uuid.uuid4())
+                harvest_object.package_id = pkg_dict["id"]
+                model.Session.add(harvest_object)
+
+                model.Session.execute(
+                    "SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED"
+                )
+                model.Session.flush()
+
+                pkg_dict[HASH_FIELD] = data_hash
             else:
                 previous_hash = pkg.extras.get(HASH_FIELD)
 
                 if previous_hash == data_hash:
                     log.info(
-                        "No changes to dataset with ID %s (%s), skipping...",
+                        "%s: no changes to dataset id=%s (%s), skipping (hash unchanged)",
+                        self.HARVESTER,
                         harvest_object.package_id,
                         pkg.title,
                     )
@@ -369,6 +542,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         action: str = "package_create" if status == "new" else "package_update"
         status: str = "Created" if status == "new" else "Updated"
+        log.debug("%s: calling action=%s for guid=%s", self.HARVESTER, action, harvest_object.guid)
 
         try:
             context["return_id_only"] = False
@@ -380,23 +554,26 @@ class DelwpHarvester(DataVicBaseHarvester):
                 dataset["id"],
                 dataset["title"],
             )
+            model.Session.commit()
+            return True
         except Exception as e:
             log.error(
-                "%s: error creating dataset %s: %s",
+                "%s: error %s dataset %s (guid=%s): %s",
                 self.HARVESTER,
+                action,
                 pkg_dict.get("name", ""),
+                harvest_object.guid,
                 e,
+                exc_info=True,
             )
+            # Rollback before _save_object_error (which commits)
+            model.Session.rollback()
             self._save_object_error(
                 f"Error importing dataset {pkg_dict.get('name', '')}: {e} / {traceback.format_exc()}",
                 harvest_object,
                 "Import",
             )
             return False
-        finally:
-            model.Session.commit()
-
-        return True
 
     def _get_pkg_dict(self, harvest_object):
         """Create a pkg_dict from remote portal data"""
@@ -649,6 +826,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         package = harvest_object.package
 
         if package is None or package.title != title:
+            log.debug("%s: generating new package name for title=%s (object %s)", self.HARVESTER, title, harvest_object.id)
             name = self._gen_new_name(title)
 
             if not name:

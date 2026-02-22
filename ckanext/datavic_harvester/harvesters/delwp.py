@@ -940,7 +940,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         self, geoserver_url: str, metadata_uuid: Optional[str]
     ) -> Optional[Tag]:
         resp_text: Optional[str] = (
-            self._get_mocked_geores()
+            self._get_mocked_geores(geoserver_url)
             if self.test
             else self._make_request(geoserver_url)
         )
@@ -955,13 +955,23 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _get_mocked_records(self) -> str:
         """Mock data, use it instead _make_request for develop process"""
         here: str = path.abspath(path.dirname(__file__))
-        with open(path.join(here, "../data/delwp_records.txt")) as f:
+
+        mock_file = "delwp_records.json"
+        if self.config["dataset_type"] == "uat-datashare-metadata":
+            mock_file = "delwp_records_uat.json"
+
+        with open(path.join(here, f"../data/{mock_file}")) as f:
             return f.read()
 
-    def _get_mocked_geores(self) -> str:
+    def _get_mocked_geores(self, geoserver_url: str) -> str:
         """Mock data, use it instead _make_request for develop process"""
         here: str = path.abspath(path.dirname(__file__))
-        with open(path.join(here, "../data/delwp_geo_resource.txt")) as f:
+
+        mock_file = "delwp_geo_resource_wms.txt"
+        if "wfs" in geoserver_url.lower():
+            mock_file = "delwp_geo_resource_wfs.txt"
+
+        with open(path.join(here, f"../data/{mock_file}")) as f:
             return f.read()
 
     def _calculate_hash_for_data_dict(self, pkg_dict: dict[str, Any]) -> str:

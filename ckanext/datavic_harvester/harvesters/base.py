@@ -13,6 +13,9 @@ from ckan.lib.helpers import json
 
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
+from ckanext.syndicate.tasks import sync_package as syndicate_sync_package
+from ckanext.syndicate.types import Topic as SyndicateTopic
+from ckanext.syndicate import utils as syndicate_utils
 
 
 log = logging.getLogger(__name__)
@@ -138,7 +141,15 @@ class DataVicBaseHarvester(HarvesterBase):
 
     def _delete_package(self, package_id: str, guid: str):
         try:
-            tk.get_action("dataset_purge")(self._make_context(), {"id": package_id})
+            context = self._make_context()
+
+            tk.get_action("package_delete")(context, {"id": package_id})
+
+            for profile in syndicate_utils.profiles_for(model.Package.get(package_id)):
+                syndicate_sync_package(package_id, SyndicateTopic.update, profile)
+
+            tk.get_action("dataset_purge")(context, {"id": package_id})
+
             log.info(f"Deleted package {package_id} with guid {guid}")
         except tk.ObjectNotFound:
             log.error(f"Package {package_id} not found. Skipping purge")

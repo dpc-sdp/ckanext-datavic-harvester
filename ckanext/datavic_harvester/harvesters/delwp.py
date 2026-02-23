@@ -725,15 +725,15 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _is_pkg_private(
         self, remote_dict: dict[str, Any], resources: list[dict[str, Any]]
     ) -> bool:
-        """Check if the dataset should be private"""
-        if (
-            self._is_delwp_vector_data(resources)
-            and remote_dict.get("mdclassification") == "unclassified"
-            and remote_dict.get("resclassification") == "unclassified"
-        ):
-            return False
-
-        return True
+        """
+        Check if the dataset should be private.
+        Return False only when accesscontrol_restricted is explicitly False.
+        """
+        val = remote_dict.get("accesscontrol_restricted", True)
+        if val == "":
+            # empty string -> treat as private
+            return True
+        return tk.asbool(val)
 
     def _get_organisation(
         self,

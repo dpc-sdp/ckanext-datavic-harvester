@@ -141,15 +141,7 @@ class DataVicBaseHarvester(HarvesterBase):
 
     def _delete_package(self, package_id: str, guid: str):
         try:
-            context = self._make_context()
-
-            tk.get_action("package_delete")(context, {"id": package_id})
-
-            for profile in syndicate_utils.profiles_for(model.Package.get(package_id)):
-                syndicate_sync_package(package_id, SyndicateTopic.update, profile)
-
-            tk.get_action("dataset_purge")(context, {"id": package_id})
-
+            tk.get_action("package_delete")(self._make_context(), {"id": package_id})
             log.info(f"Deleted package {package_id} with guid {guid}")
         except tk.ObjectNotFound:
             log.error(f"Package {package_id} not found. Skipping purge")

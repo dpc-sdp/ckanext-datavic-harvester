@@ -1,0 +1,29 @@
+{
+  "force_all": true,
+  "organizations_filter_include" : ["non-vps-odp"],
+  "clean_tags": true,
+  "remote_groups": "create",
+  "remote_orgs": "create",
+  "user": "ckan_admin",
+  "purge_missing": true,
+  "tsm_schema":{
+     "root":"Dataset",
+      "types":{
+          "Dataset":{
+              "fields":{
+                  "personal_information": {"value": "no"},
+                  "update_frequency": {"value": "unknown"},
+                  "workflow_status": {"value": "published"},
+                  "protective_marking": {"value": "official"},
+                  "access": {"value": "yes"},
+                  "organization_visibility": {"value": "all"},
+                  "private": {"value": "true"},
+                  "skip_syndication": {"value": "true"},
+                  "data_lang": {
+                      "value": "English"
+                  }
+              }
+          }
+      }
+  }
+}

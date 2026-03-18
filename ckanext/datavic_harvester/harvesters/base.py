@@ -13,9 +13,6 @@ from ckan.lib.helpers import json
 
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
-from ckanext.syndicate.tasks import sync_package as syndicate_sync_package
-from ckanext.syndicate.types import Topic as SyndicateTopic
-from ckanext.syndicate import utils as syndicate_utils
 
 
 log = logging.getLogger(__name__)

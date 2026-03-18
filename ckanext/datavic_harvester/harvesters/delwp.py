@@ -11,6 +11,7 @@ from os import path
 from typing import Iterator, Optional, Any
 
 from bs4 import BeautifulSoup, Tag
+from sqlalchemy import and_, or_
 
 from ckan import model
 from ckan.plugins import toolkit as tk
@@ -347,10 +348,30 @@ class DelwpHarvester(DataVicBaseHarvester):
         return records
 
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
+        # A dataset may be soft-deleted in one harvest (current=False, package kept)
+        # and then reappear in a later harvest. Include those deleted rows so the
+        # original package_id can be reused instead of creating a new suffixed package.
+        # The ordering is intentional: the dict comprehension keeps the last row seen
+        # for each guid, so current rows win over deleted ones, and otherwise the most
+        # recently gathered deleted row wins.
         query = (
             model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(HarvestObject.current == True)
             .filter(HarvestObject.harvest_source_id == source_id)
+            .filter(
+                or_(
+                    HarvestObject.current == True,
+                    and_(
+                        HarvestObject.current == False,
+                        HarvestObject.package_id.isnot(None),
+                        HarvestObject.report_status == "deleted",
+                    ),
+                )
+            )
+            .order_by(
+                HarvestObject.guid.asc(),
+                HarvestObject.current.asc(),
+                HarvestObject.gathered.asc(),
+            )
         )
 
         return {
@@ -523,8 +544,9 @@ class DelwpHarvester(DataVicBaseHarvester):
                 pkg_dict[HASH_FIELD] = data_hash
             else:
                 previous_hash = pkg.extras.get(HASH_FIELD)
+                needs_restore = pkg.state != "active"
 
-                if previous_hash == data_hash:
+                if previous_hash == data_hash and not needs_restore:
                     log.info(
                         "%s: no changes to dataset id=%s (%s), skipping (hash unchanged)",
                         self.HARVESTER,
@@ -533,11 +555,19 @@ class DelwpHarvester(DataVicBaseHarvester):
                     )
                     return "unchanged"
                 else:
+                    if needs_restore:
+                        log.info(
+                            "%s: restoring dataset id=%s (%s) to active state",
+                            self.HARVESTER,
+                            harvest_object.package_id,
+                            pkg.title,
+                        )
                     log.info(
                         "Dataset %s (%s) is being changed, updating.",
                         harvest_object.package_id,
                         pkg.title,
                     )
+                    pkg_dict["state"] = "active"
                     pkg_dict[HASH_FIELD] = data_hash
 
         action: str = "package_create" if status == "new" else "package_update"

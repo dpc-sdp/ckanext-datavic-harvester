@@ -76,6 +76,9 @@ class DataVicODPHarvester(CKANHarvester, BasketBasicHarvester):
                 content=delete_content,
                 package_id=package_id,
             )
+            model.Session.query(HarvestObject).\
+                filter_by(guid=guid).\
+                update({'current': False}, False)
             obj.save()
             object_ids.append(obj.id)
             log.info(
@@ -117,7 +120,6 @@ class DataVicODPHarvester(CKANHarvester, BasketBasicHarvester):
             return False
         """ End of purge_missing logic """
 
-
         try:
             package_dict = json.loads(harvest_object.content)
             self._set_config(harvest_object.source.config)
@@ -127,7 +129,6 @@ class DataVicODPHarvester(CKANHarvester, BasketBasicHarvester):
         except Exception as e:
             log.error(f"{self.SRC_ID}: import stage failed: {e}")
             return False
-
 
     """ The same as CustomCKANHarvester """
     def _search_for_datasets(self, remote_ckan_base_url, fq_terms=None):

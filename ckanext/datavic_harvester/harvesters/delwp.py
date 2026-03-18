@@ -562,11 +562,15 @@ class DelwpHarvester(DataVicBaseHarvester):
                             harvest_object.package_id,
                             pkg.title,
                         )
-                    log.info(
-                        "Dataset %s (%s) is being changed, updating.",
-                        harvest_object.package_id,
-                        pkg.title,
-                    )
+                        
+                    if previous_hash != data_hash:
+                        log.info(
+                            "%s: dataset id=%s (%s) has changed, updating.",
+                            self.HARVESTER,
+                            harvest_object.package_id,
+                            pkg.title,
+                        )
+                    # Force state=active to handle both normal updates and soft-deleted
                     pkg_dict["state"] = "active"
                     pkg_dict[HASH_FIELD] = data_hash
 

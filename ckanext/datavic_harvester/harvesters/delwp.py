@@ -11,6 +11,7 @@ from os import path
 from typing import Iterator, Optional, Any
 
 from bs4 import BeautifulSoup, Tag
+from sqlalchemy import and_, or_
 
 from ckan import model
 from ckan.plugins import toolkit as tk
@@ -347,10 +348,30 @@ class DelwpHarvester(DataVicBaseHarvester):
         return records
 
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
+        # A dataset may be soft-deleted in one harvest (current=False, package kept)
+        # and then reappear in a later harvest. Include those deleted rows so the
+        # original package_id can be reused instead of creating a new suffixed package.
+        # The ordering is intentional: the dict comprehension keeps the last row seen
+        # for each guid, so current rows win over deleted ones, and otherwise the most
+        # recently gathered deleted row wins.
         query = (
             model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(HarvestObject.current == True)
             .filter(HarvestObject.harvest_source_id == source_id)
+            .filter(
+                or_(
+                    HarvestObject.current == True,
+                    and_(
+                        HarvestObject.current == False,
+                        HarvestObject.package_id.isnot(None),
+                        HarvestObject.report_status == "deleted",
+                    ),
+                )
+            )
+            .order_by(
+                HarvestObject.guid.asc(),
+                HarvestObject.current.asc(),
+                HarvestObject.gathered.asc(),
+            )
         )
 
         return {
@@ -523,8 +544,9 @@ class DelwpHarvester(DataVicBaseHarvester):
                 pkg_dict[HASH_FIELD] = data_hash
             else:
                 previous_hash = pkg.extras.get(HASH_FIELD)
+                needs_restore = pkg.state != "active"
 
-                if previous_hash == data_hash:
+                if previous_hash == data_hash and not needs_restore:
                     log.info(
                         "%s: no changes to dataset id=%s (%s), skipping (hash unchanged)",
                         self.HARVESTER,
@@ -533,11 +555,23 @@ class DelwpHarvester(DataVicBaseHarvester):
                     )
                     return "unchanged"
                 else:
-                    log.info(
-                        "Dataset %s (%s) is being changed, updating.",
-                        harvest_object.package_id,
-                        pkg.title,
-                    )
+                    if needs_restore:
+                        log.info(
+                            "%s: restoring dataset id=%s (%s) to active state",
+                            self.HARVESTER,
+                            harvest_object.package_id,
+                            pkg.title,
+                        )
+                        
+                    if previous_hash != data_hash:
+                        log.info(
+                            "%s: dataset id=%s (%s) has changed, updating.",
+                            self.HARVESTER,
+                            harvest_object.package_id,
+                            pkg.title,
+                        )
+                    # Force state=active to handle both normal updates and soft-deleted
+                    pkg_dict["state"] = "active"
                     pkg_dict[HASH_FIELD] = data_hash
 
         action: str = "package_create" if status == "new" else "package_update"
@@ -725,15 +759,15 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _is_pkg_private(
         self, remote_dict: dict[str, Any], resources: list[dict[str, Any]]
     ) -> bool:
-        """Check if the dataset should be private"""
-        if (
-            self._is_delwp_vector_data(resources)
-            and remote_dict.get("mdclassification") == "unclassified"
-            and remote_dict.get("resclassification") == "unclassified"
-        ):
-            return False
-
-        return True
+        """
+        Check if the dataset should be private.
+        Return False only when accesscontrol_restricted is explicitly False.
+        """
+        val = remote_dict.get("accesscontrol_restricted", True)
+        if val == "":
+            # empty string -> treat as private
+            return True
+        return tk.asbool(val)
 
     def _get_organisation(
         self,
@@ -940,7 +974,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         self, geoserver_url: str, metadata_uuid: Optional[str]
     ) -> Optional[Tag]:
         resp_text: Optional[str] = (
-            self._get_mocked_geores()
+            self._get_mocked_geores(geoserver_url)
             if self.test
             else self._make_request(geoserver_url)
         )
@@ -955,13 +989,23 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _get_mocked_records(self) -> str:
         """Mock data, use it instead _make_request for develop process"""
         here: str = path.abspath(path.dirname(__file__))
-        with open(path.join(here, "../data/delwp_records.txt")) as f:
+
+        mock_file = "delwp_records.json"
+        if self.config["dataset_type"] == "uat-datashare-metadata":
+            mock_file = "delwp_records_uat.json"
+
+        with open(path.join(here, f"../data/{mock_file}")) as f:
             return f.read()
 
-    def _get_mocked_geores(self) -> str:
+    def _get_mocked_geores(self, geoserver_url: str) -> str:
         """Mock data, use it instead _make_request for develop process"""
         here: str = path.abspath(path.dirname(__file__))
-        with open(path.join(here, "../data/delwp_geo_resource.txt")) as f:
+
+        mock_file = "delwp_geo_resource_wms.txt"
+        if "wfs" in geoserver_url.lower():
+            mock_file = "delwp_geo_resource_wfs.txt"
+
+        with open(path.join(here, f"../data/{mock_file}")) as f:
             return f.read()
 
     def _calculate_hash_for_data_dict(self, pkg_dict: dict[str, Any]) -> str:

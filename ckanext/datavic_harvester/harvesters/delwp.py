@@ -688,9 +688,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         pkg_dict["resources"] = self._fetch_resources(metashare_dict)
 
-        pkg_dict["private"] = self._is_pkg_private(
-            metashare_dict, pkg_dict["resources"]
-        )
+        pkg_dict["private"] = self._is_pkg_private(metashare_dict)
 
         pkg_dict["license_id"] = self.config.get("license_id", "cc-by")
 
@@ -756,18 +754,20 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         return False
 
-    def _is_pkg_private(
-        self, remote_dict: dict[str, Any], resources: list[dict[str, Any]]
-    ) -> bool:
-        """
-        Check if the dataset should be private.
-        Return False only when accesscontrol_restricted is explicitly False.
-        """
-        val = remote_dict.get("accesscontrol_restricted", True)
-        if val == "":
-            # empty string -> treat as private
+    def _is_pkg_private(self, remote_dict: dict[str, Any]) -> bool:
+        """Private unless access is not restricted and orderable on DataShare (``asbool``).
+        Blank fields are treated as private."""
+        accesscontrol_restricted = remote_dict.get("accesscontrol_restricted", True)
+        orderableondatashare = remote_dict.get("orderableondatashare", False)
+        if ((isinstance(accesscontrol_restricted, str) and not accesscontrol_restricted.strip()) or
+            (isinstance(orderableondatashare, str) and not orderableondatashare.strip())):
+            # one or both are empty string -> treat as private
             return True
-        return tk.asbool(val)
+
+        not_restricted = not tk.asbool(accesscontrol_restricted)
+        orderable = tk.asbool(orderableondatashare)
+        # private=False only when not access-restricted and orderable; any other combination stays private.
+        return not (not_restricted and orderable)
 
     def _get_organisation(
         self,

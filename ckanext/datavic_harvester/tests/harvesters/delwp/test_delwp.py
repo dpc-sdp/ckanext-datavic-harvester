@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from typing import Any
 from typing_extensions import TypedDict
 from types import GeneratorType
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta, timezone
 from unittest import mock
 
 import pytest
@@ -651,3 +653,270 @@ class TestSendDeletionSafeguardNotify:
             side_effect=req_lib.RequestException("timeout"),
         ):
             h._send_deletion_safeguard_notify(anomaly=False)  # must not raise
+
+
+class TestIsPkgPrivate:
+    """Unit tests for _is_pkg_private (DATAVIC-812).
+
+    Public ONLY when accesscontrol_restricted=False AND orderableondatashare=True.
+    All other combinations — including missing fields, blank strings, and string
+    booleans — are tested to ensure the correct behaviour.
+    """
+
+    def _h(self) -> DelwpHarvester:
+        return DelwpHarvester()
+
+    # --- happy path ---
+
+    def test_public_when_not_restricted_and_orderable(self):
+        assert self._h()._is_pkg_private(
+            {"accesscontrol_restricted": False, "orderableondatashare": True}
+        ) is False
+
+    def test_public_with_string_booleans(self):
+        """String 'false'/'true' are normalised via asbool — same as CKAN config."""
+        assert self._h()._is_pkg_private(
+            {"accesscontrol_restricted": "false", "orderableondatashare": "true"}
+        ) is False
+
+    def test_public_with_string_no_and_yes(self):
+        assert self._h()._is_pkg_private(
+            {"accesscontrol_restricted": "no", "orderableondatashare": "yes"}
+        ) is False
+
+    # --- access restricted ---
+
+    def test_private_when_restricted_and_orderable(self):
+        """Restricted overrides orderable — still private."""
+        assert self._h()._is_pkg_private(
+            {"accesscontrol_restricted": True, "orderableondatashare": True}
+        ) is True
+
+    def test_private_when_restricted_and_not_orderable(self):
+        assert self._h()._is_pkg_private(
+            {"accesscontrol_restricted": True, "orderableondatashare": False}
+        ) is True
+
+    # --- not orderable ---
+
+    def test_private_when_not_restricted_but_not_orderable(self):
+        """Not restricted but also not orderable → private."""
+        assert self._h()._is_pkg_private(
+            {"accesscontrol_restricted": False, "orderableondatashare": False}
+        ) is True
+
+    # --- missing fields ---
+
+    def test_private_when_both_fields_missing(self):
+        """Both missing: defaults are restricted=True, orderable=False → private."""
+        assert self._h()._is_pkg_private({}) is True
+
+    def test_private_when_only_orderable_present_and_true(self):
+        """accesscontrol_restricted missing → defaults True → private."""
+        assert self._h()._is_pkg_private({"orderableondatashare": True}) is True
+
+    def test_private_when_only_restricted_present_and_false(self):
+        """orderableondatashare missing → defaults False → private."""
+        assert self._h()._is_pkg_private({"accesscontrol_restricted": False}) is True
+
+    # --- blank strings treated as private (DATAVIC-812 key fix) ---
+
+    def test_private_when_accesscontrol_blank(self):
+        assert self._h()._is_pkg_private(
+            {"accesscontrol_restricted": "", "orderableondatashare": True}
+        ) is True
+
+    def test_private_when_orderable_blank(self):
+        assert self._h()._is_pkg_private(
+            {"accesscontrol_restricted": False, "orderableondatashare": "   "}
+        ) is True
+
+    def test_private_when_both_blank(self):
+        assert self._h()._is_pkg_private(
+            {"accesscontrol_restricted": "", "orderableondatashare": ""}
+        ) is True
+
+
+
+class TestHarvestFilestore:
+    """Basic smoke tests for harvest JSON filestore (DATAVIC-822).
+
+    This feature is for debugging/replay purposes only, so we test the main
+    happy path and the two skip conditions.
+    """
+
+    def _h(self) -> DelwpHarvester:
+        return DelwpHarvester()
+
+    def test_save_writes_json_file_with_records_key(self):
+        h = self._h()
+        records = [{"fields": {"uuid": "abc", "title": "Test"}}]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with (
+                mock.patch.dict(os.environ, {"DELWP_HARVEST_JSON_RETENTION_DAYS": "7"}),
+                mock.patch.object(h, "_get_harvest_filestore_dir", return_value=tmpdir),
+            ):
+                h._save_harvest_json_to_filestore(records, "job-123")
+            files = [f for f in os.listdir(tmpdir) if f.endswith(".json")]
+            assert len(files) == 1
+            with open(os.path.join(tmpdir, files[0])) as f:
+                assert json.load(f)["records"] == records
+
+    def test_save_skipped_when_retention_zero(self):
+        h = self._h()
+        with (
+            mock.patch.dict(os.environ, {"DELWP_HARVEST_JSON_RETENTION_DAYS": "0"}),
+            mock.patch.object(h, "_get_harvest_filestore_dir") as mock_dir,
+        ):
+            h._save_harvest_json_to_filestore([{"fields": {"uuid": "x"}}], "job-1")
+        mock_dir.assert_not_called()
+
+    def test_save_skipped_when_no_storage_path(self):
+        h = self._h()
+        with (
+            mock.patch.dict(os.environ, {"DELWP_HARVEST_JSON_RETENTION_DAYS": "7"}),
+            mock.patch.object(h, "_get_harvest_filestore_dir", return_value=None),
+        ):
+            h._save_harvest_json_to_filestore([{"fields": {"uuid": "x"}}], "job-1")
+
+
+class TestPurgedDatasetRecreation:
+    """Tests for the purged-package re-creation path (DATAVIC-822).
+
+    If a harvest object has status='change' but its package has been hard-purged
+    from the DB, import_stage must not crash or create a duplicate with a suffixed
+    name. Instead it re-creates the dataset as a new package.
+    """
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_import_stage_recreates_purged_dataset(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_dataset: dict,
+        delwp_config,
+    ):
+        """When a harvest object references a package_id that no longer exists in
+        the DB (purged), import_stage should create a new package successfully
+        rather than failing or producing a duplicate."""
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config),
+            source_type=harvester.info()["name"],
+        )
+        job = harvest_job_factory(source=source)
+
+        # First import: create the dataset normally
+        obj1 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+        )
+        harvester.import_stage(obj1)
+        original_package_id = obj1.package_id
+        assert original_package_id
+        assert obj1.errors == []
+
+        # Hard-purge the package so model.Package.get() returns None.
+        # Nullify harvest object FK first so the purge cascade isn't blocked.
+        sysadmin = call_action("get_site_user", ignore_auth=True)
+        call_action("package_delete", {"user": sysadmin["name"]}, id=original_package_id)
+        model.Session.query(harvest_model.HarvestObject).filter(
+            harvest_model.HarvestObject.package_id == original_package_id
+        ).update({"package_id": None})
+        model.Session.commit()
+        call_action("dataset_purge", {"user": sysadmin["name"]}, id=original_package_id)
+
+        # Simulate a harvest object that still points to the purged package_id
+        # with status="change" — this is the duplicate-triggering scenario.
+        # We can't pass package_id to the factory (harvest_object_create validates
+        # it exists), so we set it on the in-memory object without committing.
+        # import_stage reads harvest_object.package_id and internally defers the
+        # FK constraint (SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED),
+        # so there is no FK violation during the test.
+        obj2 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+            extras={"status": "change"},
+        )
+        obj2.package_id = original_package_id
+        # No commit here — import_stage handles FK deferral internally.
+
+        result = harvester.import_stage(obj2)
+
+        assert result is True
+        assert obj2.errors == []
+
+        # A new package should exist — different ID from the purged one
+        new_package_id = obj2.package_id
+        assert new_package_id
+        assert new_package_id != original_package_id
+
+        new_pkg = model.Package.get(new_package_id)
+        assert new_pkg is not None
+        assert new_pkg.state == "active"
+
+
+class TestRestoreFlow:
+    """Tests for the soft-delete restore path (DATAVIC-906).
+
+    When a GUID that was previously soft-deleted reappears in the source, the
+    import stage should restore the existing package to active state rather than
+    creating a new one with a suffixed name.
+    """
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_import_stage_restores_deleted_dataset(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_dataset: dict,
+        delwp_config,
+    ):
+        """A dataset that was soft-deleted and reappears in the source is set
+        back to active state by import_stage."""
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config),
+            source_type=harvester.info()["name"],
+        )
+        job = harvest_job_factory(source=source)
+
+        # First import: create the dataset
+        obj1 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+        )
+        harvester.import_stage(obj1)
+
+        package_id = obj1.package_id
+        assert package_id, "import_stage should have created a package"
+        assert obj1.errors == []
+
+        pkg = call_action("package_show", id=package_id)
+        assert pkg["state"] == "active"
+
+        # Soft-delete the package (simulating a previous harvest deletion run)
+        sysadmin = call_action("get_site_user", ignore_auth=True)
+        call_action("package_delete", {"user": sysadmin["name"]}, id=package_id)
+        assert call_action("package_show", id=package_id)["state"] == "deleted"
+
+        # Second import: dataset reappears in source.
+        # status="change" + package_id set triggers the restore branch.
+        obj2 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+        result = harvester.import_stage(obj2)
+
+        assert result is True
+        assert obj2.errors == []
+        pkg = call_action("package_show", id=package_id)
+        assert pkg["state"] == "active"

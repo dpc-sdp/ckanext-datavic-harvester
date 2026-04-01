@@ -11,6 +11,7 @@ from os import path
 from typing import Iterator, Optional, Any
 
 from bs4 import BeautifulSoup, Tag
+import requests
 from sqlalchemy import and_, or_
 
 from ckan import model
@@ -68,11 +69,77 @@ class DelwpHarvester(DataVicBaseHarvester):
             raise ValueError("api_auth must be set")
 
         if "organisation_mapping" not in config_obj:
+            self._validate_optional_deletion_safeguard_config(config_obj)
             return json.dumps(config_obj, indent=4)
 
         self._validate_organisation_mapping(config_obj)
+        self._validate_optional_deletion_safeguard_config(config_obj)
 
         return json.dumps(config_obj, indent=4)
+
+    def _validate_optional_deletion_safeguard_config(
+        self, config: dict[str, Any]
+    ) -> None:
+        if "deletion_safeguard_enabled" in config:
+            v = config["deletion_safeguard_enabled"]
+            if isinstance(v, bool):
+                pass
+            elif isinstance(v, str):
+                try:
+                    config["deletion_safeguard_enabled"] = tk.asbool(v)
+                except ValueError as e:
+                    raise ValueError(
+                        "deletion_safeguard_enabled must be a boolean"
+                    ) from e
+            else:
+                raise ValueError("deletion_safeguard_enabled must be a boolean")
+
+        if "deletion_safeguard_allow_bulk_delete" in config:
+            v = config["deletion_safeguard_allow_bulk_delete"]
+            if isinstance(v, bool):
+                pass
+            elif isinstance(v, str):
+                try:
+                    config["deletion_safeguard_allow_bulk_delete"] = tk.asbool(v)
+                except ValueError as e:
+                    raise ValueError(
+                        "deletion_safeguard_allow_bulk_delete must be a boolean"
+                    ) from e
+            else:
+                raise ValueError("deletion_safeguard_allow_bulk_delete must be a boolean")
+
+        if "deletion_safeguard_drop_threshold_percent" in config:
+            try:
+                drop_threshold_percent = float(
+                    config["deletion_safeguard_drop_threshold_percent"]
+                )
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "deletion_safeguard_drop_threshold_percent must be a number"
+                )
+
+            if drop_threshold_percent < 0 or drop_threshold_percent > 100:
+                raise ValueError(
+                    "deletion_safeguard_drop_threshold_percent must be >= 0 and <= 100"
+                )
+
+        if "deletion_safeguard_min_previous_count" in config:
+            try:
+                min_previous_count = int(config["deletion_safeguard_min_previous_count"])
+            except (TypeError, ValueError):
+                raise ValueError("deletion_safeguard_min_previous_count must be an integer")
+
+            if min_previous_count < 0:
+                raise ValueError("deletion_safeguard_min_previous_count must be >= 0")
+
+        for _key in (
+            "deletion_safeguard_notify_ok_url",
+            "deletion_safeguard_notify_anomaly_url",
+        ):
+            if _key in config:
+                _v = config[_key]
+                if _v is not None and not isinstance(_v, str):
+                    raise ValueError(f"{_key} must be a string")
 
     def _validate_organisation_mapping(self, config: dict[str, Any]) -> None:
         if not isinstance(config["organisation_mapping"], list):
@@ -229,6 +296,17 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
         self._save_harvest_json_to_filestore(records, harvest_job.id)
 
+        previous_count = len(guids_in_db)
+        source_count = len(records)
+        anomaly_detected, anomaly_message = self._detect_deletion_anomaly(
+            previous_count, source_count
+        )
+        if anomaly_detected and anomaly_message:
+            self._save_gather_error(anomaly_message, harvest_job)
+            self._send_deletion_safeguard_notify(anomaly=True)
+        elif self.deletion_safeguard_enabled:
+            self._send_deletion_safeguard_notify(anomaly=False)
+
         for record in records:
             uuid = record["fields"]["uuid"]
 
@@ -257,6 +335,14 @@ class DelwpHarvester(DataVicBaseHarvester):
         # Check datasets that are in the database but not in the source
         # therefore they need to be deleted
         guids_to_delete = set(guids_in_db) - set(guids_in_source)
+        if anomaly_detected and not self.deletion_safeguard_allow_mass_delete:
+            log.warning(
+                "%s: anomaly detected, suppressing %d delete action(s) for this run",
+                self.HARVESTER,
+                len(guids_to_delete),
+            )
+            guids_to_delete = set()
+
         if guids_to_delete:
             log.info(
                 "%s: marking %d dataset(s) for deletion (not in source)",
@@ -288,11 +374,37 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
         return harvest_object_ids
 
-    def _set_config(self, harvest_job: HarvestJob) -> None:
-        super()._set_config(harvest_job.source.config)
+    def _set_config(self, harvest_item: HarvestJob | HarvestObject) -> None:
+        super()._set_config(harvest_item.source.config)
 
-        self.test = bool(self.config.get("test"))
-        self.source_org_id = self._get_source_owner_org_id(harvest_job.source.id)
+        _test = self.config.get("test", False)
+        self.test = tk.asbool(False if _test is None else _test)
+        self.source_org_id = self._get_source_owner_org_id(harvest_item.source.id)
+        _dse = self.config.get("deletion_safeguard_enabled", True)
+        self.deletion_safeguard_enabled = tk.asbool(True if _dse is None else _dse)
+        self.deletion_safeguard_drop_threshold_percent = float(
+            self.config.get("deletion_safeguard_drop_threshold_percent", 10)
+        )
+        self.deletion_safeguard_min_previous_count = int(
+            self.config.get("deletion_safeguard_min_previous_count", 100)
+        )
+        _amd = self.config.get("deletion_safeguard_allow_bulk_delete", False)
+        self.deletion_safeguard_allow_mass_delete = tk.asbool(
+            False if _amd is None else _amd
+        )
+
+        def _strip_url(v: Any) -> Optional[str]:
+            if v is None:
+                return None
+            s = str(v).strip()
+            return s or None
+
+        self.deletion_safeguard_notify_ok_url = _strip_url(
+            self.config.get("deletion_safeguard_notify_ok_url")
+        )
+        self.deletion_safeguard_notify_anomaly_url = _strip_url(
+            self.config.get("deletion_safeguard_notify_anomaly_url")
+        )
 
         if "geoserver_dns" in self.config:
             geoserver_dns = self.config["geoserver_dns"]
@@ -307,6 +419,62 @@ class DelwpHarvester(DataVicBaseHarvester):
                     "resource_url": f"{geoserver_dns}/geoserver/wfs?request=GetCapabilities&service=WFS",
                 },
             }
+
+    def _detect_deletion_anomaly(
+        self, previous_count: int, source_count: int
+    ) -> tuple[bool, Optional[str]]:
+        if not self.deletion_safeguard_enabled:
+            return False, None
+
+        if previous_count < self.deletion_safeguard_min_previous_count:
+            log.info(
+                "%s: deletion safeguard check skipped (previous_count=%d < min_previous_count=%d)",
+                self.HARVESTER,
+                previous_count,
+                self.deletion_safeguard_min_previous_count,
+            )
+            return False, None
+
+        if previous_count == 0:
+            return False, None
+
+        drop_percent = ((previous_count - source_count) / previous_count) * 100
+        if drop_percent <= self.deletion_safeguard_drop_threshold_percent:
+            return False, None
+
+        message = (
+            f"{self.HARVESTER}: anomaly detected for source count drop "
+            f"(source_count={source_count}, previous_count={previous_count}, "
+            f"drop_percent={drop_percent:.2f}, "
+            f"drop_threshold_percent={self.deletion_safeguard_drop_threshold_percent}, "
+            f"allow_mass_delete={self.deletion_safeguard_allow_mass_delete})."
+        )
+        log.warning(message)
+        return True, message
+
+    def _send_deletion_safeguard_notify(self, *, anomaly: bool) -> None:
+        """GET a monitoring URL (fail-open: errors are logged only).
+
+        Set ``deletion_safeguard_notify_ok_url`` and/or
+        ``deletion_safeguard_notify_anomaly_url`` in source config (full URLs).
+        """
+        target_url = (
+            self.deletion_safeguard_notify_anomaly_url
+            if anomaly
+            else self.deletion_safeguard_notify_ok_url
+        )
+        if not target_url:
+            return
+
+        try:
+            requests.get(target_url, timeout=10)
+        except requests.RequestException as e:
+            log.warning(
+                "%s: deletion safeguard notify GET failed (%s): %s",
+                self.HARVESTER,
+                target_url,
+                e,
+            )
 
     def _get_source_owner_org_id(self, source_id: str) -> str:
         source_package = model.Package.get(source_id)
@@ -834,18 +1002,25 @@ class DelwpHarvester(DataVicBaseHarvester):
         """Create organization from a resowner field"""
         org_name = helpers.munge_title_to_name(resowner)
 
+        # Use a context without return_id_only so that plugin subscribers
+        # (e.g. the activity extension) receive the full org dict rather than
+        # a bare ID string which would cause a TypeError in their handlers.
+        context = {k: v for k, v in self._make_context().items() if k != "return_id_only"}
+
         try:
-            org_id = tk.get_action("organization_create")(
-                self._make_context(),
+            org = tk.get_action("organization_create")(
+                context,
                 {"name": org_name, "title": resowner},
             )
+            org_id = org["id"] if isinstance(org, dict) else org
         except Exception as e:
+            pkg_title = getattr(self, "pkg_dict", {}).get("title", "unknown")
             log.warning(
                 "%s get_organisation: Failed to create organisation %s: %s, dataset %s",
                 self.HARVESTER,
                 org_name,
                 e,
-                self.pkg_dict["title"],
+                pkg_title,
             )
             log.warning(
                 "%s: using source organization: %s", self.HARVESTER, self.source_org_id

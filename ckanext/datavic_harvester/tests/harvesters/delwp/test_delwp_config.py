@@ -28,7 +28,7 @@ class TestDelwpConfig:
 
         config["full_metadata_url_prefix"] = "test"
         with pytest.raises(
-            ValueError, match="full_metadata_url_prefix must have the \{UUID\} identifier in the URL"  # type: ignore
+            ValueError, match=r"full_metadata_url_prefix must have the \{UUID\} identifier in the URL"  # type: ignore
         ):
             harvester.validate_config(json.dumps(config))
 
@@ -64,11 +64,11 @@ class TestDelwpConfig:
 
     def test_validate_organisation_mapping(self, harvester: Base):
         config: dict[str, Any] = {"organisation_mapping": {}}
-        with pytest.raises(ValueError, match="organisation_mapping must be a \*list\* of organisations"):  # type: ignore
+        with pytest.raises(ValueError, match=r"organisation_mapping must be a \*list\* of organisations"):  # type: ignore
             harvester._validate_organisation_mapping(config)
 
         config["organisation_mapping"] = [()]
-        with pytest.raises(ValueError, match="organisation_mapping item must be a \*dict\*"):  # type: ignore
+        with pytest.raises(ValueError, match=r"organisation_mapping item must be a \*dict\*"):  # type: ignore
             harvester._validate_organisation_mapping(config)
 
         config["organisation_mapping"] = [{"resowner": "test-title"}]

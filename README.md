@@ -63,6 +63,23 @@ Stop on first failure with verbose output:
         ahoy ckan
         cd /app/src/ckanext-datavic-harvester && pytest ckanext/datavic_harvester/tests/ -x -v
 
+## Running CI locally with act
+
+The GitHub Actions workflow (`.github/workflows/test.yml`) can be run locally
+using [act](https://github.com/nektos/act). This is useful for validating CI
+changes before pushing.
+
+Install act (macOS):
+
+        brew install act
+
+Run the full test workflow:
+
+        act push --container-architecture linux/amd64
+
+The `--container-architecture` flag is required on Apple Silicon to match the
+`linux/amd64` images used by GitHub Actions. On Intel Macs it can be omitted.
+
 ## Additional Parameters
 
 ### ignore_private_datasets

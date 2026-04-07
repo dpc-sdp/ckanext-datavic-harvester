@@ -27,7 +27,7 @@ jobs:
       CKAN_REDIS_URL: redis://redis:6379/1
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Install requirements
       run: |
         pip install -r requirements.txt
@@ -37,8 +37,6 @@ jobs:
         # Replace default path to CKAN core config file with the one on the container
         sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test-ci.ini
     - name: Setup extension
-      run: |
-        ckan -c test-ci.ini db init
-        ckan -c test-ci.ini db pending-migrations --apply
+      run: ckan -c test-ci.ini db upgrade
     - name: Run tests
       run: pytest --ckan-ini=test-ci.ini ckanext/datavic_harvester/tests

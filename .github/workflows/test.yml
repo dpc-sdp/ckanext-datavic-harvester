@@ -39,4 +39,9 @@ jobs:
     - name: Setup extension
       run: ckan -c test-ci.ini db upgrade
     - name: Run tests
-      run: pytest --ckan-ini=test-ci.ini ckanext/datavic_harvester/tests
+      run: pytest --ckan-ini=test-ci.ini --cov=ckanext.datavic_harvester --cov-report=term-missing --disable-warnings --junit-xml=/tmp/junit/results.xml ckanext/datavic_harvester/tests
+    - name: Test Summary
+      uses: test-summary/action@v2
+      with:
+        paths: /tmp/junit/results.xml
+      if: always()

@@ -140,7 +140,7 @@ def delwp_config(group, organization_factory):
         "resource_url_prefix": "https://datashare.maps.vic.gov.au/search?md=",
         "resource_attribution": "Copyright (c) The State of Victoria, Department of Environment, Land, Water & Planning",
         "license_id": "cc-by",
-        "dataset_type": "datashare-metadata",
+        "dataset_type": "uat-datashare-metadata",
         "api_auth": "Apikey XXX",
         "geoserver_dns": "https://opendata-uat.maps.vic.gov.au",
         "organisation_mapping": [

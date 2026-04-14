@@ -6,7 +6,7 @@ import tempfile
 from typing import Any
 from typing_extensions import TypedDict
 from types import GeneratorType
-from datetime import datetime as dt, timedelta, timezone
+from datetime import datetime as dt
 from unittest import mock
 
 import pytest
@@ -46,7 +46,9 @@ def harvester():
     # _set_config now expects a HarvestJob/HarvestObject with source.config and
     # source.id. Use a mock so the fixture works without a live DB / harvest source.
     mock_item = mock.MagicMock()
-    mock_item.source.config = json.dumps({"dataset_type": "delwp", "test": True})
+    mock_item.source.config = json.dumps(
+        {"dataset_type": "uat-datashare-metadata", "test": True}
+    )
     with mock.patch.object(harvester, "_get_source_owner_org_id", return_value=None):
         harvester._set_config(mock_item)
 
@@ -57,13 +59,7 @@ def harvester():
 def delwp_dataset(harvester: DelwpHarvester):
     records = harvester._fetch_records("test_url", 0, 0)
     datasets = harvester._get_record_metadata(records)
-    dataset = next(datasets)
-    # All mock records have accesscontrol_restricted=None/orderableondatashare=None
-    # which _is_pkg_private treats as private, causing import_stage to skip them.
-    # Override to make the fixture represent a public (importable) dataset.
-    dataset["accesscontrol_restricted"] = False
-    dataset["orderableondatashare"] = True
-    return dataset
+    return next(datasets)
 
 
 class TestDelwpHarvester:
@@ -82,7 +78,7 @@ class TestDelwpHarvester:
         obj_ids = harvester.gather_stage(harvest_job)
 
         assert harvest_job.gather_errors == []
-        assert type(obj_ids) == list
+        assert isinstance(obj_ids, list)
 
         datasets = json.loads(harvester._get_mocked_records())["records"]
         assert len(set(obj_ids)) == len(datasets)
@@ -194,8 +190,17 @@ class TestDelwpHarvester:
 
         assert pkg_dict["resources"]
         assert pkg_dict["resources"][0]["format"]
-        assert pkg_dict["resources"][0]["period_end"]
-        assert pkg_dict["resources"][0]["period_start"]
+        # datashare records may omit tempextentend; period_end is then None (not a harvester bug).
+        assert pkg_dict["resources"][0]["period_start"] == h.convert_date_to_isoformat(
+            delwp_dataset.get("tempextentbegin"),
+            "tempextentbegin",
+            delwp_dataset.get("title"),
+        )
+        assert pkg_dict["resources"][0]["period_end"] == h.convert_date_to_isoformat(
+            delwp_dataset.get("tempextentend"),
+            "tempextentend",
+            delwp_dataset.get("title"),
+        )
         resource_url: str = pkg_dict["resources"][0]["url"]
         assert resource_url
         assert delwp_config["resource_url_prefix"] in resource_url

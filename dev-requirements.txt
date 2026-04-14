@@ -1,5 +1,12 @@
+# Pin the pytest toolchain to the same versions as CKAN core (dev-v2.11) — see:
+#   https://github.com/ckan/ckan/blob/dev-v2.11/dev-requirements.txt
+# Do not upgrade pytest to 9+ via Dependabot until CKAN bumps these pins (pytest 9.x breaks
+# pytest-factoryboy 2.7.x / pytest-ckan: FixtureFunctionDefinition / __pytest_wrapped__).
+# .github/dependabot.yml ignores major bumps for the pytest toolchain.
+pytest==8.3.4
+pytest-cov==6.0.0
+pytest-factoryboy==2.7.0
+pytest-split==0.10.0
 pytest-ckan
 pytest-mock
-pytest-factoryboy
-pytest>=9.0.3
 black

@@ -1,0 +1,36 @@
+# Dependabot version updates for pip.
+#
+# Pytest ecosystem pins must stay aligned with CKAN core until upstream bumps them:
+# https://github.com/ckan/ckan/blob/dev-v2.11/dev-requirements.txt
+#
+# pytest 9+ is incompatible with pytest-factoryboy 2.7.x / pytest-ckan as used in CKAN 2.11 tests.
+# Do not merge Dependabot major bumps for these; upgrade them together when this extension targets
+# a CKAN release that updates its dev-requirements.
+#
+# Security alerts: if Dependabot flags pytest, assess with CKAN's version; dismiss or patch in
+# CKAN first, then align here—or accept risk until CKAN ships a fix.
+
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      pytest-ecosystem:
+        patterns:
+          - "pytest"
+          - "pytest-*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      - dependency-name: pytest
+        update-types: ["version-update:semver-major"]
+      - dependency-name: pytest-factoryboy
+        update-types: ["version-update:semver-major"]
+      - dependency-name: pytest-split
+        update-types: ["version-update:semver-major"]
+      - dependency-name: pytest-cov
+        update-types: ["version-update:semver-major"]

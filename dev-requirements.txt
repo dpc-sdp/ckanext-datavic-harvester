@@ -1,5 +1,5 @@
 pytest-ckan
 pytest-mock
 pytest-factoryboy
-pytest==4.6.5
+pytest==9.0.3
 black

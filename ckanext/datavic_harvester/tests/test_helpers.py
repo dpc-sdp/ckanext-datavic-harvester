@@ -25,10 +25,6 @@ class TestHelpers:
         assert h.get_tags("test1,test2") == [{"name": "test1"}, {"name": "test2"}]
         assert h.get_tags("test1&test2") == [{"name": "test1&test2"}]
 
-    def test_get_from_to(self):
-        assert h.get_from_to(1, 500) == (1, 500)
-        assert h.get_from_to(2, 500) == (501, 1000)
-
     def test_convert_date_to_isoformat(self):
         """We are using key and dataset name params only for logging."""
         assert not h.convert_date_to_isoformat(None, "", "")

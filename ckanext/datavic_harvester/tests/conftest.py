@@ -104,6 +104,17 @@ class HarvestObjectFactory(HarvestObject):
     _return_type = "obj"
 
 
+@pytest.fixture(autouse=True)
+def _flask_app_context(with_request_context):
+    """Ensure a Flask request context is active for every test.
+
+    CKAN actions (called by factories and test helpers) require a Flask
+    application context. In pytest>=7 autouse fixtures from conftest run
+    before test-requested fixtures, so this guarantees the context is active
+    before any factory tries to call ckan actions.
+    """
+
+
 @pytest.fixture
 def harvest_object():
     return HarvestObjectFactory()

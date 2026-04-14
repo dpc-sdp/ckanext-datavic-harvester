@@ -28,7 +28,7 @@ class TestDelwpConfig:
 
         config["full_metadata_url_prefix"] = "test"
         with pytest.raises(
-            ValueError, match="full_metadata_url_prefix must have the \{UUID\} identifier in the URL"  # type: ignore
+            ValueError, match=r"full_metadata_url_prefix must have the \{UUID\} identifier in the URL"  # type: ignore
         ):
             harvester.validate_config(json.dumps(config))
 
@@ -64,11 +64,11 @@ class TestDelwpConfig:
 
     def test_validate_organisation_mapping(self, harvester: Base):
         config: dict[str, Any] = {"organisation_mapping": {}}
-        with pytest.raises(ValueError, match="organisation_mapping must be a \*list\* of organisations"):  # type: ignore
+        with pytest.raises(ValueError, match=r"organisation_mapping must be a \*list\* of organisations"):  # type: ignore
             harvester._validate_organisation_mapping(config)
 
         config["organisation_mapping"] = [()]
-        with pytest.raises(ValueError, match="organisation_mapping item must be a \*dict\*"):  # type: ignore
+        with pytest.raises(ValueError, match=r"organisation_mapping item must be a \*dict\*"):  # type: ignore
             harvester._validate_organisation_mapping(config)
 
         config["organisation_mapping"] = [{"resowner": "test-title"}]
@@ -89,3 +89,107 @@ class TestDelwpConfig:
 
         assert config
         assert isinstance(config, str)
+
+    def test_validate_deletion_safeguard_optional_config(self, harvester: Base):
+        config: dict[str, Any] = {
+            "deletion_safeguard_enabled": "yes",
+        }
+        harvester._validate_optional_deletion_safeguard_config(config)
+        assert config["deletion_safeguard_enabled"] is True
+
+        config = {
+            "deletion_safeguard_allow_bulk_delete": "no",
+        }
+        harvester._validate_optional_deletion_safeguard_config(config)
+        assert config["deletion_safeguard_allow_bulk_delete"] is False
+
+        with pytest.raises(
+            ValueError, match="deletion_safeguard_enabled must be a boolean"
+        ):
+            harvester._validate_optional_deletion_safeguard_config(
+                {"deletion_safeguard_enabled": "maybe"}
+            )
+
+        config = {
+            "deletion_safeguard_drop_threshold_percent": "invalid",
+        }
+        with pytest.raises(
+            ValueError,
+            match="deletion_safeguard_drop_threshold_percent must be a number",
+        ):
+            harvester._validate_optional_deletion_safeguard_config(config)
+
+        config = {
+            "deletion_safeguard_drop_threshold_percent": 120,
+        }
+        with pytest.raises(
+            ValueError,
+            match="deletion_safeguard_drop_threshold_percent must be >= 0 and <= 100",
+        ):
+            harvester._validate_optional_deletion_safeguard_config(config)
+
+        config = {
+            "deletion_safeguard_min_previous_count": -1,
+        }
+        with pytest.raises(
+            ValueError,
+            match="deletion_safeguard_min_previous_count must be >= 0",
+        ):
+            harvester._validate_optional_deletion_safeguard_config(config)
+
+        config = {
+            "deletion_safeguard_notify_ok_url": 123,
+        }
+        with pytest.raises(
+            ValueError, match="deletion_safeguard_notify_ok_url must be a string"
+        ):
+            harvester._validate_optional_deletion_safeguard_config(config)
+
+        config = {
+            "deletion_safeguard_notify_anomaly_url": 123,
+        }
+        with pytest.raises(
+            ValueError, match="deletion_safeguard_notify_anomaly_url must be a string"
+        ):
+            harvester._validate_optional_deletion_safeguard_config(config)
+
+        # Non-string, non-bool types for boolean fields should raise
+        with pytest.raises(
+            ValueError, match="deletion_safeguard_enabled must be a boolean"
+        ):
+            harvester._validate_optional_deletion_safeguard_config(
+                {"deletion_safeguard_enabled": 1}
+            )
+
+        with pytest.raises(
+            ValueError, match="deletion_safeguard_allow_bulk_delete must be a boolean"
+        ):
+            harvester._validate_optional_deletion_safeguard_config(
+                {"deletion_safeguard_allow_bulk_delete": 0}
+            )
+
+        # Float string is not a valid integer for min_previous_count
+        with pytest.raises(
+            ValueError, match="deletion_safeguard_min_previous_count must be an integer"
+        ):
+            harvester._validate_optional_deletion_safeguard_config(
+                {"deletion_safeguard_min_previous_count": "1.5"}
+            )
+
+    def test_validate_deletion_safeguard_boundary_values(self, harvester: Base):
+        """Threshold at 0 and 100 are both valid boundary values."""
+        harvester._validate_optional_deletion_safeguard_config(
+            {"deletion_safeguard_drop_threshold_percent": 0}
+        )
+        harvester._validate_optional_deletion_safeguard_config(
+            {"deletion_safeguard_drop_threshold_percent": 100}
+        )
+
+    def test_validate_deletion_safeguard_none_url_is_valid(self, harvester: Base):
+        """A None URL value is explicitly permitted (means no notification)."""
+        harvester._validate_optional_deletion_safeguard_config(
+            {
+                "deletion_safeguard_notify_ok_url": None,
+                "deletion_safeguard_notify_anomaly_url": None,
+            }
+        )

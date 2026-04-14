@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - uat
       - develop
   pull_request:
 jobs:

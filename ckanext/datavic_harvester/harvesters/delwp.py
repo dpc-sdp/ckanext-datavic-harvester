@@ -287,8 +287,12 @@ class DelwpHarvester(DataVicBaseHarvester):
         self._set_config(harvest_job)
 
         harvest_object_ids = []
+        # guid_to_package_id includes soft-deleted rows so reappearing guids can
+        # reuse their original package_id — see _get_guids_to_package_ids.
+        # current_guids is the active set only, used for deletion detection so we
+        # don't re-delete guids that were already deleted in a prior run.
         guid_to_package_id = self._get_guids_to_package_ids(harvest_job.source.id)
-        guids_in_db = list(guid_to_package_id.keys())
+        current_guids = self._get_current_harvest_guids(harvest_job.source.id)
         guids_in_source: list[str] = []
 
         records = self._fetch_records_from_remote_portal(
@@ -296,7 +300,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
         self._save_harvest_json_to_filestore(records, harvest_job.id)
 
-        previous_count = len(guids_in_db)
+        previous_count = len(current_guids)
         source_count = len(records)
         anomaly_detected, anomaly_message = self._detect_deletion_anomaly(
             previous_count, source_count
@@ -310,7 +314,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         for record in records:
             uuid = record["fields"]["uuid"]
 
-            status = "change" if uuid in guids_in_db and guid_to_package_id[uuid] is not None else "new"
+            status = "change" if uuid in guid_to_package_id and guid_to_package_id[uuid] is not None else "new"
 
             # Create harvest object with appropriate status based on if dataset
             # already exists in the database
@@ -332,9 +336,10 @@ class DelwpHarvester(DataVicBaseHarvester):
             guids_in_source.append(uuid)
             log.debug("%s: harvest object id=%s guid=%s status=%s", self.HARVESTER, obj.id, uuid, status)
 
-        # Check datasets that are in the database but not in the source
-        # therefore they need to be deleted
-        guids_to_delete = set(guids_in_db) - set(guids_in_source)
+        # Only active (current=True) guids are candidates for deletion. Soft-deleted
+        # rows in guid_to_package_id have already been deleted in a prior run —
+        # re-deleting them creates noisy duplicate delete harvest_objects.
+        guids_to_delete = current_guids - set(guids_in_source)
         if anomaly_detected and not self.deletion_safeguard_allow_mass_delete:
             log.warning(
                 "%s: anomaly detected, suppressing %d delete action(s) for this run",
@@ -423,23 +428,46 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _detect_deletion_anomaly(
         self, previous_count: int, source_count: int
     ) -> tuple[bool, Optional[str]]:
+        """True when the fetch returned far fewer rows than the current-GUID baseline (API glitch)."""
         if not self.deletion_safeguard_enabled:
+            log.info(
+                "%s: deletion safeguard disabled (source_count=%d, previous_count=%d)",
+                self.HARVESTER,
+                source_count,
+                previous_count,
+            )
             return False, None
 
         if previous_count < self.deletion_safeguard_min_previous_count:
             log.info(
-                "%s: deletion safeguard check skipped (previous_count=%d < min_previous_count=%d)",
+                "%s: deletion safeguard check skipped (previous_count=%d < min_previous_count=%d, "
+                "source_count=%d)",
                 self.HARVESTER,
                 previous_count,
                 self.deletion_safeguard_min_previous_count,
+                source_count,
             )
             return False, None
 
         if previous_count == 0:
+            log.info(
+                "%s: deletion safeguard skipped (previous_count=0, source_count=%d)",
+                self.HARVESTER,
+                source_count,
+            )
             return False, None
 
         drop_percent = ((previous_count - source_count) / previous_count) * 100
         if drop_percent <= self.deletion_safeguard_drop_threshold_percent:
+            log.info(
+                "%s: deletion safeguard ok (source_count=%d, previous_count=%d, "
+                "drop_percent=%.2f, drop_threshold_percent=%s)",
+                self.HARVESTER,
+                source_count,
+                previous_count,
+                drop_percent,
+                self.deletion_safeguard_drop_threshold_percent,
+            )
             return False, None
 
         message = (
@@ -514,6 +542,22 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         log.info("%s: fetched %d total records from remote portal", self.HARVESTER, len(records))
         return records
+
+    def _get_current_harvest_guids(self, source_id: str) -> set[str]:
+        """Active GUIDs for this source (current=True only).
+
+        Used both as the deletion-safeguard baseline and as the candidate set for
+        deletion detection. Soft-deleted rows are deliberately excluded so
+        previously deleted GUIDs are not re-marked for deletion on subsequent runs.
+        """
+        rows = (
+            model.Session.query(HarvestObject.guid)
+            .filter(HarvestObject.harvest_source_id == source_id)
+            .filter(HarvestObject.current.is_(True))
+            .distinct()
+            .all()
+        )
+        return {row[0] for row in rows}
 
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
         # A dataset may be soft-deleted in one harvest (current=False, package kept)

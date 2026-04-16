@@ -297,6 +297,11 @@ class TestDelwpHarvester:
                 harvester, "_get_guids_to_package_ids", return_value=existing
             ),
             mock.patch.object(
+                harvester,
+                "_get_current_harvest_guids",
+                return_value=set(existing.keys()),
+            ),
+            mock.patch.object(
                 harvester, "_fetch_records_from_remote_portal", return_value=records
             ),
             mock.patch.object(harvester, "_save_harvest_json_to_filestore"),
@@ -354,6 +359,11 @@ class TestDelwpHarvester:
                 harvester, "_get_guids_to_package_ids", return_value=existing
             ),
             mock.patch.object(
+                harvester,
+                "_get_current_harvest_guids",
+                return_value=set(existing.keys()),
+            ),
+            mock.patch.object(
                 harvester, "_fetch_records_from_remote_portal", return_value=records
             ),
             mock.patch.object(harvester, "_save_harvest_json_to_filestore"),
@@ -409,6 +419,11 @@ class TestDelwpHarvester:
                 harvester, "_get_guids_to_package_ids", return_value=existing
             ),
             mock.patch.object(
+                harvester,
+                "_get_current_harvest_guids",
+                return_value=set(existing.keys()),
+            ),
+            mock.patch.object(
                 harvester, "_fetch_records_from_remote_portal", return_value=records
             ),
             mock.patch.object(harvester, "_save_harvest_json_to_filestore"),
@@ -458,6 +473,11 @@ class TestDelwpHarvester:
         with (
             mock.patch.object(
                 harvester, "_get_guids_to_package_ids", return_value=existing
+            ),
+            mock.patch.object(
+                harvester,
+                "_get_current_harvest_guids",
+                return_value=set(existing.keys()),
             ),
             mock.patch.object(
                 harvester, "_fetch_records_from_remote_portal", return_value=records
@@ -514,6 +534,11 @@ class TestDelwpHarvester:
                 harvester, "_get_guids_to_package_ids", return_value=existing
             ),
             mock.patch.object(
+                harvester,
+                "_get_current_harvest_guids",
+                return_value=set(existing.keys()),
+            ),
+            mock.patch.object(
                 harvester, "_fetch_records_from_remote_portal", return_value=records
             ),
             mock.patch.object(harvester, "_save_harvest_json_to_filestore"),
@@ -526,6 +551,143 @@ class TestDelwpHarvester:
         assert len(obj_ids) == 3
         assert harvest_job.gather_errors == []
         mock_get.assert_called_once_with("https://notify.example/ok", timeout=10)
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_gather_stage_does_not_redelete_soft_deleted_guids(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        dataset_factory,
+        delwp_config,
+    ):
+        """Regression: a guid that was already soft-deleted in a prior run
+        (current=False, report_status='deleted') must not be queued for deletion
+        again when it remains absent from the source. Running the same harvest
+        twice with identical source responses should produce zero delete actions
+        on the second run."""
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+
+        pkg_a = dataset_factory()["id"]
+        pkg_b = dataset_factory()["id"]
+        pkg_deleted = dataset_factory()["id"]
+
+        # Simulate post-first-run state:
+        #   guid-a, guid-b -> still active (current=True)
+        #   guid-deleted   -> soft-deleted row from a previous delete run
+        model.Session.add_all(
+            [
+                harvest_model.HarvestObject(
+                    guid="guid-a",
+                    job=harvest_job,
+                    content="{}",
+                    current=True,
+                    package_id=pkg_a,
+                ),
+                harvest_model.HarvestObject(
+                    guid="guid-b",
+                    job=harvest_job,
+                    content="{}",
+                    current=True,
+                    package_id=pkg_b,
+                ),
+                harvest_model.HarvestObject(
+                    guid="guid-deleted",
+                    job=harvest_job,
+                    content="{}",
+                    current=False,
+                    package_id=pkg_deleted,
+                    report_status="deleted",
+                ),
+            ]
+        )
+        model.Session.commit()
+
+        # Second run: source still returns only the two active guids.
+        records = [
+            {"fields": {"uuid": "guid-a", "title": "a"}},
+            {"fields": {"uuid": "guid-b", "title": "b"}},
+        ]
+
+        with (
+            mock.patch.object(
+                harvester, "_fetch_records_from_remote_portal", return_value=records
+            ),
+            mock.patch.object(harvester, "_save_harvest_json_to_filestore"),
+        ):
+            obj_ids = harvester.gather_stage(harvest_job)
+
+        objects = [harvest_model.HarvestObject.get(obj_id) for obj_id in obj_ids]
+        statuses = [harvester._get_object_extra(obj, "status") for obj in objects]
+
+        assert statuses.count("change") == 2
+        assert statuses.count("delete") == 0
+        assert harvest_job.gather_errors == []
+
+
+class TestGetCurrentHarvestGuids:
+    """Regression: current-guid set excludes soft-deleted rows so deletion
+    detection in gather_stage does not re-delete already-deleted guids."""
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_returns_distinct_current_guids_only(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        dataset_factory,
+    ):
+        source = harvest_source_factory(source_type=harvester.info()["name"])
+        job = harvest_job_factory(source=source)
+        pkg_id = dataset_factory()["id"]
+
+        current_a = harvest_model.HarvestObject(
+            guid="current-a",
+            job=job,
+            content="{}",
+            current=True,
+            package_id=pkg_id,
+        )
+        current_b = harvest_model.HarvestObject(
+            guid="current-b",
+            job=job,
+            content="{}",
+            current=True,
+            package_id=pkg_id,
+        )
+        soft_deleted = harvest_model.HarvestObject(
+            guid="soft-deleted-guid",
+            job=job,
+            content="{}",
+            current=False,
+            package_id=pkg_id,
+            report_status="deleted",
+        )
+        model.Session.add_all([current_a, current_b, soft_deleted])
+        model.Session.commit()
+
+        assert harvester._get_current_harvest_guids(source.id) == {
+            "current-a",
+            "current-b",
+        }
+
+        guid_map = harvester._get_guids_to_package_ids(source.id)
+        assert len(guid_map) == 3
+        assert set(guid_map.keys()) == {
+            "current-a",
+            "current-b",
+            "soft-deleted-guid",
+        }
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_empty_source_returns_empty_set(
+        self, harvester: DelwpHarvester, harvest_source_factory
+    ):
+        source = harvest_source_factory(source_type=harvester.info()["name"])
+        assert harvester._get_current_harvest_guids(source.id) == set()
 
 
 class TestDetectDeletionAnomaly:

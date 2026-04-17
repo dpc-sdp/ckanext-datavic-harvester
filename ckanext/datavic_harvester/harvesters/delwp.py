@@ -11,6 +11,8 @@ from os import path
 from typing import Iterator, Optional, Any
 
 from bs4 import BeautifulSoup, Tag
+import requests
+from sqlalchemy import and_, or_
 
 from ckan import model
 from ckan.plugins import toolkit as tk
@@ -67,11 +69,77 @@ class DelwpHarvester(DataVicBaseHarvester):
             raise ValueError("api_auth must be set")
 
         if "organisation_mapping" not in config_obj:
+            self._validate_optional_deletion_safeguard_config(config_obj)
             return json.dumps(config_obj, indent=4)
 
         self._validate_organisation_mapping(config_obj)
+        self._validate_optional_deletion_safeguard_config(config_obj)
 
         return json.dumps(config_obj, indent=4)
+
+    def _validate_optional_deletion_safeguard_config(
+        self, config: dict[str, Any]
+    ) -> None:
+        if "deletion_safeguard_enabled" in config:
+            v = config["deletion_safeguard_enabled"]
+            if isinstance(v, bool):
+                pass
+            elif isinstance(v, str):
+                try:
+                    config["deletion_safeguard_enabled"] = tk.asbool(v)
+                except ValueError as e:
+                    raise ValueError(
+                        "deletion_safeguard_enabled must be a boolean"
+                    ) from e
+            else:
+                raise ValueError("deletion_safeguard_enabled must be a boolean")
+
+        if "deletion_safeguard_allow_bulk_delete" in config:
+            v = config["deletion_safeguard_allow_bulk_delete"]
+            if isinstance(v, bool):
+                pass
+            elif isinstance(v, str):
+                try:
+                    config["deletion_safeguard_allow_bulk_delete"] = tk.asbool(v)
+                except ValueError as e:
+                    raise ValueError(
+                        "deletion_safeguard_allow_bulk_delete must be a boolean"
+                    ) from e
+            else:
+                raise ValueError("deletion_safeguard_allow_bulk_delete must be a boolean")
+
+        if "deletion_safeguard_drop_threshold_percent" in config:
+            try:
+                drop_threshold_percent = float(
+                    config["deletion_safeguard_drop_threshold_percent"]
+                )
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "deletion_safeguard_drop_threshold_percent must be a number"
+                )
+
+            if drop_threshold_percent < 0 or drop_threshold_percent > 100:
+                raise ValueError(
+                    "deletion_safeguard_drop_threshold_percent must be >= 0 and <= 100"
+                )
+
+        if "deletion_safeguard_min_previous_count" in config:
+            try:
+                min_previous_count = int(config["deletion_safeguard_min_previous_count"])
+            except (TypeError, ValueError):
+                raise ValueError("deletion_safeguard_min_previous_count must be an integer")
+
+            if min_previous_count < 0:
+                raise ValueError("deletion_safeguard_min_previous_count must be >= 0")
+
+        for _key in (
+            "deletion_safeguard_notify_ok_url",
+            "deletion_safeguard_notify_anomaly_url",
+        ):
+            if _key in config:
+                _v = config[_key]
+                if _v is not None and not isinstance(_v, str):
+                    raise ValueError(f"{_key} must be a string")
 
     def _validate_organisation_mapping(self, config: dict[str, Any]) -> None:
         if not isinstance(config["organisation_mapping"], list):
@@ -219,8 +287,12 @@ class DelwpHarvester(DataVicBaseHarvester):
         self._set_config(harvest_job)
 
         harvest_object_ids = []
+        # guid_to_package_id includes soft-deleted rows so reappearing guids can
+        # reuse their original package_id — see _get_guids_to_package_ids.
+        # current_guids is the active set only, used for deletion detection so we
+        # don't re-delete guids that were already deleted in a prior run.
         guid_to_package_id = self._get_guids_to_package_ids(harvest_job.source.id)
-        guids_in_db = list(guid_to_package_id.keys())
+        current_guids = self._get_current_harvest_guids(harvest_job.source.id)
         guids_in_source: list[str] = []
 
         records = self._fetch_records_from_remote_portal(
@@ -228,10 +300,21 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
         self._save_harvest_json_to_filestore(records, harvest_job.id)
 
+        previous_count = len(current_guids)
+        source_count = len(records)
+        anomaly_detected, anomaly_message = self._detect_deletion_anomaly(
+            previous_count, source_count
+        )
+        if anomaly_detected and anomaly_message:
+            self._save_gather_error(anomaly_message, harvest_job)
+            self._send_deletion_safeguard_notify(anomaly=True)
+        elif self.deletion_safeguard_enabled:
+            self._send_deletion_safeguard_notify(anomaly=False)
+
         for record in records:
             uuid = record["fields"]["uuid"]
 
-            status = "change" if uuid in guids_in_db and guid_to_package_id[uuid] is not None else "new"
+            status = "change" if uuid in guid_to_package_id and guid_to_package_id[uuid] is not None else "new"
 
             # Create harvest object with appropriate status based on if dataset
             # already exists in the database
@@ -253,9 +336,18 @@ class DelwpHarvester(DataVicBaseHarvester):
             guids_in_source.append(uuid)
             log.debug("%s: harvest object id=%s guid=%s status=%s", self.HARVESTER, obj.id, uuid, status)
 
-        # Check datasets that are in the database but not in the source
-        # therefore they need to be deleted
-        guids_to_delete = set(guids_in_db) - set(guids_in_source)
+        # Only active (current=True) guids are candidates for deletion. Soft-deleted
+        # rows in guid_to_package_id have already been deleted in a prior run —
+        # re-deleting them creates noisy duplicate delete harvest_objects.
+        guids_to_delete = current_guids - set(guids_in_source)
+        if anomaly_detected and not self.deletion_safeguard_allow_mass_delete:
+            log.warning(
+                "%s: anomaly detected, suppressing %d delete action(s) for this run",
+                self.HARVESTER,
+                len(guids_to_delete),
+            )
+            guids_to_delete = set()
+
         if guids_to_delete:
             log.info(
                 "%s: marking %d dataset(s) for deletion (not in source)",
@@ -287,11 +379,37 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
         return harvest_object_ids
 
-    def _set_config(self, harvest_job: HarvestJob) -> None:
-        super()._set_config(harvest_job.source.config)
+    def _set_config(self, harvest_item: HarvestJob | HarvestObject) -> None:
+        super()._set_config(harvest_item.source.config)
 
-        self.test = bool(self.config.get("test"))
-        self.source_org_id = self._get_source_owner_org_id(harvest_job.source.id)
+        _test = self.config.get("test", False)
+        self.test = tk.asbool(False if _test is None else _test)
+        self.source_org_id = self._get_source_owner_org_id(harvest_item.source.id)
+        _dse = self.config.get("deletion_safeguard_enabled", True)
+        self.deletion_safeguard_enabled = tk.asbool(True if _dse is None else _dse)
+        self.deletion_safeguard_drop_threshold_percent = float(
+            self.config.get("deletion_safeguard_drop_threshold_percent", 10)
+        )
+        self.deletion_safeguard_min_previous_count = int(
+            self.config.get("deletion_safeguard_min_previous_count", 100)
+        )
+        _amd = self.config.get("deletion_safeguard_allow_bulk_delete", False)
+        self.deletion_safeguard_allow_mass_delete = tk.asbool(
+            False if _amd is None else _amd
+        )
+
+        def _strip_url(v: Any) -> Optional[str]:
+            if v is None:
+                return None
+            s = str(v).strip()
+            return s or None
+
+        self.deletion_safeguard_notify_ok_url = _strip_url(
+            self.config.get("deletion_safeguard_notify_ok_url")
+        )
+        self.deletion_safeguard_notify_anomaly_url = _strip_url(
+            self.config.get("deletion_safeguard_notify_anomaly_url")
+        )
 
         if "geoserver_dns" in self.config:
             geoserver_dns = self.config["geoserver_dns"]
@@ -306,6 +424,85 @@ class DelwpHarvester(DataVicBaseHarvester):
                     "resource_url": f"{geoserver_dns}/geoserver/wfs?request=GetCapabilities&service=WFS",
                 },
             }
+
+    def _detect_deletion_anomaly(
+        self, previous_count: int, source_count: int
+    ) -> tuple[bool, Optional[str]]:
+        """True when the fetch returned far fewer rows than the current-GUID baseline (API glitch)."""
+        if not self.deletion_safeguard_enabled:
+            log.info(
+                "%s: deletion safeguard disabled (source_count=%d, previous_count=%d)",
+                self.HARVESTER,
+                source_count,
+                previous_count,
+            )
+            return False, None
+
+        if previous_count < self.deletion_safeguard_min_previous_count:
+            log.info(
+                "%s: deletion safeguard check skipped (previous_count=%d < min_previous_count=%d, "
+                "source_count=%d)",
+                self.HARVESTER,
+                previous_count,
+                self.deletion_safeguard_min_previous_count,
+                source_count,
+            )
+            return False, None
+
+        if previous_count == 0:
+            log.info(
+                "%s: deletion safeguard skipped (previous_count=0, source_count=%d)",
+                self.HARVESTER,
+                source_count,
+            )
+            return False, None
+
+        drop_percent = ((previous_count - source_count) / previous_count) * 100
+        if drop_percent <= self.deletion_safeguard_drop_threshold_percent:
+            log.info(
+                "%s: deletion safeguard ok (source_count=%d, previous_count=%d, "
+                "drop_percent=%.2f, drop_threshold_percent=%s)",
+                self.HARVESTER,
+                source_count,
+                previous_count,
+                drop_percent,
+                self.deletion_safeguard_drop_threshold_percent,
+            )
+            return False, None
+
+        message = (
+            f"{self.HARVESTER}: anomaly detected for source count drop "
+            f"(source_count={source_count}, previous_count={previous_count}, "
+            f"drop_percent={drop_percent:.2f}, "
+            f"drop_threshold_percent={self.deletion_safeguard_drop_threshold_percent}, "
+            f"allow_mass_delete={self.deletion_safeguard_allow_mass_delete})."
+        )
+        log.warning(message)
+        return True, message
+
+    def _send_deletion_safeguard_notify(self, *, anomaly: bool) -> None:
+        """GET a monitoring URL (fail-open: errors are logged only).
+
+        Set ``deletion_safeguard_notify_ok_url`` and/or
+        ``deletion_safeguard_notify_anomaly_url`` in source config (full URLs).
+        """
+        target_url = (
+            self.deletion_safeguard_notify_anomaly_url
+            if anomaly
+            else self.deletion_safeguard_notify_ok_url
+        )
+        if not target_url:
+            return
+
+        try:
+            requests.get(target_url, timeout=10)
+        except requests.RequestException as e:
+            log.warning(
+                "%s: deletion safeguard notify GET failed (%s): %s",
+                self.HARVESTER,
+                target_url,
+                e,
+            )
 
     def _get_source_owner_org_id(self, source_id: str) -> str:
         source_package = model.Package.get(source_id)
@@ -346,11 +543,47 @@ class DelwpHarvester(DataVicBaseHarvester):
         log.info("%s: fetched %d total records from remote portal", self.HARVESTER, len(records))
         return records
 
+    def _get_current_harvest_guids(self, source_id: str) -> set[str]:
+        """Active GUIDs for this source (current=True only).
+
+        Used both as the deletion-safeguard baseline and as the candidate set for
+        deletion detection. Soft-deleted rows are deliberately excluded so
+        previously deleted GUIDs are not re-marked for deletion on subsequent runs.
+        """
+        rows = (
+            model.Session.query(HarvestObject.guid)
+            .filter(HarvestObject.harvest_source_id == source_id)
+            .filter(HarvestObject.current.is_(True))
+            .distinct()
+            .all()
+        )
+        return {row[0] for row in rows}
+
     def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
+        # A dataset may be soft-deleted in one harvest (current=False, package kept)
+        # and then reappear in a later harvest. Include those deleted rows so the
+        # original package_id can be reused instead of creating a new suffixed package.
+        # The ordering is intentional: the dict comprehension keeps the last row seen
+        # for each guid, so current rows win over deleted ones, and otherwise the most
+        # recently gathered deleted row wins.
         query = (
             model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(HarvestObject.current == True)
             .filter(HarvestObject.harvest_source_id == source_id)
+            .filter(
+                or_(
+                    HarvestObject.current == True,
+                    and_(
+                        HarvestObject.current == False,
+                        HarvestObject.package_id.isnot(None),
+                        HarvestObject.report_status == "deleted",
+                    ),
+                )
+            )
+            .order_by(
+                HarvestObject.guid.asc(),
+                HarvestObject.current.asc(),
+                HarvestObject.gathered.asc(),
+            )
         )
 
         return {
@@ -523,8 +756,9 @@ class DelwpHarvester(DataVicBaseHarvester):
                 pkg_dict[HASH_FIELD] = data_hash
             else:
                 previous_hash = pkg.extras.get(HASH_FIELD)
+                needs_restore = pkg.state != "active"
 
-                if previous_hash == data_hash:
+                if previous_hash == data_hash and not needs_restore:
                     log.info(
                         "%s: no changes to dataset id=%s (%s), skipping (hash unchanged)",
                         self.HARVESTER,
@@ -533,11 +767,23 @@ class DelwpHarvester(DataVicBaseHarvester):
                     )
                     return "unchanged"
                 else:
-                    log.info(
-                        "Dataset %s (%s) is being changed, updating.",
-                        harvest_object.package_id,
-                        pkg.title,
-                    )
+                    if needs_restore:
+                        log.info(
+                            "%s: restoring dataset id=%s (%s) to active state",
+                            self.HARVESTER,
+                            harvest_object.package_id,
+                            pkg.title,
+                        )
+                        
+                    if previous_hash != data_hash:
+                        log.info(
+                            "%s: dataset id=%s (%s) has changed, updating.",
+                            self.HARVESTER,
+                            harvest_object.package_id,
+                            pkg.title,
+                        )
+                    # Force state=active to handle both normal updates and soft-deleted
+                    pkg_dict["state"] = "active"
                     pkg_dict[HASH_FIELD] = data_hash
 
         action: str = "package_create" if status == "new" else "package_update"
@@ -654,9 +900,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         pkg_dict["resources"] = self._fetch_resources(metashare_dict)
 
-        pkg_dict["private"] = self._is_pkg_private(
-            metashare_dict, pkg_dict["resources"]
-        )
+        pkg_dict["private"] = self._is_pkg_private(metashare_dict)
 
         pkg_dict["license_id"] = self.config.get("license_id", "cc-by")
 
@@ -722,18 +966,20 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         return False
 
-    def _is_pkg_private(
-        self, remote_dict: dict[str, Any], resources: list[dict[str, Any]]
-    ) -> bool:
-        """Check if the dataset should be private"""
-        if (
-            self._is_delwp_vector_data(resources)
-            and remote_dict.get("mdclassification") == "unclassified"
-            and remote_dict.get("resclassification") == "unclassified"
-        ):
-            return False
+    def _is_pkg_private(self, remote_dict: dict[str, Any]) -> bool:
+        """Private unless access is not restricted and orderable on DataShare (``asbool``).
+        Blank fields are treated as private."""
+        accesscontrol_restricted = remote_dict.get("accesscontrol_restricted", True)
+        orderableondatashare = remote_dict.get("orderableondatashare", False)
+        if ((isinstance(accesscontrol_restricted, str) and not accesscontrol_restricted.strip()) or
+            (isinstance(orderableondatashare, str) and not orderableondatashare.strip())):
+            # one or both are empty string -> treat as private
+            return True
 
-        return True
+        not_restricted = not tk.asbool(accesscontrol_restricted)
+        orderable = tk.asbool(orderableondatashare)
+        # private=False only when not access-restricted and orderable; any other combination stays private.
+        return not (not_restricted and orderable)
 
     def _get_organisation(
         self,
@@ -800,18 +1046,25 @@ class DelwpHarvester(DataVicBaseHarvester):
         """Create organization from a resowner field"""
         org_name = helpers.munge_title_to_name(resowner)
 
+        # Use a context without return_id_only so that plugin subscribers
+        # (e.g. the activity extension) receive the full org dict rather than
+        # a bare ID string which would cause a TypeError in their handlers.
+        context = {k: v for k, v in self._make_context().items() if k != "return_id_only"}
+
         try:
-            org_id = tk.get_action("organization_create")(
-                self._make_context(),
+            org = tk.get_action("organization_create")(
+                context,
                 {"name": org_name, "title": resowner},
             )
+            org_id = org["id"] if isinstance(org, dict) else org
         except Exception as e:
+            pkg_title = getattr(self, "pkg_dict", {}).get("title", "unknown")
             log.warning(
                 "%s get_organisation: Failed to create organisation %s: %s, dataset %s",
                 self.HARVESTER,
                 org_name,
                 e,
-                self.pkg_dict["title"],
+                pkg_title,
             )
             log.warning(
                 "%s: using source organization: %s", self.HARVESTER, self.source_org_id
@@ -940,7 +1193,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         self, geoserver_url: str, metadata_uuid: Optional[str]
     ) -> Optional[Tag]:
         resp_text: Optional[str] = (
-            self._get_mocked_geores()
+            self._get_mocked_geores(geoserver_url)
             if self.test
             else self._make_request(geoserver_url)
         )
@@ -955,13 +1208,23 @@ class DelwpHarvester(DataVicBaseHarvester):
     def _get_mocked_records(self) -> str:
         """Mock data, use it instead _make_request for develop process"""
         here: str = path.abspath(path.dirname(__file__))
-        with open(path.join(here, "../data/delwp_records.txt")) as f:
+
+        mock_file = "delwp_records.json"
+        if self.config["dataset_type"] == "uat-datashare-metadata":
+            mock_file = "delwp_records_uat.json"
+
+        with open(path.join(here, f"../data/{mock_file}")) as f:
             return f.read()
 
-    def _get_mocked_geores(self) -> str:
+    def _get_mocked_geores(self, geoserver_url: str) -> str:
         """Mock data, use it instead _make_request for develop process"""
         here: str = path.abspath(path.dirname(__file__))
-        with open(path.join(here, "../data/delwp_geo_resource.txt")) as f:
+
+        mock_file = "delwp_geo_resource_wms.txt"
+        if "wfs" in geoserver_url.lower():
+            mock_file = "delwp_geo_resource_wfs.txt"
+
+        with open(path.join(here, f"../data/{mock_file}")) as f:
             return f.read()
 
     def _calculate_hash_for_data_dict(self, pkg_dict: dict[str, Any]) -> str:

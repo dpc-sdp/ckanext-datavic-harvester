@@ -138,7 +138,7 @@ class DataVicBaseHarvester(HarvesterBase):
 
     def _delete_package(self, package_id: str, guid: str):
         try:
-            tk.get_action("dataset_purge")(self._make_context(), {"id": package_id})
+            tk.get_action("package_delete")(self._make_context(), {"id": package_id})
             log.info(f"Deleted package {package_id} with guid {guid}")
         except tk.ObjectNotFound:
             log.error(f"Package {package_id} not found. Skipping purge")

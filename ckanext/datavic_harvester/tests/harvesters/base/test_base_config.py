@@ -41,7 +41,7 @@ class TestBaseConfig:
 
     def test_validate_default_group_not_list(self, harvester: Base):
         with pytest.raises(
-            ValueError, match="default_groups must be a \*list\* of group names\/ids"  # type: ignore
+            ValueError, match=r"default_groups must be a \*list\* of group names/ids"  # type: ignore
         ):
             harvester.validate_config(json.dumps({"default_groups": {}}))
 

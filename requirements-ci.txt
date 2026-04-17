@@ -1,0 +1,66 @@
+# CI-only dependencies required to run the test suite.
+#
+# Versions are pinned to match the project's Makefile, which is the source of
+# truth for the extension versions used in the local Docker Compose environment.
+# When upgrading an extension in the Makefile, update the version here too.
+#
+# Reference: datavic_ckan_lagoon/Makefile (remote-* variables)
+
+# ckanext-harvest is not on PyPI; install its requirements.txt separately
+# so that pika (declared there but not in package metadata) is available.
+# Makefile: remote-harvest = tag v1.6.2
+-r https://raw.githubusercontent.com/ckan/ckanext-harvest/v1.6.2/requirements.txt
+-e git+https://github.com/ckan/ckanext-harvest.git@v1.6.2#egg=ckanext-harvest
+
+# DCAT harvester base — provides DCATJSONHarvester that DataVicDCATJSONHarvester extends.
+# Makefile: remote-dcat = tag v2.4.2
+-e git+https://github.com/ckan/ckanext-dcat.git@v2.4.2#egg=ckanext-dcat
+
+# XLoader — required at import time by ckanext-harvest-basket's base_harvester.
+# Makefile: remote-xloader = tag 2.2.0
+ckanext-xloader==2.2.0
+
+# OpenDataSoft harvester — DataVicODSHarvester extends ODSHarvester from this package.
+# Makefile: remote-harvest-basket = tag v1.5.4
+-e git+https://github.com/DataShades/ckanext-harvest-basket.git@v1.5.4#egg=ckanext-harvest-basket
+
+# Email library — imported at module level by ckanext-datavicmain.
+# Makefile: remote-mailcraft = tag v0.4.0
+ckanext-mailcraft==0.4.0
+
+# CKAN toolkit helpers used by ckanext-datavicmain.
+# Makefile: remote-toolbelt = tag v0.6.0
+ckanext-toolbelt==0.6.0
+
+# CLI dependency of ckanext-datavicmain (maintain.py uses openpyxl and tqdm).
+openpyxl
+tqdm
+
+# OIDC authentication — IOidcPkce interface imported at module level in datavicmain/plugins.py.
+# Makefile: remote-oidc-pkce = tag v0.4.0
+-e git+https://github.com/DataShades/ckanext-oidc-pkce.git@v0.4.0#egg=ckanext-oidc-pkce
+
+# Syndication — ISyndicate interface and signals imported at module level in datavicmain/plugins.py.
+# Must be v2.2.2; v3+ removed get_target() which datavicmain still uses.
+# Makefile: remote-syndicate = tag v2.2.2
+-e git+https://github.com/DataShades/ckanext-syndicate.git@v2.2.2#egg=ckanext-syndicate
+
+# Dataset aliasing — provides alias_unique validator used in the scheming schema.
+# Installed from GitHub because the PyPI package omits presets.yaml.
+# Makefile: remote-alias = tag v1.1.0
+-e git+https://github.com/DataShades/ckanext-alias.git@v1.1.0#egg=ckanext-alias
+
+# Group hierarchy — provides group_tree_parents helper required by datavicmain.
+# Not on PyPI; installed from GitHub at the commit used in local dev.
+# Makefile: remote-hierarchy = commit f256c50
+-e git+https://github.com/DataShades/ckanext-hierarchy.git@f256c50#egg=ckanext-hierarchy
+
+# CMS pages — imported at module level in datavicmain/views/datavic_pages.py.
+# Not on PyPI; installed from GitHub at the commit used in local dev.
+# Makefile: remote-pages = commit 2a92bb8
+-e git+https://github.com/ckan/ckanext-pages.git@2a92bb8#egg=ckanext-pages
+
+# Main DataVic CKAN extension — provides datavicmain_dataset plugin, scheming schema,
+# field_choices helper, and datavic_tag_string validator used by this harvester.
+# Uses branch develop (no pinned tag in Makefile).
+-e git+https://github.com/dpc-sdp/ckanext-datavicmain.git#egg=datavicmain

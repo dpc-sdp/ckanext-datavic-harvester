@@ -1,29 +1,82 @@
 {
-  "force_all": true,
-  "organizations_filter_include" : ["non-vps-odp"],
-  "clean_tags": true,
-  "remote_groups": "create",
-  "remote_orgs": "create",
-  "user": "ckan_admin",
-  "purge_missing": true,
-  "tsm_schema":{
-     "root":"Dataset",
+   "organizations_filter_include":[
+      "alpine-shire-council",
+      "city-of-boroondara",
+      "brimbank-city-council",
+      "cardinia-shire-council",
+      "central-goldfields-shire-council",
+      "colac-otway-shire",
+      "corangamite-shire-council",
+      "glen-eira-city-council",
+      "glenelg-shire-council",
+      "golden-plains-shire-council",
+      "city-of-greater-bendigo",
+      "city-of-greater-dandenong",
+      "greater-shepparton-city-council",
+      "hindmarsh-shire-council",
+      "hobsons-bay-city-council",
+      "horsham-rural-city-council",
+      "latrobe-city-council",
+      "loddon-shire-council",
+      "macedon-ranges-shire-council",
+      "manningham-city-council",
+      "maribyrnong-city-council",
+      "melton-city-council",
+      "mildura-rural-city-council",
+      "www-mitchellshirecouncil-vic-gov-au",
+      "city-of-monash",
+      "moonee-valley-city-council",
+      "moorabool-shire-council",
+      "northern-grampians-shire-council",
+      "city-of-port-phillip",
+      "southern-grampians-shire-council",
+      "strathbogie-shire-council",
+      "surf-coast-shire-council",
+      "swan-hill-rural-city-council",
+      "wangaratta-rural-city-council",
+      "warrnambool-city-council",
+      "wodonga-city-council",
+      "wyndham-city-council",
+      "city-of-yarra",
+      "yarra-ranges-council"
+   ],
+   "clean_tags":true,
+   "purge_missing":true,
+   "force_all": true,
+   "remote_groups":"create",
+   "remote_orgs":"create",
+   "user":"ckan_admin",
+   "tsm_schema":{
+      "root":"Dataset",
       "types":{
-          "Dataset":{
-              "fields":{
-                  "personal_information": {"value": "no"},
-                  "update_frequency": {"value": "unknown"},
-                  "workflow_status": {"value": "published"},
-                  "protective_marking": {"value": "official"},
-                  "access": {"value": "yes"},
-                  "organization_visibility": {"value": "all"},
-                  "private": {"value": "true"},
-                  "skip_syndication": {"value": "true"},
-                  "data_lang": {
-                      "value": "English"
-                  }
-              }
-          }
+         "Dataset":{
+            "fields":{
+               "personal_information":{
+                  "value":"no"
+               },
+               "update_frequency":{
+                  "value":"unknown"
+               },
+               "workflow_status":{
+                  "value":"published"
+               },
+               "protective_marking":{
+                  "value":"official"
+               },
+               "access":{
+                  "value":"yes"
+               },
+               "organization_visibility":{
+                  "value":"all"
+               },
+               "private":{
+                  "value":"true"
+               },
+               "skip_syndication":{
+                  "value":"true"
+               }
+            }
+         }
       }
-  }
+   }
 }

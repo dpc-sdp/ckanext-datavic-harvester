@@ -1,0 +1,120 @@
+{
+   "help":"http://datavic-ckan-odp.docker.amazee.io/api/3/action/help_show?name=package_search",
+   "success":true,
+   "result":{
+      "count":6,
+      "facets":{
+         
+      },
+      "results":[
+         {
+            "author":null,
+            "author_email":null,
+            "category":"9ca71dfb-b758-4901-97ba-08cebe923158",
+            "contact_point":"gis@alpineshire.vic.gov.au",
+            "creator_user_id":"40a7d455-783b-45ab-b6ae-e7d6e3bf14a3",
+            "data_owner":"Alpine Shire Council",
+            "date_created_data_asset":"2016-07-01",
+            "dtv_preview":true,
+            "extract":"Monthly counts from sensors on the Murray to Mountains Rail Trail.",
+            "id":"11eb418a-840a-4fdd-bb45-2386cf620222",
+            "isopen":true,
+            "license_id":"cc-by",
+            "license_title":"Creative Commons Attribution 4.0 International",
+            "license_url":"https://creativecommons.org/licenses/by/4.0/",
+            "maintainer":null,
+            "metadata_created":"2026-04-23T14:04:55.287175",
+            "metadata_modified":"2026-04-23T14:05:01.074980",
+            "name":"murray-to-mountains-rail-trail-counts",
+            "notes":"Monthly counts from sensors on the Murray to Mountains Rail Trail.",
+            "num_resources":1,
+            "num_tags":2,
+            "organization":{
+               "id":"23f904cc-9cd7-40d0-a494-c64a062bf0f7",
+               "name":"alpine-shire-council",
+               "title":"Alpine Shire Council",
+               "type":"organization",
+               "description":"Alpine Shire is a local government area in Victoria, Australia in the north-east of the state. It includes the towns of Bright, Mount Beauty and Myrtleford. It has an area of 4,885 square kilometres.",
+               "image_url":"",
+               "created":"2026-04-23T14:04:48.205337",
+               "is_organization":true,
+               "approval_status":"approved",
+               "state":"active"
+            },
+            "owner_org":"23f904cc-9cd7-40d0-a494-c64a062bf0f7",
+            "personal_information":"no",
+            "private":false,
+            "state":"active",
+            "title":"Murray to Mountains Rail Trail Counts",
+            "type":"dataset",
+            "update_frequency":"monthly",
+            "url":null,
+            "version":null,
+            "groups":[
+               {
+                  "description":"",
+                  "display_name":"Local government",
+                  "id":"9ca71dfb-b758-4901-97ba-08cebe923158",
+                  "image_display_url":"",
+                  "name":"local-government",
+                  "title":"Local government"
+               }
+            ],
+            "resources":[
+               {
+                  "cache_last_updated":null,
+                  "cache_url":null,
+                  "created":"2026-04-23T14:05:00.946218",
+                  "datastore_active":false,
+                  "datastore_contains_all_records_of_source_file":false,
+                  "description":"",
+                  "filesize":83160,
+                  "format":"CSV",
+                  "hash":"",
+                  "id":"9fabbe6b-4e12-48d9-a81d-d764fccc0de7",
+                  "last_modified":"2024-11-30T00:00:00",
+                  "metadata_modified":"2026-04-23T14:05:01.077305",
+                  "mimetype":null,
+                  "mimetype_inner":null,
+                  "name":"Rail Trail Counts",
+                  "package_id":"11eb418a-840a-4fdd-bb45-2386cf620222",
+                  "period_start":"2016-07-01",
+                  "position":0,
+                  "release_date":"2016-06-23",
+                  "resource_type":null,
+                  "size":83160,
+                  "state":"active",
+                  "url":"http://datavic-ckan-odp.docker.amazee.io/dataset/11eb418a-840a-4fdd-bb45-2386cf620222/resource/9fabbe6b-4e12-48d9-a81d-d764fccc0de7/download/rail-trail-counts",
+                  "url_type":"upload"
+               }
+            ],
+            "tags":[
+               {
+                  "display_name":"cycling",
+                  "id":"cab980c5-8b1b-4270-b469-b6784be90603",
+                  "name":"cycling",
+                  "state":"active",
+                  "vocabulary_id":null
+               },
+               {
+                  "display_name":"tourism",
+                  "id":"85fc068b-4691-4491-aa7e-4b026df6079c",
+                  "name":"tourism",
+                  "state":"active",
+                  "vocabulary_id":null
+               }
+            ],
+            "relationships_as_subject":[
+               
+            ],
+            "relationships_as_object":[
+               
+            ]
+         }
+      ],
+      "sort":"id asc",
+      "search_facets":{
+         
+      }
+   }
+}

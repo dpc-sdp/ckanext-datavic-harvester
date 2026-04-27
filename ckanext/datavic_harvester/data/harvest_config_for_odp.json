@@ -70,7 +70,7 @@
                   "value":"all"
                },
                "private":{
-                  "value":"true"
+                  "value":"false"
                },
                "skip_syndication":{
                   "value":"true"

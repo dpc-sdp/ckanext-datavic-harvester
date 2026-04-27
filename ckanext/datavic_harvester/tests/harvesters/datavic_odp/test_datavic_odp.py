@@ -77,7 +77,7 @@ class TestDataVicODPHarvester:
         assert odp_config["tsm_schema"]["root"] == "Dataset"
         assert (
             odp_config["tsm_schema"]["types"]["Dataset"]["fields"]["private"]["value"]
-            == "true"
+            == "false"
         )
         assert (
             odp_config["tsm_schema"]["types"]["Dataset"]["fields"][
@@ -110,7 +110,7 @@ class TestDataVicODPHarvester:
         assert result is True
         transmute.assert_called_once()
         mutated_dataset = json.loads(harvest_object.content)
-        assert mutated_dataset["private"] == "true"
+        assert mutated_dataset["private"] == "false"
         assert mutated_dataset["skip_syndication"] == "true"
         assert mutated_dataset["workflow_status"] == "published"
         assert mutated_dataset["access"] == "yes"

@@ -52,18 +52,9 @@ class DataVicODPHarvester(CKANHarvester, BasketBasicHarvester):
                 HarvestObject.harvest_job_id == harvest_job.id
             ).all()
         }
-        existing = (
-            model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(
-                HarvestObject.harvest_source_id == harvest_job.source_id,
-                HarvestObject.current == True,
-                HarvestObject.package_id.isnot(None),
-            )
-            .distinct()
-            .all()
-        )
-        for (guid, package_id) in existing:
-            if guid in current_guids or not package_id:
+        existing = self._get_existing_guids_to_package_ids(harvest_job.source_id)
+        for guid, package_id in existing.items():
+            if guid in current_guids:
                 continue
             delete_content = json.dumps({
                 _DELETE_MARKER: _DELETE_VALUE,
@@ -90,6 +81,30 @@ class DataVicODPHarvester(CKANHarvester, BasketBasicHarvester):
         """ End of purge_missing logic """
 
         return object_ids
+
+    def _get_existing_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
+        # HarvestObject.current is unreliable: upstream import_stage
+        # short-circuits "unchanged" runs (base.py:311-314), spawning
+        # current=False, package_id=NULL rows that mask the original
+        # current=True row. Walk newest-to-oldest, ignoring NULL
+        # package_ids and trashed packages.
+        query = (
+            model.Session.query(HarvestObject.guid, HarvestObject.package_id)
+            .join(model.Package, model.Package.id == HarvestObject.package_id)
+            .filter(
+                HarvestObject.harvest_source_id == source_id,
+                HarvestObject.package_id.isnot(None),
+                model.Package.state == "active",
+            )
+            .order_by(
+                HarvestObject.guid.asc(),
+                HarvestObject.gathered.desc().nullslast(),
+            )
+        )
+        existing: dict[str, str] = {}
+        for guid, package_id in query:
+            existing.setdefault(guid, package_id)
+        return existing
 
     def import_stage(self, harvest_object):
         """ Start of purge_missing logic """

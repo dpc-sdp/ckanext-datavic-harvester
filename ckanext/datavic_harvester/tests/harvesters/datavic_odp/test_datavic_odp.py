@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest import mock
 
@@ -180,3 +180,130 @@ class TestDataVicODPHarvester:
         deleted_package = model.Package.get(dataset["id"])
         assert deleted_package
         assert deleted_package.state == "deleted"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_purge_missing_survives_unchanged_runs(
+        self,
+        harvester: DataVicODPHarvester,
+        dataset_factory,
+        harvest_source_factory,
+        harvest_job_factory,
+        odp_dataset,
+        odp_source_config,
+    ):
+        # "Not modified" runs leave current=False, package_id=NULL rows;
+        # a naive ORDER BY gathered.desc would miss the original mapping.
+        dataset = dataset_factory()
+        source = harvest_source_factory(
+            config=json.dumps(odp_source_config),
+            source_type="datavic_odp",
+        )
+
+        first_job = harvest_job_factory(source=source)
+        first_object = harvest_model.HarvestObject(
+            guid="missing-guid",
+            job=first_job,
+            package_id=dataset["id"],
+            current=True,
+            content=json.dumps(odp_dataset),
+            gathered=datetime.now(timezone.utc) - timedelta(hours=2),
+            report_status="added",
+        )
+        first_object.save()
+        first_job.status = "Finished"
+        first_job.gather_started = datetime.now(timezone.utc)
+        first_job.gather_finished = datetime.now(timezone.utc)
+        first_job.finished = datetime.now(timezone.utc)
+        model.Session.commit()
+
+        unchanged_job = harvest_job_factory(source=source)
+        unchanged_object = harvest_model.HarvestObject(
+            guid="missing-guid",
+            job=unchanged_job,
+            package_id=None,
+            current=False,
+            content=json.dumps(odp_dataset),
+            gathered=datetime.now(timezone.utc) - timedelta(hours=1),
+            report_status="not modified",
+        )
+        unchanged_object.save()
+        unchanged_job.status = "Finished"
+        unchanged_job.gather_started = datetime.now(timezone.utc)
+        unchanged_job.gather_finished = datetime.now(timezone.utc)
+        unchanged_job.finished = datetime.now(timezone.utc)
+        model.Session.commit()
+
+        new_job = harvest_model.HarvestJob(source=source)
+        model.Session.add(new_job)
+        model.Session.commit()
+
+        with mock.patch.object(CKANHarvester, "gather_stage", return_value=[999]):
+            object_ids = harvester.gather_stage(new_job)
+
+        delete_objects = (
+            model.Session.query(harvest_model.HarvestObject)
+            .filter(harvest_model.HarvestObject.harvest_job_id == new_job.id)
+            .filter(harvest_model.HarvestObject.package_id == dataset["id"])
+            .all()
+        )
+
+        assert len(object_ids) == 2
+        assert len(delete_objects) == 1
+        assert json.loads(delete_objects[0].content) == {
+            "status": "delete",
+            "package_id": dataset["id"],
+            "guid": "missing-guid",
+        }
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_purge_missing_skips_already_deleted_packages(
+        self,
+        harvester: DataVicODPHarvester,
+        dataset_factory,
+        harvest_source_factory,
+        harvest_job_factory,
+        odp_dataset,
+        odp_source_config,
+    ):
+        # Trashed packages must not be re-queued for delete.
+        dataset = dataset_factory()
+        source = harvest_source_factory(
+            config=json.dumps(odp_source_config),
+            source_type="datavic_odp",
+        )
+        existing_job = harvest_job_factory(source=source)
+        harvest_model.HarvestObject(
+            guid="already-deleted-guid",
+            job=existing_job,
+            package_id=dataset["id"],
+            current=True,
+            content=json.dumps(odp_dataset),
+            report_status="added",
+        ).save()
+        existing_job.status = "Finished"
+        existing_job.gather_started = datetime.now(timezone.utc)
+        existing_job.gather_finished = datetime.now(timezone.utc)
+        existing_job.finished = datetime.now(timezone.utc)
+        model.Session.commit()
+
+        deleted_package = model.Package.get(dataset["id"])
+        assert deleted_package is not None
+        deleted_package.state = "deleted"
+        model.Session.commit()
+
+        new_job = harvest_model.HarvestJob(source=source)
+        model.Session.add(new_job)
+        model.Session.commit()
+
+        with mock.patch.object(CKANHarvester, "gather_stage", return_value=[999]):
+            object_ids = harvester.gather_stage(new_job)
+
+        delete_objects = (
+            model.Session.query(harvest_model.HarvestObject)
+            .filter(harvest_model.HarvestObject.harvest_job_id == new_job.id)
+            .filter(harvest_model.HarvestObject.guid == "already-deleted-guid")
+            .all()
+        )
+
+        assert object_ids == [999]
+        assert delete_objects == []

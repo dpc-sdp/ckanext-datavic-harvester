@@ -44,9 +44,8 @@ setup(
     packages=find_packages(exclude=["contrib", "docs", "tests*"]),
     namespace_packages=["ckanext"],
     install_requires=[
-        # CKAN extensions should not list dependencies here, but in a separate
-        # ``requirements.txt`` file.
-        #
+        # DataVic ODP harvester extends ckanext-harvest-basket's CustomCKANHarvester
+        "ckanext-harvest-basket",
         # http://docs.ckan.org/en/latest/extensions/best-practices.html#add-third-party-libraries-to-requirements-txt
     ],
     # If there are data files included in your packages that need to be
@@ -67,6 +66,7 @@ setup(
         datavic_dcat_json_harvester=ckanext.datavic_harvester.harvesters:DataVicDCATJSONHarvester
         delwp_harvester = ckanext.datavic_harvester.harvesters:DelwpHarvester
         datavic_ods_harvester=ckanext.datavic_harvester.harvesters:DataVicODSHarvester
+        datavic_odp_harvester=ckanext.datavic_harvester.harvesters:DataVicODPHarvester
         [babel.extractors]
         ckan = ckan.lib.extract:extract_ckan
     """,

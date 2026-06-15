@@ -848,6 +848,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         self.pkg_dict = pkg_dict = {}
 
+        pkg_dict["contact_point"] = "https://datashare.maps.vic.gov.au/contact-us"
         pkg_dict["personal_information"] = "no"
         pkg_dict["protective_marking"] = "official"
         pkg_dict["access"] = "yes"

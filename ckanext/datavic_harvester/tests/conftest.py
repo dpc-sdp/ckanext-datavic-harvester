@@ -163,6 +163,8 @@ def dcat_config(group):
         "default_groups": [group["id"]],
         "default_group_dicts": [group],
         "default_license": {"id": "notspecified", "title": "License not specified"},
+        "default_data_owner": "Default Data Owner",
+        "default_contact_point": "default.contact@example.com",
         "default_full_metadata_url": "https://localhost/metadata/",
         "full_metadata_url_pattern": "localhost/metadata",
     }

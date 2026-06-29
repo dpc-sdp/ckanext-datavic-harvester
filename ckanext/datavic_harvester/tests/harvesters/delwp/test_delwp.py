@@ -1087,3 +1087,391 @@ class TestRestoreFlow:
         assert obj2.errors == []
         pkg = call_action("package_show", id=package_id)
         assert pkg["state"] == "active"
+
+
+class TestCalculateHashForDataDict:
+    """Unit tests for _calculate_hash_for_data_dict (change-detection hash).
+
+    The hash must cover only source-derived fields. Volatile, harvester-injected
+    values (notably resource ``size``/``filesize`` from a live network fetch) must
+    not affect the hash, otherwise unchanged datasets are detected as "changed".
+
+    No DB or plugins required — the method is pure.
+    """
+
+    def _base_pkg_dict(self) -> dict[str, Any]:
+        return {
+            "title": "Coastal hazard assessment",
+            "notes": "An abstract from the source.",
+            "tags": [{"name": "coast"}],
+            "last_updated": "2026-01-01",
+            "extract": "An abstract from the sourc...",
+            "data_owner": "DEECA",
+            "date_created_data_asset": "2020-01-01",
+            "date_modified_data_asset": "2026-01-01",
+            "update_frequency": "asNeeded",
+            "private": False,
+            "protective_marking": "official",
+            "access": "yes",
+            "owner_org": "some-org-id",
+            "name": "coastal-hazard-assessment",
+            "extras": [{"key": "harvest_object_id", "value": "abc-123"}],
+            "resources": [
+                {
+                    "name": "WMS",
+                    "format": "WMS",
+                    "period_start": "2017-01-01",
+                    "period_end": "2017-12-31",
+                    "url": "https://example.com/wms/abc",
+                    "attribution": "DEECA",
+                    "size": 4096,
+                    "filesize": 4096,
+                }
+            ],
+        }
+
+    def test_hash_stable_across_volatile_resource_size(self):
+        """Resource size/filesize are fetched via a live HTTP HEAD request at harvest
+        time and fluctuate between runs independently of source metadata changes.
+        They are intentionally excluded from HASH_RESOURCE_FIELDS.
+
+        Why needed: without this exclusion a dataset with no real metadata change
+        would be detected as "changed" on every run solely because the file size
+        reported by the server differed.
+
+        What is tested: pkg_dicts that are identical except for resource size/filesize
+        values (4096, 0, and -1) are passed to _calculate_hash_for_data_dict.
+
+        Expected outcome: all three produce the same hash."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        pkg_b = self._base_pkg_dict()
+        pkg_c = self._base_pkg_dict()
+
+        pkg_b["resources"][0]["size"] = 0
+        pkg_b["resources"][0]["filesize"] = 0
+
+        pkg_c["resources"][0]["size"] = -1
+        pkg_c["resources"][0]["filesize"] = -1
+
+        hash_a = harvester._calculate_hash_for_data_dict(pkg_a)
+        hash_b = harvester._calculate_hash_for_data_dict(pkg_b)
+        hash_c = harvester._calculate_hash_for_data_dict(pkg_c)
+
+        assert hash_a == hash_b == hash_c
+
+    def test_hash_stable_across_injected_fields(self):
+        """Fields the harvester injects itself — extras such as harvest_object_id
+        and config-derived values such as full_metadata_url — are not source
+        metadata and must not influence the change-detection hash.
+
+        Why needed: these fields change between runs for reasons unrelated to the
+        remote source (e.g. a new harvest job ID). Including them would cause every
+        run to appear as a change even when the source data is identical.
+
+        What is tested: two pkg_dicts that differ only in extras and full_metadata_url
+        are passed to _calculate_hash_for_data_dict.
+
+        Expected outcome: both produce the same hash."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        pkg_b = self._base_pkg_dict()
+
+        pkg_b["extras"] = [{"key": "harvest_object_id", "value": "zzz-999"}]
+        pkg_b["full_metadata_url"] = "https://example.com/other"
+
+        hash_a = harvester._calculate_hash_for_data_dict(pkg_a)
+        hash_b = harvester._calculate_hash_for_data_dict(pkg_b)
+
+        assert hash_a == hash_b
+
+    def test_hash_changes_on_owner_org(self):
+        """owner_org is resolved from the resowner field in the remote source metadata
+        via _get_organisation().
+
+        Why needed: owner_org is source-derived, not harvester-injected, so a change
+        to it must be detected and trigger a package_update.
+
+        What is tested: two pkg_dicts that are identical except for owner_org are
+        passed to _calculate_hash_for_data_dict.
+
+        Expected outcome: the two hashes differ."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        pkg_b = self._base_pkg_dict()
+        pkg_b["owner_org"] = "a-different-org-id"
+
+        hash_a = harvester._calculate_hash_for_data_dict(pkg_a)
+        hash_b = harvester._calculate_hash_for_data_dict(pkg_b)
+
+        assert hash_a != hash_b
+
+    def test_hash_changes_on_source_field(self):
+        """The positive case for change detection: a genuine change to a source-derived
+        field must produce a different hash so that import_stage fires a package_update.
+
+        Why needed: confirms the hash is actually sensitive to real changes, not just
+        a constant or a hash of an empty input.
+
+        What is tested: two pkg_dicts that differ only in title are passed to
+        _calculate_hash_for_data_dict.
+
+        Expected outcome: the two hashes differ."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        pkg_b = self._base_pkg_dict()
+        pkg_b["title"] = "A different title"
+
+        hash_a = harvester._calculate_hash_for_data_dict(pkg_a)
+        hash_b = harvester._calculate_hash_for_data_dict(pkg_b)
+
+        assert hash_a != hash_b
+
+    def test_hash_stable_across_resource_ordering(self):
+        """The remote API does not guarantee a stable ordering of resources between
+        calls. The hash must be order-independent so that a reordering in the API
+        response does not trigger a spurious package_update.
+
+        Why needed: without order-normalisation, two identical harvests that happen
+        to return resources in a different sequence would be treated as a change on
+        every run.
+
+        What is tested: a pkg_dict with resources [WMS, WFS] and one with [WFS, WMS]
+        are passed to _calculate_hash_for_data_dict.
+
+        Expected outcome: both produce the same hash."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        second_resource = {
+            "name": "WFS",
+            "format": "WFS",
+            "period_start": "2017-01-01",
+            "period_end": "2017-12-31",
+            "url": "https://example.com/wfs/abc",
+            "attribution": "DEECA",
+            "size": 100,
+            "filesize": 100,
+        }
+        pkg_a["resources"].append(second_resource)
+
+        pkg_b = self._base_pkg_dict()
+        pkg_b["resources"] = [second_resource, pkg_b["resources"][0]]
+
+        assert harvester._calculate_hash_for_data_dict(
+            pkg_a
+        ) == harvester._calculate_hash_for_data_dict(pkg_b)
+
+
+class TestChangeDetectionIntegration:
+    """Integration tests for the change-detection / idempotency behaviour.
+
+    Each test drives two full import_stage calls against a real DB so we can
+    verify the end-to-end behaviour of the hash comparison, resource-ID
+    preservation, and metadata carry-forward logic.
+    """
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_second_import_unchanged_source_returns_unchanged(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_dataset: dict,
+        delwp_config,
+    ):
+        """import_stage stores a content hash (harvester_data_hash) on the package
+        after the first import. On a subsequent run with identical source data the
+        incoming hash matches the stored one and import_stage must skip the update.
+
+        Why: unnecessary package_update calls increment the package revision, dirty
+        audit logs, and waste DB load. The hash comparison is the mechanism that
+        prevents this.
+
+        What: import_stage is called twice with the same harvest content. The second
+        call receives a harvest object with status="change" pointing at the package
+        created by the first call.
+
+        Expected: the second call returns "unchanged", raises no errors, and the
+        resource IDs on the package are identical to those from the first import.
+        """
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config),
+            source_type=harvester.info()["name"],
+        )
+        job = harvest_job_factory(source=source)
+
+        obj1 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+        )
+        result1 = harvester.import_stage(obj1)
+        assert result1 is True
+        assert obj1.errors == []
+        package_id = obj1.package_id
+        assert package_id
+
+        pkg_after_first = call_action("package_show", id=package_id)
+        resource_ids_after_first = [r["id"] for r in pkg_after_first["resources"]]
+
+        obj2 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+        result2 = harvester.import_stage(obj2)
+
+        assert result2 == "unchanged"
+        assert obj2.errors == []
+
+        pkg_after_second = call_action("package_show", id=package_id)
+        resource_ids_after_second = [r["id"] for r in pkg_after_second["resources"]]
+        assert resource_ids_after_second == resource_ids_after_first
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_metadata_change_triggers_update_resource_ids_preserved(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_dataset: dict,
+        delwp_config,
+    ):
+        """When source metadata genuinely changes, the hash comparison detects it and
+        import_stage calls package_update. _preserve_resource_ids carries the existing
+        resource UUIDs onto the incoming pkg_dict so package_update updates resources
+        in-place rather than deleting and recreating them with new IDs.
+
+        Why: recreating resources with new UUIDs breaks any external system that has
+        bookmarked a resource by its ID (e.g. a data portal, an API consumer, or a
+        syndicated copy).
+
+        What: import_stage is called first with the original content, then again with
+        content whose title has changed. The second call receives a harvest object
+        with status="change".
+
+        Expected: the second call returns True, the package title reflects the new
+        value, and the resource UUIDs after the update are identical to those from
+        the first import.
+        """
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config),
+            source_type=harvester.info()["name"],
+        )
+        job = harvest_job_factory(source=source)
+
+        obj1 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+        )
+        result1 = harvester.import_stage(obj1)
+        assert result1 is True
+        assert obj1.errors == []
+        package_id = obj1.package_id
+        assert package_id
+
+        pkg_after_first = call_action("package_show", id=package_id)
+        resource_ids_after_first = [r["id"] for r in pkg_after_first["resources"]]
+        assert resource_ids_after_first, "first import must create at least one resource"
+
+        changed_dataset = dict(delwp_dataset)
+        changed_dataset["title"] = delwp_dataset["title"] + " (updated)"
+
+        obj2 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(changed_dataset),
+            job=job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+        result2 = harvester.import_stage(obj2)
+
+        assert result2 is True
+        assert obj2.errors == []
+
+        pkg_after_second = call_action("package_show", id=package_id)
+        assert pkg_after_second["title"] == changed_dataset["title"]
+
+        resource_ids_after_second = [r["id"] for r in pkg_after_second["resources"]]
+        assert sorted(resource_ids_after_second) == sorted(resource_ids_after_first)
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_syndicated_id_survives_harvest_update(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_dataset: dict,
+        delwp_config,
+    ):
+        """syndicated_id is written by the syndication plugin after the first harvest,
+        not by the harvester itself. _preserve_existing_metadata reads the existing
+        package via package_show and carries forward top-level scheming fields the
+        harvester does not set, so they are not dropped when package_update is called.
+
+        Why: losing syndicated_id permanently breaks the syndication link between
+        this CKAN instance and the remote portal with no error raised.
+
+        What: after the first import, syndicated_id is patched onto the package via
+        package_patch. A second import with a changed title fires a package_update
+        via import_stage.
+
+        Expected: package_show after the update still returns
+        syndicated_id = "remote-portal-uuid-abc123".
+        """
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config),
+            source_type=harvester.info()["name"],
+        )
+        job = harvest_job_factory(source=source)
+
+        obj1 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+        )
+        result1 = harvester.import_stage(obj1)
+        assert result1 is True
+        assert obj1.errors == []
+        package_id = obj1.package_id
+        assert package_id
+
+        expected_syndicated_id = "remote-portal-uuid-abc123"
+        sysadmin = call_action("get_site_user", ignore_auth=True)
+        call_action(
+            "package_patch",
+            {"user": sysadmin["name"]},
+            id=package_id,
+            syndicated_id=expected_syndicated_id,
+        )
+        pkg_with_syndicated = call_action("package_show", id=package_id)
+        assert pkg_with_syndicated.get("syndicated_id") == expected_syndicated_id
+
+        changed_dataset = dict(delwp_dataset)
+        changed_dataset["title"] = delwp_dataset["title"] + " (v2)"
+
+        obj2 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(changed_dataset),
+            job=job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+        result2 = harvester.import_stage(obj2)
+
+        assert result2 is True
+        assert obj2.errors == []
+
+        pkg_after_update = call_action("package_show", id=package_id)
+        assert pkg_after_update.get("syndicated_id") == expected_syndicated_id

@@ -31,6 +31,37 @@ from ckanext.datavic_harvester.harvesters.base import (
 log = logging.getLogger(__name__)
 HASH_FIELD = "harvester_data_hash"
 
+# Change-detection hash whitelist. Only fields genuinely derived from the remote
+# source metadata are hashed; everything the harvester injects (static literals,
+# config-derived values, CKAN-managed fields) or computes at run time is excluded.
+# In particular, resource ``size``/``filesize`` come from a live network fetch
+# (``get_resource_size``) and vary between runs, so they MUST NOT be hashed.
+HASH_PKG_FIELDS = frozenset(
+    {
+        "title",
+        "notes",
+        "extract",
+        "tags",
+        "last_updated",
+        "data_owner",
+        "date_created_data_asset",
+        "date_modified_data_asset",
+        "update_frequency",
+        "private",
+        "owner_org",
+    }
+)
+HASH_RESOURCE_FIELDS = frozenset(
+    {
+        "name",
+        "format",
+        "period_start",
+        "period_end",
+        "url",
+        "attribution",
+    }
+)
+
 
 class DelwpHarvester(DataVicBaseHarvester):
     HARVESTER = "DELWP Harvester"
@@ -774,7 +805,7 @@ class DelwpHarvester(DataVicBaseHarvester):
                             harvest_object.package_id,
                             pkg.title,
                         )
-                        
+
                     if previous_hash != data_hash:
                         log.info(
                             "%s: dataset id=%s (%s) has changed, updating.",
@@ -785,6 +816,14 @@ class DelwpHarvester(DataVicBaseHarvester):
                     # Force state=active to handle both normal updates and soft-deleted
                     pkg_dict["state"] = "active"
                     pkg_dict[HASH_FIELD] = data_hash
+
+                    # Preserve resource IDs so package_update edits resources in
+                    # place rather than recreating them with new UUIDs.
+                    self._preserve_resource_ids(pkg_dict, pkg)
+
+                    # Preserve existing metadata (e.g. syndicated_id,
+                    # skip_syndication) that package_update would otherwise drop.
+                    self._preserve_existing_metadata(pkg_dict, pkg)
 
         action: str = "package_create" if status == "new" else "package_update"
         status: str = "Created" if status == "new" else "Updated"
@@ -926,6 +965,81 @@ class DelwpHarvester(DataVicBaseHarvester):
             pkg_dict["extras"].append({"key": key, "value": value})
 
         return pkg_dict
+
+    def _preserve_resource_ids(self, pkg_dict: dict[str, Any], pkg) -> None:
+        """Carry existing resource IDs onto matching incoming resources so
+        package_update updates them in place instead of recreating them with
+        new UUIDs.
+
+        Match is strict: normalised (name, format) must match exactly. Active
+        resources only. Each existing resource is matched at most once.
+        """
+        by_name_fmt: dict[tuple[str, str], list] = {}
+        for res in pkg.resources or []:
+            if res.state != "active":
+                continue
+            key = (
+                (res.name or "").strip().lower(),
+                (res.format or "").strip().lower(),
+            )
+            by_name_fmt.setdefault(key, []).append(res)
+
+        used: set[str] = set()
+        for res in pkg_dict.get("resources", []):
+            key = (
+                (res.get("name") or "").strip().lower(),
+                (res.get("format") or "").strip().lower(),
+            )
+            match = next(
+                (r for r in by_name_fmt.get(key, []) if r.id not in used), None
+            )
+            if match:
+                res["id"] = match.id
+                used.add(match.id)
+
+    def _preserve_existing_metadata(self, pkg_dict: dict[str, Any], pkg) -> None:
+        """Carry forward existing package metadata the harvester did not set,
+        so package_update does not drop existing values.
+
+        Reads the existing package via package_show, whose shape already matches
+        what package_update expects: scheming dataset_fields as top-level keys
+        (e.g. syndicated_id, skip_syndication) and genuine free-form extras in
+        the ``extras`` list (e.g. harvest_object_id). Merging on top of that
+        shape needs no schema lookup and cannot collide with schema fields.
+
+        The harvester's own values win wherever it set them. Resources are owned
+        by _preserve_resource_ids and are left untouched here.
+        """
+        try:
+            existing = tk.get_action("package_show")(
+                {"ignore_auth": True}, {"id": pkg.id}
+            )
+        except tk.ObjectNotFound:
+            log.warning(
+                "%s: unable to read existing package id=%s, so unable to "
+                "preserve metadata on update",
+                self.HARVESTER,
+                pkg.id,
+            )
+            return
+
+        pkg_dict.setdefault("extras", [])
+        harvester_extra_keys = {e.get("key") for e in pkg_dict["extras"]}
+
+        # Merge the extras LIST element-wise so existing-only free-form extras
+        # are not dropped (dict.update would replace the whole list).
+        for extra in existing.get("extras", []):
+            if extra.get("key") not in harvester_extra_keys:
+                pkg_dict["extras"].append(
+                    {"key": extra["key"], "value": extra["value"]}
+                )
+
+        # Preserve top-level (scheming) fields the harvester did not set.
+        # Skip list-valued keys handled elsewhere.
+        for key, value in existing.items():
+            if key in ("extras", "resources"):
+                continue
+            pkg_dict.setdefault(key, value)
 
     def _create_custom_package_create_schema(self) -> dict[str, Any]:
         from ckan.lib.navl.validators import unicode_safe
@@ -1229,6 +1343,58 @@ class DelwpHarvester(DataVicBaseHarvester):
             return f.read()
 
     def _calculate_hash_for_data_dict(self, pkg_dict: dict[str, Any]) -> str:
-        """Calculate a hash for a package_dict to understand if it's changed"""
-        json_str = json.dumps(pkg_dict, sort_keys=True)
+        """Calculate a hash for a package_dict to understand if it's changed.
+
+        Only source-derived fields are hashed (see HASH_PKG_FIELDS and
+        HASH_RESOURCE_FIELDS). Harvester-injected literals, config-derived and
+        CKAN-managed values, and volatile run-time values (notably resource
+        ``size``/``filesize``) are excluded so that an unchanged dataset hashes
+        identically between runs.
+        """
+        canonical = self._build_hash_payload(pkg_dict)
+        json_str = json.dumps(canonical, sort_keys=True)
         return sha256(json_str.encode()).hexdigest()
+
+    def _build_hash_payload(self, pkg_dict: dict[str, Any]) -> dict[str, Any]:
+        """Project a pkg_dict onto the source-derived hash whitelist.
+
+        Resources are reduced to whitelisted fields and sorted by a stable key so
+        that resource ordering does not affect the hash.
+        """
+        # Keep only the package-level fields that come from the source metadata.
+        payload = self._pick_whitelisted_fields(pkg_dict, HASH_PKG_FIELDS)
+
+        # Reduce each resource to its source-derived fields (drops volatile values
+        # such as size/filesize).
+        source_resources = pkg_dict.get("resources") or []
+        whitelisted_resources = []
+        for resource in source_resources:
+            reduced_resource = self._pick_whitelisted_fields(
+                resource, HASH_RESOURCE_FIELDS
+            )
+            whitelisted_resources.append(reduced_resource)
+
+        # Sort so that resource ordering does not change the hash.
+        whitelisted_resources.sort(key=self._resource_sort_key)
+
+        payload["resources"] = whitelisted_resources
+
+        return payload
+
+    @staticmethod
+    def _pick_whitelisted_fields(
+        source: dict[str, Any], whitelist: frozenset[str]
+    ) -> dict[str, Any]:
+        """Return a copy of ``source`` containing only the whitelisted keys."""
+        picked: dict[str, Any] = {}
+        for key in whitelist:
+            if key in source:
+                picked[key] = source[key]
+        return picked
+
+    @staticmethod
+    def _resource_sort_key(resource: dict[str, Any]) -> tuple[str, str]:
+        """Stable sort key for a resource: ``(url, format)``."""
+        url = resource.get("url") or ""
+        res_format = resource.get("format") or ""
+        return (url, res_format)

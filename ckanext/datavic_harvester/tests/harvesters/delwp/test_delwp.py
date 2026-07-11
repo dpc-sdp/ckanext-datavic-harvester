@@ -1575,8 +1575,15 @@ class TestChangeDetectionIntegration:
         pkg_after_second = call_action("package_show", id=package_id)
         assert pkg_after_second["title"] == changed_dataset["title"]
 
-        resource_ids_after_second = [r["id"] for r in pkg_after_second["resources"]]
-        assert sorted(resource_ids_after_second) == sorted(resource_ids_after_first)
+        # Compare a keyed {(name, format): id} mapping rather than a sorted id
+        # list: a sorted comparison would still pass if two resources swapped
+        # ids between runs, which is exactly the silent UUID churn this test
+        # guards against. Keying by (name, format) also avoids depending on the
+        # resource order returned by package_show.
+        def _res_map(pkg):
+            return {(r["name"], r["format"]): r["id"] for r in pkg["resources"]}
+
+        assert _res_map(pkg_after_second) == _res_map(pkg_after_first)
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_syndicated_id_survives_harvest_update(

@@ -1011,8 +1011,9 @@ class DelwpHarvester(DataVicBaseHarvester):
         package_update updates them in place instead of recreating them with
         new UUIDs.
 
-        Match is strict: normalised (name, format) must match exactly. Active
-        resources only. Each existing resource is matched at most once.
+        Match is on the case-insensitive, whitespace-trimmed (name, format) pair
+        (``(x or "").strip().lower()``). Active resources only; each existing
+        resource is matched at most once.
         """
         by_name_fmt: dict[tuple[str, str], list] = {}
         for res in pkg.resources or []:

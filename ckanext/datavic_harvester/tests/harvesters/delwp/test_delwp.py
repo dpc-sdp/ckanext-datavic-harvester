@@ -1267,6 +1267,179 @@ class TestCalculateHashForDataDict:
         ) == harvester._calculate_hash_for_data_dict(pkg_b)
 
 
+class TestPreserveResourceIds:
+    """Unit tests for _preserve_resource_ids (resource UUID carry-forward).
+
+    _preserve_resource_ids matches each incoming resource in
+    ``pkg_dict["resources"]`` against the existing package's resources and, on a
+    match, stamps the existing resource ``id`` onto the incoming dict so
+    package_update edits the resource in place rather than recreating it with a
+    new UUID. Matching is on the normalised ``(name, format)`` pair
+    (``(x or "").strip().lower()``), active resources only, each existing
+    resource matched at most once.
+
+    Why needed: only the happy path is covered indirectly by the change-detection
+    integration test. The matching rules (normalisation, active-only filter,
+    at-most-once matching, duplicate keys) are where silent UUID churn hides on
+    messy source data. These are pure unit tests (mocked ``pkg``, no DB).
+    """
+
+    def _existing(self, name, fmt, id, state="active"):
+        """Build a mock existing resource as read from pkg.resources.
+
+        _preserve_resource_ids reads existing resources via the attributes
+        .state, .name, .format and .id.
+
+        Note: ``name`` is a reserved constructor kwarg on Mock (it sets the mock's
+        display name, not a .name attribute), so it must be assigned afterwards.
+        """
+        res = mock.MagicMock(state=state, format=fmt, id=id)
+        res.name = name
+        return res
+
+    def _incoming(self, name, fmt, id=None):
+        """Build an incoming resource dict as found in pkg_dict["resources"].
+
+        Incoming resources are read via .get("name") / .get("format") and, on a
+        match, have res["id"] assigned.
+        """
+        res: dict[str, Any] = {"name": name, "format": fmt}
+        if id is not None:
+            res["id"] = id
+        return res
+
+    def _run(self, existing, incoming):
+        """Invoke _preserve_resource_ids with mocked pkg and a pkg_dict.
+
+        Returns the (mutated in place) incoming list for assertions.
+        """
+        harvester = DelwpHarvester()
+        pkg = mock.MagicMock()
+        pkg.resources = existing
+        pkg_dict = {"resources": incoming}
+        harvester._preserve_resource_ids(pkg_dict, pkg)
+        return pkg_dict["resources"]
+
+    def test_exact_match_carries_existing_id(self):
+        """Happy path: an incoming resource whose (name, format) matches an
+        existing active resource inherits that resource's id.
+
+        Why needed: this is the positive baseline the whole method exists for -
+        without it package_update would mint a new UUID for an unchanged resource.
+
+        Expected outcome: the incoming resource, which arrived with no id, ends up
+        with the existing resource's id.
+        """
+        existing = [self._existing("WMS", "wms", "uuid-A")]
+        incoming = [self._incoming("WMS", "wms")]
+
+        result = self._run(existing, incoming)
+
+        assert result[0]["id"] == "uuid-A"
+
+    def test_match_normalises_case_and_whitespace(self):
+        """Matching is case-insensitive and trims surrounding whitespace on both
+        the name and the format.
+
+        Why needed: source metadata frequently varies casing/whitespace (" WMS "
+        vs "wms"); a strict byte comparison would miss the match and churn the UUID.
+
+        Expected outcome: " WMS " / "WMS" on the existing side matches
+        "wms" / "wms" on the incoming side and the id is carried.
+        """
+        existing = [self._existing(" WMS ", "WMS", "uuid-A")]
+        incoming = [self._incoming("wms", "wms")]
+
+        result = self._run(existing, incoming)
+
+        assert result[0]["id"] == "uuid-A"
+
+    def test_duplicate_key_matches_one_to_one_without_reuse(self):
+        """When several existing resources share the same normalised (name,
+        format) key, each incoming resource with that key consumes a distinct
+        existing id; ids are not reused, and once the existing resources are
+        exhausted further incoming resources are left unmatched.
+
+        Why needed: duplicate (name, format) pairs are the trickiest branch -
+        the by_name_fmt list plus the ``used`` set must hand out each id exactly
+        once. sorted()==sorted() would not catch a double-assignment, so this
+        asserts one-to-one identity explicitly.
+
+        Expected outcome: two incoming resources receive uuid-A and uuid-B (one
+        each, no repeat); a third incoming resource with the same key receives no
+        carried id.
+        """
+        existing = [
+            self._existing("data", "csv", "uuid-A"),
+            self._existing("data", "csv", "uuid-B"),
+        ]
+        incoming = [
+            self._incoming("data", "csv"),
+            self._incoming("data", "csv"),
+            self._incoming("data", "csv"),
+        ]
+
+        result = self._run(existing, incoming)
+
+        carried = [r.get("id") for r in result]
+        matched_ids = [i for i in carried if i is not None]
+        assert set(matched_ids) == {"uuid-A", "uuid-B"}
+        assert len(matched_ids) == len(set(matched_ids))
+        assert carried.count(None) == 1
+
+    def test_deleted_existing_resource_is_ignored(self):
+        """A non-active (e.g. deleted) existing resource is never matched, even
+        if its (name, format) key matches an incoming resource.
+
+        Why needed: soft-deleted resources retain their key; matching one would
+        resurrect a dead UUID onto a live resource.
+
+        Expected outcome: the incoming resource does not receive the deleted
+        resource's id.
+        """
+        existing = [self._existing("data", "csv", "uuid-DELETED", state="deleted")]
+        incoming = [self._incoming("data", "csv")]
+
+        result = self._run(existing, incoming)
+
+        assert result[0].get("id") != "uuid-DELETED"
+        assert "id" not in result[0]
+
+    def test_incoming_without_match_is_left_untouched(self):
+        """An incoming resource with no matching existing (name, format) is not
+        given a carried id.
+
+        Why needed: a new format added at source (or name drift) must not be
+        falsely matched to an unrelated existing resource.
+
+        Expected outcome: the unmatched incoming resource has no id assigned.
+        """
+        existing = [self._existing("data", "csv", "uuid-A")]
+        incoming = [self._incoming("other", "json")]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+
+    def test_empty_name_or_format_does_not_crash_or_falsely_match(self):
+        """Resources with a missing/None name or format do not raise and do not
+        spuriously match a differently-keyed resource.
+
+        Why needed: source records occasionally omit name/format; the
+        ``(x or "").strip().lower()`` guards must tolerate None without a match to
+        an unrelated resource.
+
+        Expected outcome: an incoming resource with name=None and a real format
+        does not match an existing resource with a real name; no exception.
+        """
+        existing = [self._existing("data", "csv", "uuid-A")]
+        incoming = [self._incoming(None, "json")]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+
+
 class TestChangeDetectionIntegration:
     """Integration tests for the change-detection / idempotency behaviour.
 

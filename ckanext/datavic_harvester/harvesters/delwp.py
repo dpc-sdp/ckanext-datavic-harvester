@@ -62,6 +62,34 @@ HASH_RESOURCE_FIELDS = frozenset(
     }
 )
 
+# Below are the fields that are preserved on the update path (package_update)
+# so that they are not overwritten by the harvester.
+# This list need to be kept in sync with the iar_ckan_dataset.yml schema.
+PRESERVE_PKG_FIELDS = frozenset(
+    {
+        "alias",
+        "agency_program_domain",
+        "custom_licence_text",
+        "custom_licence_link",
+        "dtv_preview",
+        "bil_confidentiality",
+        "bil_confidentiality_description",
+        "bil_availability",
+        "bil_availability_description",
+        "bil_integrity",
+        "bil_integrity_description",
+        "source_ict_system",
+        "record_disposal_category",
+        "disposal_category",
+        "disposal_class",
+        "workflow_status_notes",
+        "role",
+        "maintainer_email",
+        "skip_syndication",
+        "syndicated_id",
+    }
+)
+
 
 class DelwpHarvester(DataVicBaseHarvester):
     HARVESTER = "DELWP Harvester"
@@ -744,6 +772,12 @@ class DelwpHarvester(DataVicBaseHarvester):
         context = self._make_context()
         data_hash = self._calculate_hash_for_data_dict(pkg_dict)
 
+        # Existing package whose resource IDs / metadata must be preserved on the
+        # update path. Left as None for creates. The preserve helpers run inside
+        # the package_update try block below so any failure is rolled back and
+        # recorded on the harvest object like a failed update.
+        pkg_to_preserve = None
+
         if status == "new":
             context["schema"] = self._create_custom_package_create_schema()
 
@@ -817,13 +851,9 @@ class DelwpHarvester(DataVicBaseHarvester):
                     pkg_dict["state"] = "active"
                     pkg_dict[HASH_FIELD] = data_hash
 
-                    # Preserve resource IDs so package_update edits resources in
-                    # place rather than recreating them with new UUIDs.
-                    self._preserve_resource_ids(pkg_dict, pkg)
-
-                    # Preserve existing metadata (e.g. syndicated_id,
-                    # skip_syndication) that package_update would otherwise drop.
-                    self._preserve_existing_metadata(pkg_dict, pkg)
+                    # Preserve on the update path; helpers run inside the
+                    # package_update try block below so failures are handled.
+                    pkg_to_preserve = pkg
 
         action: str = "package_create" if status == "new" else "package_update"
         status: str = "Created" if status == "new" else "Updated"
@@ -831,6 +861,16 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         try:
             context["return_id_only"] = False
+
+            if pkg_to_preserve is not None:
+                # Preserve resource IDs so package_update edits resources in
+                # place rather than recreating them with new UUIDs.
+                self._preserve_resource_ids(pkg_dict, pkg_to_preserve)
+
+                # Preserve existing metadata (e.g. syndicated_id,
+                # skip_syndication) that package_update would otherwise drop.
+                self._preserve_existing_metadata(pkg_dict, pkg_to_preserve)
+
             dataset = tk.get_action(action)(context, pkg_dict)
             log.info(
                 "%s: %s dataset with id %s (%s)",
@@ -1001,27 +1041,22 @@ class DelwpHarvester(DataVicBaseHarvester):
         """Carry forward existing package metadata the harvester did not set,
         so package_update does not drop existing values.
 
-        Reads the existing package via package_show, whose shape already matches
-        what package_update expects: scheming dataset_fields as top-level keys
-        (e.g. syndicated_id, skip_syndication) and genuine free-form extras in
-        the ``extras`` list (e.g. harvest_object_id). Merging on top of that
-        shape needs no schema lookup and cannot collide with schema fields.
-
-        The harvester's own values win wherever it set them. Resources are owned
-        by _preserve_resource_ids and are left untouched here.
+        The harvester's own values win wherever it set them. Resources are
+        owned by _preserve_resource_ids and are left untouched here.
         """
         try:
             existing = tk.get_action("package_show")(
                 {"ignore_auth": True}, {"id": pkg.id}
             )
         except tk.ObjectNotFound:
-            log.warning(
-                "%s: unable to read existing package id=%s, so unable to "
-                "preserve metadata on update",
+            log.error(
+                "%s: unable to read existing package id=%s while preserving "
+                "metadata; aborting update to avoid dropping preserved fields",
                 self.HARVESTER,
                 pkg.id,
+                exc_info=True,
             )
-            return
+            raise
 
         pkg_dict.setdefault("extras", [])
         harvester_extra_keys = {e.get("key") for e in pkg_dict["extras"]}
@@ -1034,12 +1069,15 @@ class DelwpHarvester(DataVicBaseHarvester):
                     {"key": extra["key"], "value": extra["value"]}
                 )
 
-        # Preserve top-level (scheming) fields the harvester did not set.
-        # Skip list-valued keys handled elsewhere.
-        for key, value in existing.items():
-            if key in ("extras", "resources"):
-                continue
-            pkg_dict.setdefault(key, value)
+        # Preserve only the known scheming fields the harvester does not set
+        # (PRESERVE_PKG_FIELDS). This deliberately excludes CKAN computed/managed
+        # fields returned by package_show (metadata_created, revision_id,
+        # organization, num_tags, ...) which must not be echoed back into
+        # package_update. setdefault keeps the harvester's own value where it set
+        # one; resources/extras are handled separately above.
+        for key in PRESERVE_PKG_FIELDS:
+            if key in existing:
+                pkg_dict.setdefault(key, existing[key])
 
     def _create_custom_package_create_schema(self) -> dict[str, Any]:
         from ckan.lib.navl.validators import unicode_safe

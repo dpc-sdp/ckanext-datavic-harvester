@@ -36,6 +36,8 @@ register(OrganizationFactory, "organization")
 class DatasetFactory(factories.Dataset):
     access = "yes"
     category = factory.LazyFunction(lambda: GroupFactory()["id"])
+    contact_point = "test.contact@example.com"
+    data_owner = "Test Data Owner"
     date_created_data_asset = factory.Faker("date")
     extract = factory.Faker("sentence")
     license_id = "notspecified"

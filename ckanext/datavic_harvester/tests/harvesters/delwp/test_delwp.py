@@ -1274,14 +1274,18 @@ class TestPreserveResourceIds:
     ``pkg_dict["resources"]`` against the existing package's resources and, on a
     match, stamps the existing resource ``id`` onto the incoming dict so
     package_update edits the resource in place rather than recreating it with a
-    new UUID. Matching is on the normalised ``(name, format)`` pair
-    (``(x or "").strip().lower()``), active resources only, each existing
-    resource matched at most once.
+    new UUID.
+
+    Matching is two-pass: prefer normalised ``(name, format)``, then fall back
+    to ``format`` alone when that format is unique on both sides (exactly one
+    unused existing and exactly one unmatched incoming). Active resources only;
+    each existing resource matched at most once.
 
     Why needed: only the happy path is covered indirectly by the change-detection
     integration test. The matching rules (normalisation, active-only filter,
-    at-most-once matching, duplicate keys) are where silent UUID churn hides on
-    messy source data. These are pure unit tests (mocked ``pkg``, no DB).
+    at-most-once matching, duplicate keys, format fallback) are where silent
+    UUID churn hides on messy source data. These are pure unit tests (mocked
+    ``pkg``, no DB).
     """
 
     def _existing(self, name, fmt, id, state="active"):
@@ -1406,11 +1410,11 @@ class TestPreserveResourceIds:
         assert "id" not in result[0]
 
     def test_incoming_without_match_is_left_untouched(self):
-        """An incoming resource with no matching existing (name, format) is not
-        given a carried id.
+        """An incoming resource with no matching existing (name, format) and a
+        different format is not given a carried id.
 
-        Why needed: a new format added at source (or name drift) must not be
-        falsely matched to an unrelated existing resource.
+        Why needed: a new format added at source must not be falsely matched to
+        an unrelated existing resource of another format.
 
         Expected outcome: the unmatched incoming resource has no id assigned.
         """
@@ -1430,10 +1434,108 @@ class TestPreserveResourceIds:
         an unrelated resource.
 
         Expected outcome: an incoming resource with name=None and a real format
-        does not match an existing resource with a real name; no exception.
+        does not match an existing resource with a different format; no exception.
         """
         existing = [self._existing("data", "csv", "uuid-A")]
         incoming = [self._incoming(None, "json")]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+
+    def test_format_fallback_when_name_changes(self):
+        """When (name, format) no longer matches because the dataset title
+        (embedded in the resource name) changed, fall back to format alone if
+        that format is unique on both sides.
+
+        Why needed: DELWP resource names are ``"{title} {format}"``. A title
+        rename would otherwise churn every resource UUID even though the
+        download endpoints are the same formats.
+
+        Expected outcome: "Old Title SHP"/SHP → "New Title SHP"/SHP keeps
+        uuid-A via the format fallback.
+        """
+        existing = [self._existing("Old Title SHP", "SHP", "uuid-A")]
+        incoming = [self._incoming("New Title SHP", "SHP")]
+
+        result = self._run(existing, incoming)
+
+        assert result[0]["id"] == "uuid-A"
+
+    def test_format_fallback_preserves_mixed_exact_and_renamed(self):
+        """Exact (name, format) matches are preferred; format fallback only
+        applies to the remaining unmatched resources.
+
+        Why needed: a harvest may keep some resource names stable while others
+        rename with the dataset title. Exact matches must not be stolen by the
+        fallback, and renamed formats must still keep their UUID.
+
+        Expected outcome: unchanged SHP keeps uuid-SHP via exact match; renamed
+        CSV keeps uuid-CSV via format fallback.
+        """
+        existing = [
+            self._existing("Coastal SHP", "SHP", "uuid-SHP"),
+            self._existing("Coastal CSV", "CSV", "uuid-CSV"),
+        ]
+        incoming = [
+            self._incoming("Coastal SHP", "SHP"),
+            self._incoming("Coastal Updated CSV", "CSV"),
+        ]
+
+        result = self._run(existing, incoming)
+
+        assert result[0]["id"] == "uuid-SHP"
+        assert result[1]["id"] == "uuid-CSV"
+
+    def test_format_fallback_skipped_when_format_not_unique_existing(self):
+        """Format fallback must not run when more than one unused existing
+        resource shares the format.
+
+        Why needed: without the uniqueness guard, a renamed incoming SHP could
+        steal either of two existing SHP UUIDs arbitrarily.
+
+        Expected outcome: renamed incoming SHP receives no carried id.
+        """
+        existing = [
+            self._existing("Layer A SHP", "SHP", "uuid-A"),
+            self._existing("Layer B SHP", "SHP", "uuid-B"),
+        ]
+        incoming = [self._incoming("Renamed SHP", "SHP")]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+
+    def test_format_fallback_skipped_when_format_not_unique_incoming(self):
+        """Format fallback must not run when more than one unmatched incoming
+        resource shares the format.
+
+        Why needed: two renamed incoming SHPs must not both claim (or race for)
+        a single existing SHP UUID.
+
+        Expected outcome: neither incoming resource receives a carried id.
+        """
+        existing = [self._existing("Layer A SHP", "SHP", "uuid-A")]
+        incoming = [
+            self._incoming("Renamed One SHP", "SHP"),
+            self._incoming("Renamed Two SHP", "SHP"),
+        ]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+        assert "id" not in result[1]
+
+    def test_format_fallback_skips_blank_format(self):
+        """Blank/missing format is never used as a fallback key.
+
+        Why needed: empty-format resources would otherwise collapse into one
+        ambiguous bucket and risk cross-matching unrelated rows.
+
+        Expected outcome: renamed incoming with blank format gets no id.
+        """
+        existing = [self._existing("Old Title", "", "uuid-A")]
+        incoming = [self._incoming("New Title", "")]
 
         result = self._run(existing, incoming)
 

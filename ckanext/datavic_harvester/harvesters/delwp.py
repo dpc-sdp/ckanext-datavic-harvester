@@ -1011,21 +1011,32 @@ class DelwpHarvester(DataVicBaseHarvester):
         package_update updates them in place instead of recreating them with
         new UUIDs.
 
-        Match is on the case-insensitive, whitespace-trimmed (name, format) pair
-        (``(x or "").strip().lower()``). Active resources only; each existing
-        resource is matched at most once.
+        Matching is two-pass, active resources only, each existing resource
+        matched at most once:
+
+        1. Prefer the case-insensitive, whitespace-trimmed ``(name, format)``
+           pair (``(x or "").strip().lower()``).
+        2. For any still-unmatched incoming resource, fall back to ``format``
+           alone when that format is unique on both sides (exactly one unused
+           existing resource and exactly one unmatched incoming resource share
+           it). This keeps UUIDs stable when the dataset title (and therefore
+           the embedded resource name) changes but the format set does not.
         """
         by_name_fmt: dict[tuple[str, str], list] = {}
+        by_format: dict[str, list] = {}
         for res in pkg.resources or []:
             if res.state != "active":
                 continue
-            key = (
+            name_key = (
                 (res.name or "").strip().lower(),
                 (res.format or "").strip().lower(),
             )
-            by_name_fmt.setdefault(key, []).append(res)
+            fmt_key = (res.format or "").strip().lower()
+            by_name_fmt.setdefault(name_key, []).append(res)
+            by_format.setdefault(fmt_key, []).append(res)
 
         used: set[str] = set()
+        unmatched: list[dict[str, Any]] = []
         for res in pkg_dict.get("resources", []):
             key = (
                 (res.get("name") or "").strip().lower(),
@@ -1037,6 +1048,25 @@ class DelwpHarvester(DataVicBaseHarvester):
             if match:
                 res["id"] = match.id
                 used.add(match.id)
+            else:
+                unmatched.append(res)
+
+        # Format-only fallback: only when the format uniquely identifies the
+        # resource on both sides among what remains unmatched / unused.
+        unmatched_by_format: dict[str, list[dict[str, Any]]] = {}
+        for res in unmatched:
+            fmt = (res.get("format") or "").strip().lower()
+            if not fmt:
+                continue
+            unmatched_by_format.setdefault(fmt, []).append(res)
+
+        for fmt, incoming_list in unmatched_by_format.items():
+            existing_candidates = [
+                r for r in by_format.get(fmt, []) if r.id not in used
+            ]
+            if len(existing_candidates) == 1 and len(incoming_list) == 1:
+                incoming_list[0]["id"] = existing_candidates[0].id
+                used.add(existing_candidates[0].id)
 
     def _preserve_existing_metadata(self, pkg_dict: dict[str, Any], pkg) -> None:
         """Carry forward existing package metadata the harvester did not set,

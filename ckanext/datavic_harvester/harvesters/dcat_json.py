@@ -28,6 +28,14 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
             "description": "DataVic Harvester for DCAT dataset descriptions serialized as JSON",
         }
 
+    def validate_config(self, config: Optional[str]) -> str:
+        config_obj = json.loads(super().validate_config(config))
+        self._validate_default_custodian_field(config_obj, "default_data_owner")
+        self._validate_default_custodian_field(
+            config_obj, "default_contact_point"
+        )
+        return json.dumps(config_obj, indent=4)
+
     def gather_stage(self, harvest_job):
         self._set_config(harvest_job.source.config)
         return super().gather_stage(harvest_job)
@@ -235,9 +243,27 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
             pkg_dict["license_id"] = self.config["default_license"]["id"]
             pkg_dict["custom_licence_text"] = self.config["default_license"]["title"]
 
+        if not pkg_dict.get("data_owner") and "default_data_owner" in self.config:
+            pkg_dict["data_owner"] = self.config["default_data_owner"]
+
+        if (
+            not pkg_dict.get("contact_point")
+            and "default_contact_point" in self.config
+        ):
+            pkg_dict["contact_point"] = self.config["default_contact_point"]
+
         pkg_dict["tag_string"] = dcat_dict.get("keyword", [])
 
         pkg_dict.setdefault("update_frequency", "unknown")
+
+    def _validate_default_custodian_field(
+        self, config: dict[str, Any], key: str
+    ) -> None:
+        value = config.get(key)
+        if value is None:
+            return
+        if not isinstance(value, str):
+            raise ValueError(f"{key} must be a string")
 
     def _get_existing_dataset(self, guid: str) -> Optional[dict[str, Any]]:
         """Return a package with specific guid extra if exists"""

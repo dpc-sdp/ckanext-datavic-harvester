@@ -7,6 +7,7 @@ from typing import Optional, Any
 
 from bs4 import BeautifulSoup
 
+from ckan import model
 from ckan.plugins import toolkit as tk
 
 from ckanext.dcat import converters
@@ -38,6 +39,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
 
     def gather_stage(self, harvest_job):
         self._set_config(harvest_job.source.config)
+        self._mark_stale_harvest_objects_not_current(harvest_job.source.id)
         return super().gather_stage(harvest_job)
 
     def import_stage(self, harvest_object):
@@ -59,9 +61,35 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
                     f"Dataset with id {existing_dataset['id']} wasn't modified "
                     "from the last harvest. Skipping this dataset..."
                 )
-                return False
+                return "unchanged"
 
         return super().import_stage(harvest_object)
+
+    def _mark_stale_harvest_objects_not_current(self, harvest_source_id: str) -> None:
+        """Ignore current harvest objects whose linked package has been purged."""
+
+        stale_objects = (
+            model.Session.query(HarvestObject)
+            .filter(HarvestObject.current == True)
+            .filter(HarvestObject.harvest_source_id == harvest_source_id)
+            .all()
+        )
+
+        for harvest_object in stale_objects:
+            if harvest_object.package_id and model.Package.get(
+                harvest_object.package_id
+            ):
+                continue
+
+            log.warning(
+                "Ignoring stale current harvest object for guid %s; package_id %s "
+                "does not exist",
+                harvest_object.guid,
+                harvest_object.package_id,
+            )
+            harvest_object.current = False
+            model.Session.add(harvest_object)
+            model.Session.commit()
 
     def _get_package_dict(
         self, harvest_object: HarvestObject

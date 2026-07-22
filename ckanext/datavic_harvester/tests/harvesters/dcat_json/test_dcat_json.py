@@ -42,23 +42,39 @@ class TestDcatHarvester:
         harvester: DcatHarvester,
         harvest_job_factory,
         harvest_source_factory,
+        harvest_object_factory,
         dcat_config: DcatConfig,
     ):
         source = harvest_source_factory(
             config=json.dumps(dcat_config), source_type=harvester.info()["name"]
         )
         harvest_job = harvest_job_factory(source=source)
+        datasets = json.loads(harvester._get_mocked_content())["dataset"]
+        stale_harvest_object = harvest_object_factory(
+            guid=datasets[0]["identifier"],
+            content=json.dumps(datasets[0]),
+            job=harvest_job,
+            extras={"status": "change"},
+        )
+        stale_harvest_object.current = True
+        stale_harvest_object.package_id = None
+        model.Session.add(stale_harvest_object)
+        model.Session.commit()
+
         obj_ids = harvester.gather_stage(harvest_job)
 
         assert harvest_job.gather_errors == []
         assert type(obj_ids) == list
 
-        datasets = json.loads(harvester._get_mocked_content())["dataset"]
         assert len(set(obj_ids)) == len(datasets)
 
         harvest_object = harvest_model.HarvestObject.get(obj_ids[0])
         assert harvest_object.guid == datasets[0]["identifier"]
         assert json.loads(harvest_object.content) == datasets[0]
+        assert harvester._get_object_extra(harvest_object, "status") == "new"
+
+        model.Session.refresh(stale_harvest_object)
+        assert stale_harvest_object.current is False
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_import_stage(
@@ -94,6 +110,38 @@ class TestDcatHarvester:
 
         source = call_action("package_show", id=source.id)
         assert source["owner_org"] == package.owner_org
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_import_stage_returns_unchanged_when_modified_date_matches(
+        self,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        first_harvest_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+        )
+
+        assert harvester.import_stage(first_harvest_object) is True
+
+        second_harvest_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+            extras={"status": "change"},
+        )
+
+        assert harvester.import_stage(second_harvest_object) == "unchanged"
+        assert second_harvest_object.errors == []
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_get_pkg_dict(

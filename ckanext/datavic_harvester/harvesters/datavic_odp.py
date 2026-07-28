@@ -10,10 +10,13 @@ from __future__ import annotations
 import json
 import logging
 
+import requests
+from requests.exceptions import HTTPError, RequestException
+
 import ckan.plugins.toolkit as tk
 from ckan import model
 from ckanext.harvest.harvesters import CKANHarvester
-from ckanext.harvest.harvesters.ckanharvester import SearchError
+from ckanext.harvest.harvesters.ckanharvester import ContentFetchError, SearchError
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest_basket.harvesters.base_harvester import BasketBasicHarvester
 
@@ -155,6 +158,36 @@ class DataVicODPHarvester(CKANHarvester, BasketBasicHarvester):
         pkg_dicts = super()._search_for_datasets(remote_ckan_base_url, fq_terms)
         max_datasets = int(self.config.get("max_datasets", 0))
         return pkg_dicts[:max_datasets] if max_datasets else pkg_dicts
+
+    def _get_content(self, url):
+        """Fetch remote content, sending the API key in both the ``Authorization``
+        and ``X-CKAN-API-Key`` headers.
+
+        ODP authenticates via ``X-CKAN-API-Key`` (its configured
+        ``apitoken_header_name``), which the base ``_get_content`` does not send.
+        """
+        headers = {}
+
+        user_agent = self.config.get("user_agent")
+        if user_agent:
+            headers["User-Agent"] = str(user_agent)
+
+        api_key = self.config.get("api_key")
+        if api_key:
+            headers["Authorization"] = api_key
+            headers["X-CKAN-API-Key"] = api_key
+
+        try:
+            http_request = requests.get(url, headers=headers)
+        except HTTPError as e:
+            raise ContentFetchError(
+                "HTTP error: %s %s" % (e.response.status_code, e.request.url)
+            )
+        except RequestException as e:
+            raise ContentFetchError("Request error: %s" % e)
+        except Exception as e:
+            raise ContentFetchError("HTTP general exception: %s" % e)
+        return http_request.text
 
     def _search_datasets(self, remote_url: str):
         url = remote_url.rstrip("/") + "/api/action/package_search?rows=1"

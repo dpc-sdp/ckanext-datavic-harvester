@@ -31,6 +31,65 @@ from ckanext.datavic_harvester.harvesters.base import (
 log = logging.getLogger(__name__)
 HASH_FIELD = "harvester_data_hash"
 
+# Change-detection hash whitelist. Only fields genuinely derived from the remote
+# source metadata are hashed; everything the harvester injects (static literals,
+# config-derived values, CKAN-managed fields) or computes at run time is excluded.
+# In particular, resource ``size``/``filesize`` come from a live network fetch
+# (``get_resource_size``) and vary between runs, so they MUST NOT be hashed.
+HASH_PKG_FIELDS = frozenset(
+    {
+        "title",
+        "notes",
+        "extract",
+        "tags",
+        "last_updated",
+        "data_owner",
+        "date_created_data_asset",
+        "date_modified_data_asset",
+        "update_frequency",
+        "private",
+        "owner_org",
+    }
+)
+HASH_RESOURCE_FIELDS = frozenset(
+    {
+        "name",
+        "format",
+        "period_start",
+        "period_end",
+        "url",
+        "attribution",
+    }
+)
+
+# Below are the fields that are preserved on the update path (package_update)
+# so that they are not overwritten by the harvester.
+# This list need to be kept in sync with the iar_ckan_dataset.yml schema.
+PRESERVE_PKG_FIELDS = frozenset(
+    {
+        "alias",
+        "agency_program_domain",
+        "custom_licence_text",
+        "custom_licence_link",
+        "dtv_preview",
+        "bil_confidentiality",
+        "bil_confidentiality_description",
+        "bil_availability",
+        "bil_availability_description",
+        "bil_integrity",
+        "bil_integrity_description",
+        "source_ict_system",
+        "record_disposal_category",
+        "disposal_category",
+        "disposal_class",
+        "workflow_status_notes",
+        "role",
+        "maintainer_email",
+        "skip_syndication",
+        "syndicated_id",
+    }
+)
+
 
 class DelwpHarvester(DataVicBaseHarvester):
     HARVESTER = "DELWP Harvester"
@@ -713,6 +772,12 @@ class DelwpHarvester(DataVicBaseHarvester):
         context = self._make_context()
         data_hash = self._calculate_hash_for_data_dict(pkg_dict)
 
+        # Existing package whose resource IDs / metadata must be preserved on the
+        # update path. Left as None for creates. The preserve helpers run inside
+        # the package_update try block below so any failure is rolled back and
+        # recorded on the harvest object like a failed update.
+        pkg_to_preserve = None
+
         if status == "new":
             context["schema"] = self._create_custom_package_create_schema()
 
@@ -774,7 +839,7 @@ class DelwpHarvester(DataVicBaseHarvester):
                             harvest_object.package_id,
                             pkg.title,
                         )
-                        
+
                     if previous_hash != data_hash:
                         log.info(
                             "%s: dataset id=%s (%s) has changed, updating.",
@@ -786,12 +851,26 @@ class DelwpHarvester(DataVicBaseHarvester):
                     pkg_dict["state"] = "active"
                     pkg_dict[HASH_FIELD] = data_hash
 
+                    # Preserve on the update path; helpers run inside the
+                    # package_update try block below so failures are handled.
+                    pkg_to_preserve = pkg
+
         action: str = "package_create" if status == "new" else "package_update"
         status: str = "Created" if status == "new" else "Updated"
         log.debug("%s: calling action=%s for guid=%s", self.HARVESTER, action, harvest_object.guid)
 
         try:
             context["return_id_only"] = False
+
+            if pkg_to_preserve is not None:
+                # Preserve resource IDs so package_update edits resources in
+                # place rather than recreating them with new UUIDs.
+                self._preserve_resource_ids(pkg_dict, pkg_to_preserve)
+
+                # Preserve existing metadata (e.g. syndicated_id,
+                # skip_syndication) that package_update would otherwise drop.
+                self._preserve_existing_metadata(pkg_dict, pkg_to_preserve)
+
             dataset = tk.get_action(action)(context, pkg_dict)
             log.info(
                 "%s: %s dataset with id %s (%s)",
@@ -926,6 +1005,110 @@ class DelwpHarvester(DataVicBaseHarvester):
             pkg_dict["extras"].append({"key": key, "value": value})
 
         return pkg_dict
+
+    def _preserve_resource_ids(self, pkg_dict: dict[str, Any], pkg) -> None:
+        """Carry existing resource IDs onto matching incoming resources so
+        package_update updates them in place instead of recreating them with
+        new UUIDs.
+
+        Matching is two-pass, active resources only, each existing resource
+        matched at most once:
+
+        1. Prefer the case-insensitive, whitespace-trimmed ``(name, format)``
+           pair (``(x or "").strip().lower()``).
+        2. For any still-unmatched incoming resource, fall back to ``format``
+           alone when that format is unique on both sides (exactly one unused
+           existing resource and exactly one unmatched incoming resource share
+           it). This keeps UUIDs stable when the dataset title (and therefore
+           the embedded resource name) changes but the format set does not.
+        """
+        by_name_fmt: dict[tuple[str, str], list] = {}
+        by_format: dict[str, list] = {}
+        for res in pkg.resources or []:
+            if res.state != "active":
+                continue
+            name_key = (
+                (res.name or "").strip().lower(),
+                (res.format or "").strip().lower(),
+            )
+            fmt_key = (res.format or "").strip().lower()
+            by_name_fmt.setdefault(name_key, []).append(res)
+            by_format.setdefault(fmt_key, []).append(res)
+
+        used: set[str] = set()
+        unmatched: list[dict[str, Any]] = []
+        for res in pkg_dict.get("resources", []):
+            key = (
+                (res.get("name") or "").strip().lower(),
+                (res.get("format") or "").strip().lower(),
+            )
+            match = next(
+                (r for r in by_name_fmt.get(key, []) if r.id not in used), None
+            )
+            if match:
+                res["id"] = match.id
+                used.add(match.id)
+            else:
+                unmatched.append(res)
+
+        # Format-only fallback: only when the format uniquely identifies the
+        # resource on both sides among what remains unmatched / unused.
+        unmatched_by_format: dict[str, list[dict[str, Any]]] = {}
+        for res in unmatched:
+            fmt = (res.get("format") or "").strip().lower()
+            if not fmt:
+                continue
+            unmatched_by_format.setdefault(fmt, []).append(res)
+
+        for fmt, incoming_list in unmatched_by_format.items():
+            existing_candidates = [
+                r for r in by_format.get(fmt, []) if r.id not in used
+            ]
+            if len(existing_candidates) == 1 and len(incoming_list) == 1:
+                incoming_list[0]["id"] = existing_candidates[0].id
+                used.add(existing_candidates[0].id)
+
+    def _preserve_existing_metadata(self, pkg_dict: dict[str, Any], pkg) -> None:
+        """Carry forward existing package metadata the harvester did not set,
+        so package_update does not drop existing values.
+
+        The harvester's own values win wherever it set them. Resources are
+        owned by _preserve_resource_ids and are left untouched here.
+        """
+        try:
+            existing = tk.get_action("package_show")(
+                {"ignore_auth": True}, {"id": pkg.id}
+            )
+        except tk.ObjectNotFound:
+            log.error(
+                "%s: unable to read existing package id=%s while preserving "
+                "metadata; aborting update to avoid dropping preserved fields",
+                self.HARVESTER,
+                pkg.id,
+                exc_info=True,
+            )
+            raise
+
+        pkg_dict.setdefault("extras", [])
+        harvester_extra_keys = {e.get("key") for e in pkg_dict["extras"]}
+
+        # Merge the extras LIST element-wise so existing-only free-form extras
+        # are not dropped (dict.update would replace the whole list).
+        for extra in existing.get("extras", []):
+            if extra.get("key") not in harvester_extra_keys:
+                pkg_dict["extras"].append(
+                    {"key": extra["key"], "value": extra["value"]}
+                )
+
+        # Preserve only the known scheming fields the harvester does not set
+        # (PRESERVE_PKG_FIELDS). This deliberately excludes CKAN computed/managed
+        # fields returned by package_show (metadata_created, revision_id,
+        # organization, num_tags, ...) which must not be echoed back into
+        # package_update. setdefault keeps the harvester's own value where it set
+        # one; resources/extras are handled separately above.
+        for key in PRESERVE_PKG_FIELDS:
+            if key in existing:
+                pkg_dict.setdefault(key, existing[key])
 
     def _create_custom_package_create_schema(self) -> dict[str, Any]:
         from ckan.lib.navl.validators import unicode_safe
@@ -1229,6 +1412,58 @@ class DelwpHarvester(DataVicBaseHarvester):
             return f.read()
 
     def _calculate_hash_for_data_dict(self, pkg_dict: dict[str, Any]) -> str:
-        """Calculate a hash for a package_dict to understand if it's changed"""
-        json_str = json.dumps(pkg_dict, sort_keys=True)
+        """Calculate a hash for a package_dict to understand if it's changed.
+
+        Only source-derived fields are hashed (see HASH_PKG_FIELDS and
+        HASH_RESOURCE_FIELDS). Harvester-injected literals, config-derived and
+        CKAN-managed values, and volatile run-time values (notably resource
+        ``size``/``filesize``) are excluded so that an unchanged dataset hashes
+        identically between runs.
+        """
+        canonical = self._build_hash_payload(pkg_dict)
+        json_str = json.dumps(canonical, sort_keys=True)
         return sha256(json_str.encode()).hexdigest()
+
+    def _build_hash_payload(self, pkg_dict: dict[str, Any]) -> dict[str, Any]:
+        """Project a pkg_dict onto the source-derived hash whitelist.
+
+        Resources are reduced to whitelisted fields and sorted by a stable key so
+        that resource ordering does not affect the hash.
+        """
+        # Keep only the package-level fields that come from the source metadata.
+        payload = self._pick_whitelisted_fields(pkg_dict, HASH_PKG_FIELDS)
+
+        # Reduce each resource to its source-derived fields (drops volatile values
+        # such as size/filesize).
+        source_resources = pkg_dict.get("resources") or []
+        whitelisted_resources = []
+        for resource in source_resources:
+            reduced_resource = self._pick_whitelisted_fields(
+                resource, HASH_RESOURCE_FIELDS
+            )
+            whitelisted_resources.append(reduced_resource)
+
+        # Sort so that resource ordering does not change the hash.
+        whitelisted_resources.sort(key=self._resource_sort_key)
+
+        payload["resources"] = whitelisted_resources
+
+        return payload
+
+    @staticmethod
+    def _pick_whitelisted_fields(
+        source: dict[str, Any], whitelist: frozenset[str]
+    ) -> dict[str, Any]:
+        """Return a copy of ``source`` containing only the whitelisted keys."""
+        picked: dict[str, Any] = {}
+        for key in whitelist:
+            if key in source:
+                picked[key] = source[key]
+        return picked
+
+    @staticmethod
+    def _resource_sort_key(resource: dict[str, Any]) -> tuple[str, str]:
+        """Stable sort key for a resource: ``(url, format)``."""
+        url = resource.get("url") or ""
+        res_format = resource.get("format") or ""
+        return (url, res_format)

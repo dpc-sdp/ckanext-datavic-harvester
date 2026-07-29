@@ -154,6 +154,76 @@ class TestDcatHarvester:
         assert harvester._get_object_extra(harvest_object, "status") == "delete"
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_gather_and_import_recreates_purged_datasets(
+        self,
+        monkeypatch,
+        harvester: DcatHarvester,
+        harvest_job_factory,
+        harvest_source_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        monkeypatch.setattr(
+            harvester,
+            "_get_mocked_content",
+            lambda: json.dumps({"dataset": [dcat_dataset]}),
+        )
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+
+        # First harvest: gather the dataset from the DCAT JSON source.
+        first_job = harvest_job_factory(source=source)
+        first_obj_ids = harvester.gather_stage(first_job)
+        first_objects = [harvest_model.HarvestObject.get(id_) for id_ in first_obj_ids]
+
+        assert first_job.gather_errors == []
+        assert len(first_objects) == 1
+        assert harvester._get_object_extra(first_objects[0], "status") == "new"
+
+        # First import: create a package from the gathered harvest object.
+        first_object = first_objects[0]
+        assert harvester.import_stage(first_object) is True
+        assert first_object.errors == []
+        self._finish_harvest_job(first_job)
+
+        original_package_id = first_object.package_id
+        assert model.Package.get(original_package_id)
+
+        # Delete and hard-purge the harvested package from CKAN.
+        self._hard_purge_harvested_packages([original_package_id])
+        assert model.Package.get(original_package_id) is None
+        first_object = harvest_model.HarvestObject.get(first_obj_ids[0])
+        assert first_object.current is True
+
+        # Second harvest: gather the same DCAT source after package purge.
+        second_job = harvest_job_factory(source=source)
+        second_obj_ids = harvester.gather_stage(second_job)
+        second_objects = [
+            harvest_model.HarvestObject.get(id_) for id_ in second_obj_ids
+        ]
+        first_objects_after_second_gather = [
+            harvest_model.HarvestObject.get(id_) for id_ in first_obj_ids
+        ]
+
+        assert second_job.gather_errors == []
+        assert len(second_objects) == 1
+        assert first_objects_after_second_gather[0].current is False
+        assert harvester._get_object_extra(second_objects[0], "status") == "new"
+        assert second_objects[0].package_id is None
+
+        # Second import: recreate the purged dataset as a new CKAN package.
+        second_object = second_objects[0]
+        assert harvester.import_stage(second_object) is True
+
+        assert second_object.errors == []
+        assert second_object.package_id != original_package_id
+        assert model.Package.get(second_object.package_id).state == "active"
+        assert model.Package.get(original_package_id) is None
+        error_text = "\n".join(str(error) for error in second_object.errors)
+        assert "Package was not found" not in error_text
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_import_stage(
         self,
         harvester: DcatHarvester,
@@ -221,6 +291,55 @@ class TestDcatHarvester:
         assert second_harvest_object.errors == []
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_import_stage_recreates_purged_dataset_from_change_object(
+        self,
+        monkeypatch,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        monkeypatch.setattr(
+            harvester,
+            "_get_mocked_content",
+            lambda: json.dumps({"dataset": [dcat_dataset]}),
+        )
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+
+        first_job = harvest_job_factory(source=source)
+        first_obj_ids = harvester.gather_stage(first_job)
+        first_harvest_object = harvest_model.HarvestObject.get(first_obj_ids[0])
+
+        assert harvester._get_object_extra(first_harvest_object, "status") == "new"
+        assert harvester.import_stage(first_harvest_object) is True
+        self._finish_harvest_job(first_job)
+        original_package_id = first_harvest_object.package_id
+        assert original_package_id
+
+        second_job = harvest_job_factory(source=source)
+        second_obj_ids = harvester.gather_stage(second_job)
+        second_harvest_object = harvest_model.HarvestObject.get(second_obj_ids[0])
+
+        assert harvester._get_object_extra(second_harvest_object, "status") == "change"
+        assert second_harvest_object.package_id == original_package_id
+
+        self._hard_purge_harvested_packages([original_package_id])
+        assert model.Package.get(original_package_id) is None
+        second_harvest_object = harvest_model.HarvestObject.get(
+            second_harvest_object.id
+        )
+
+        assert harvester.import_stage(second_harvest_object) is True
+        assert second_harvest_object.errors == []
+        assert second_harvest_object.package_id
+        assert second_harvest_object.package_id != original_package_id
+        assert model.Package.get(second_harvest_object.package_id).state == "active"
+        assert harvester._get_object_extra(second_harvest_object, "status") == "new"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_import_stage_deletes_object_without_content(
         self,
         harvester: DcatHarvester,
@@ -270,10 +389,8 @@ class TestDcatHarvester:
         assert harvester.import_stage(first_harvest_object) is True
         package_id = first_harvest_object.package_id
         package = call_action("package_show", id=package_id)
-        package["extras"].append(
-            {"key": "syndicated_id", "value": "existing-odp-package-id"}
-        )
-        package["extras"].append({"key": "skip_syndication", "value": "false"})
+        package["syndicated_id"] = "existing-odp-package-id"
+        package["skip_syndication"] = "false"
         call_action(
             "package_update",
             context={"user": harvester._get_user_name(), "ignore_auth": True},
@@ -308,10 +425,8 @@ class TestDcatHarvester:
             context={"user": harvester._get_user_name(), "ignore_auth": True},
             id=package_id,
         )
-        assert tk.h.get_pkg_dict_extra(
-            restored_package, "syndicated_id"
-        ) == "existing-odp-package-id"
-        assert tk.h.get_pkg_dict_extra(restored_package, "skip_syndication") == "false"
+        assert restored_package["syndicated_id"] == "existing-odp-package-id"
+        assert restored_package["skip_syndication"] == "false"
         assert second_harvest_object.errors == []
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
@@ -368,3 +483,19 @@ class TestDcatHarvester:
         assert dataset == harvester._get_existing_dataset("test")
 
         assert not harvester._get_existing_dataset("test2")
+
+    def _hard_purge_harvested_packages(self, package_ids: list[str]) -> None:
+        sysadmin = call_action("get_site_user", ignore_auth=True)
+        context = {"user": sysadmin["name"], "ignore_auth": True}
+
+        for package_id in package_ids:
+            call_action("package_delete", context, id=package_id)
+
+        for package_id in package_ids:
+            call_action("dataset_purge", context, id=package_id)
+
+    def _finish_harvest_job(self, job) -> None:
+        job.status = "Finished"
+        job.gather_finished = dt.now()
+        job.finished = dt.now()
+        job.save()

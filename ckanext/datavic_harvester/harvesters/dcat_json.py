@@ -66,6 +66,15 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
         dcat_modified = dcat_dict.get("modified")
         existing_dataset = self._get_existing_dataset(harvest_object.guid)
         existing_package = model.Package.get(harvest_object.package_id)
+
+        if (
+            status == "change"
+            and existing_package is None
+            and existing_dataset is None
+        ):
+            self._mark_missing_package_change_as_new(harvest_object)
+            status = "new"
+
         restoring_deleted_package = (
             status == "change"
             and existing_package is not None
@@ -91,6 +100,23 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
                 return "unchanged"
 
         return super().import_stage(harvest_object)
+
+    def _mark_missing_package_change_as_new(
+        self, harvest_object: HarvestObject
+    ) -> None:
+        log.warning(
+            "Dataset not found for status='change'. GUID: %s; package_id: %s. "
+            "Re-creating as new dataset.",
+            harvest_object.guid,
+            harvest_object.package_id,
+        )
+
+        harvest_object.package_id = None
+        for extra in harvest_object.extras:
+            if extra.key == "status":
+                extra.value = "new"
+                break
+        harvest_object.save()
 
     def _restore_deleted_packages_for_reappeared_guids(
         self, harvest_source_id: str, object_ids: list[str]

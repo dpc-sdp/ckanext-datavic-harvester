@@ -9,6 +9,7 @@ from datetime import datetime as dt
 import pytest
 
 from ckan import model
+from ckan.plugins import toolkit as tk
 from ckan.tests.helpers import call_action
 
 import ckanext.harvest.model as harvest_model
@@ -77,6 +78,82 @@ class TestDcatHarvester:
         assert stale_harvest_object.current is False
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_gather_stage_marks_reappeared_deleted_dataset_as_change(
+        self,
+        harvester: DcatHarvester,
+        harvest_job_factory,
+        harvest_source_factory,
+        harvest_object_factory,
+        dataset_factory,
+        dcat_config: DcatConfig,
+    ):
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        dataset = dataset_factory()
+        tk.get_action("package_delete")(
+            {"user": harvester._get_user_name(), "ignore_auth": True},
+            {"id": dataset["id"]},
+        )
+        dcat_dataset = json.loads(harvester._get_mocked_content())["dataset"][0]
+        deleted_harvest_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=None,
+            job=harvest_job,
+            package_id=dataset["id"],
+            extras={"status": "delete"},
+        )
+        deleted_harvest_object.current = False
+        deleted_harvest_object.report_status = "deleted"
+        model.Session.add(deleted_harvest_object)
+        model.Session.commit()
+
+        obj_ids = harvester.gather_stage(harvest_job)
+
+        harvest_object = harvest_model.HarvestObject.get(obj_ids[0])
+        assert harvest_object.guid == dcat_dataset["identifier"]
+        assert harvest_object.package_id == dataset["id"]
+        assert harvester._get_object_extra(harvest_object, "status") == "change"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_gather_stage_returns_saved_delete_object_id(
+        self,
+        monkeypatch,
+        harvester: DcatHarvester,
+        harvest_job_factory,
+        harvest_source_factory,
+        harvest_object_factory,
+        dataset_factory,
+        dcat_config: DcatConfig,
+    ):
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        dataset = dataset_factory()
+        previous_harvest_object = harvest_object_factory(
+            guid="deleted-dcat-dataset",
+            content=json.dumps({"identifier": "deleted-dcat-dataset"}),
+            job=harvest_job,
+            package_id=dataset["id"],
+            extras={"status": "new"},
+        )
+        previous_harvest_object.current = True
+        model.Session.add(previous_harvest_object)
+        model.Session.commit()
+
+        monkeypatch.setattr(harvester, "_get_mocked_content", lambda: '{"dataset":[]}')
+
+        obj_ids = harvester.gather_stage(harvest_job)
+
+        assert obj_ids
+        assert all(obj_ids)
+        harvest_object = harvest_model.HarvestObject.get(obj_ids[0])
+        assert harvest_object.package_id == dataset["id"]
+        assert harvester._get_object_extra(harvest_object, "status") == "delete"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_import_stage(
         self,
         harvester: DcatHarvester,
@@ -141,6 +218,100 @@ class TestDcatHarvester:
         )
 
         assert harvester.import_stage(second_harvest_object) == "unchanged"
+        assert second_harvest_object.errors == []
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_import_stage_deletes_object_without_content(
+        self,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        dataset_factory,
+        dcat_config: DcatConfig,
+    ):
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        dataset = dataset_factory()
+        harvest_object = harvest_object_factory(
+            guid="deleted-dcat-dataset",
+            content=None,
+            job=harvest_job,
+            package_id=dataset["id"],
+            extras={"status": "delete"},
+        )
+
+        assert harvester.import_stage(harvest_object) is True
+        assert model.Package.get(dataset["id"]).state == "deleted"
+        assert harvest_object.errors == []
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_import_stage_restores_deleted_dataset(
+        self,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        first_harvest_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+        )
+
+        assert harvester.import_stage(first_harvest_object) is True
+        package_id = first_harvest_object.package_id
+        package = call_action("package_show", id=package_id)
+        package["extras"].append(
+            {"key": "syndicated_id", "value": "existing-odp-package-id"}
+        )
+        package["extras"].append({"key": "skip_syndication", "value": "false"})
+        call_action(
+            "package_update",
+            context={"user": harvester._get_user_name(), "ignore_auth": True},
+            **package,
+        )
+        tk.get_action("package_delete")(
+            {"user": harvester._get_user_name(), "ignore_auth": True},
+            {"id": package_id},
+        )
+        assert model.Package.get(package_id).state == "deleted"
+
+        second_harvest_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+
+        assert harvester.import_stage(second_harvest_object) is True
+        assert second_harvest_object.package_id == package_id
+        assert model.Package.get(package_id).state == "active"
+        package_dict, dcat_dict = harvester._get_package_dict(second_harvest_object)
+        harvester.modify_package_dict(package_dict, dcat_dict, second_harvest_object)
+        assert package_dict["syndicated_id"] == "existing-odp-package-id"
+        assert package_dict["skip_syndication"] == "false"
+        extra_keys = {extra["key"] for extra in package_dict.get("extras", [])}
+        assert "syndicated_id" not in extra_keys
+        assert "skip_syndication" not in extra_keys
+        restored_package = call_action(
+            "package_show",
+            context={"user": harvester._get_user_name(), "ignore_auth": True},
+            id=package_id,
+        )
+        assert tk.h.get_pkg_dict_extra(
+            restored_package, "syndicated_id"
+        ) == "existing-odp-package-id"
+        assert tk.h.get_pkg_dict_extra(restored_package, "skip_syndication") == "false"
         assert second_harvest_object.errors == []
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")

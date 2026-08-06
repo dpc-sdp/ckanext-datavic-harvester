@@ -36,6 +36,8 @@ register(OrganizationFactory, "organization")
 class DatasetFactory(factories.Dataset):
     access = "yes"
     category = factory.LazyFunction(lambda: GroupFactory()["id"])
+    contact_point = "test.contact@example.com"
+    data_owner = "Test Data Owner"
     date_created_data_asset = factory.Faker("date")
     extract = factory.Faker("sentence")
     license_id = "notspecified"
@@ -163,6 +165,8 @@ def dcat_config(group):
         "default_groups": [group["id"]],
         "default_group_dicts": [group],
         "default_license": {"id": "notspecified", "title": "License not specified"},
+        "default_data_owner": "Default Data Owner",
+        "default_contact_point": "default.contact@example.com",
         "default_full_metadata_url": "https://localhost/metadata/",
         "full_metadata_url_pattern": "localhost/metadata",
     }

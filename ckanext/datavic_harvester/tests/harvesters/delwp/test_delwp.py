@@ -1087,3 +1087,673 @@ class TestRestoreFlow:
         assert obj2.errors == []
         pkg = call_action("package_show", id=package_id)
         assert pkg["state"] == "active"
+
+
+class TestCalculateHashForDataDict:
+    """Unit tests for _calculate_hash_for_data_dict (change-detection hash).
+
+    The hash must cover only source-derived fields. Volatile, harvester-injected
+    values (notably resource ``size``/``filesize`` from a live network fetch) must
+    not affect the hash, otherwise unchanged datasets are detected as "changed".
+
+    No DB or plugins required — the method is pure.
+    """
+
+    def _base_pkg_dict(self) -> dict[str, Any]:
+        return {
+            "title": "Coastal hazard assessment",
+            "notes": "An abstract from the source.",
+            "tags": [{"name": "coast"}],
+            "last_updated": "2026-01-01",
+            "extract": "An abstract from the sourc...",
+            "data_owner": "DEECA",
+            "date_created_data_asset": "2020-01-01",
+            "date_modified_data_asset": "2026-01-01",
+            "update_frequency": "asNeeded",
+            "private": False,
+            "protective_marking": "official",
+            "access": "yes",
+            "owner_org": "some-org-id",
+            "name": "coastal-hazard-assessment",
+            "extras": [{"key": "harvest_object_id", "value": "abc-123"}],
+            "resources": [
+                {
+                    "name": "WMS",
+                    "format": "WMS",
+                    "period_start": "2017-01-01",
+                    "period_end": "2017-12-31",
+                    "url": "https://example.com/wms/abc",
+                    "attribution": "DEECA",
+                    "size": 4096,
+                    "filesize": 4096,
+                }
+            ],
+        }
+
+    def test_hash_stable_across_volatile_resource_size(self):
+        """Resource size/filesize are fetched via a live HTTP HEAD request at harvest
+        time and fluctuate between runs independently of source metadata changes.
+        They are intentionally excluded from HASH_RESOURCE_FIELDS.
+
+        Why needed: without this exclusion a dataset with no real metadata change
+        would be detected as "changed" on every run solely because the file size
+        reported by the server differed.
+
+        What is tested: pkg_dicts that are identical except for resource size/filesize
+        values (4096, 0, and -1) are passed to _calculate_hash_for_data_dict.
+
+        Expected outcome: all three produce the same hash."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        pkg_b = self._base_pkg_dict()
+        pkg_c = self._base_pkg_dict()
+
+        pkg_b["resources"][0]["size"] = 0
+        pkg_b["resources"][0]["filesize"] = 0
+
+        pkg_c["resources"][0]["size"] = -1
+        pkg_c["resources"][0]["filesize"] = -1
+
+        hash_a = harvester._calculate_hash_for_data_dict(pkg_a)
+        hash_b = harvester._calculate_hash_for_data_dict(pkg_b)
+        hash_c = harvester._calculate_hash_for_data_dict(pkg_c)
+
+        assert hash_a == hash_b == hash_c
+
+    def test_hash_stable_across_injected_fields(self):
+        """Fields the harvester injects itself — extras such as harvest_object_id
+        and config-derived values such as full_metadata_url — are not source
+        metadata and must not influence the change-detection hash.
+
+        Why needed: these fields change between runs for reasons unrelated to the
+        remote source (e.g. a new harvest job ID). Including them would cause every
+        run to appear as a change even when the source data is identical.
+
+        What is tested: two pkg_dicts that differ only in extras and full_metadata_url
+        are passed to _calculate_hash_for_data_dict.
+
+        Expected outcome: both produce the same hash."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        pkg_b = self._base_pkg_dict()
+
+        pkg_b["extras"] = [{"key": "harvest_object_id", "value": "zzz-999"}]
+        pkg_b["full_metadata_url"] = "https://example.com/other"
+
+        hash_a = harvester._calculate_hash_for_data_dict(pkg_a)
+        hash_b = harvester._calculate_hash_for_data_dict(pkg_b)
+
+        assert hash_a == hash_b
+
+    def test_hash_changes_on_owner_org(self):
+        """owner_org is resolved from the resowner field in the remote source metadata
+        via _get_organisation().
+
+        Why needed: owner_org is source-derived, not harvester-injected, so a change
+        to it must be detected and trigger a package_update.
+
+        What is tested: two pkg_dicts that are identical except for owner_org are
+        passed to _calculate_hash_for_data_dict.
+
+        Expected outcome: the two hashes differ."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        pkg_b = self._base_pkg_dict()
+        pkg_b["owner_org"] = "a-different-org-id"
+
+        hash_a = harvester._calculate_hash_for_data_dict(pkg_a)
+        hash_b = harvester._calculate_hash_for_data_dict(pkg_b)
+
+        assert hash_a != hash_b
+
+    def test_hash_changes_on_source_field(self):
+        """The positive case for change detection: a genuine change to a source-derived
+        field must produce a different hash so that import_stage fires a package_update.
+
+        Why needed: confirms the hash is actually sensitive to real changes, not just
+        a constant or a hash of an empty input.
+
+        What is tested: two pkg_dicts that differ only in title are passed to
+        _calculate_hash_for_data_dict.
+
+        Expected outcome: the two hashes differ."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        pkg_b = self._base_pkg_dict()
+        pkg_b["title"] = "A different title"
+
+        hash_a = harvester._calculate_hash_for_data_dict(pkg_a)
+        hash_b = harvester._calculate_hash_for_data_dict(pkg_b)
+
+        assert hash_a != hash_b
+
+    def test_hash_stable_across_resource_ordering(self):
+        """The remote API does not guarantee a stable ordering of resources between
+        calls. The hash must be order-independent so that a reordering in the API
+        response does not trigger a spurious package_update.
+
+        Why needed: without order-normalisation, two identical harvests that happen
+        to return resources in a different sequence would be treated as a change on
+        every run.
+
+        What is tested: a pkg_dict with resources [WMS, WFS] and one with [WFS, WMS]
+        are passed to _calculate_hash_for_data_dict.
+
+        Expected outcome: both produce the same hash."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        second_resource = {
+            "name": "WFS",
+            "format": "WFS",
+            "period_start": "2017-01-01",
+            "period_end": "2017-12-31",
+            "url": "https://example.com/wfs/abc",
+            "attribution": "DEECA",
+            "size": 100,
+            "filesize": 100,
+        }
+        pkg_a["resources"].append(second_resource)
+
+        pkg_b = self._base_pkg_dict()
+        pkg_b["resources"] = [second_resource, pkg_b["resources"][0]]
+
+        assert harvester._calculate_hash_for_data_dict(
+            pkg_a
+        ) == harvester._calculate_hash_for_data_dict(pkg_b)
+
+
+class TestPreserveResourceIds:
+    """Unit tests for _preserve_resource_ids (resource UUID carry-forward).
+
+    _preserve_resource_ids matches each incoming resource in
+    ``pkg_dict["resources"]`` against the existing package's resources and, on a
+    match, stamps the existing resource ``id`` onto the incoming dict so
+    package_update edits the resource in place rather than recreating it with a
+    new UUID.
+
+    Matching is two-pass: prefer normalised ``(name, format)``, then fall back
+    to ``format`` alone when that format is unique on both sides (exactly one
+    unused existing and exactly one unmatched incoming). Active resources only;
+    each existing resource matched at most once.
+
+    Why needed: only the happy path is covered indirectly by the change-detection
+    integration test. The matching rules (normalisation, active-only filter,
+    at-most-once matching, duplicate keys, format fallback) are where silent
+    UUID churn hides on messy source data. These are pure unit tests (mocked
+    ``pkg``, no DB).
+    """
+
+    def _existing(self, name, fmt, id, state="active"):
+        """Build a mock existing resource as read from pkg.resources.
+
+        _preserve_resource_ids reads existing resources via the attributes
+        .state, .name, .format and .id.
+
+        Note: ``name`` is a reserved constructor kwarg on Mock (it sets the mock's
+        display name, not a .name attribute), so it must be assigned afterwards.
+        """
+        res = mock.MagicMock(state=state, format=fmt, id=id)
+        res.name = name
+        return res
+
+    def _incoming(self, name, fmt, id=None):
+        """Build an incoming resource dict as found in pkg_dict["resources"].
+
+        Incoming resources are read via .get("name") / .get("format") and, on a
+        match, have res["id"] assigned.
+        """
+        res: dict[str, Any] = {"name": name, "format": fmt}
+        if id is not None:
+            res["id"] = id
+        return res
+
+    def _run(self, existing, incoming):
+        """Invoke _preserve_resource_ids with mocked pkg and a pkg_dict.
+
+        Returns the (mutated in place) incoming list for assertions.
+        """
+        harvester = DelwpHarvester()
+        pkg = mock.MagicMock()
+        pkg.resources = existing
+        pkg_dict = {"resources": incoming}
+        harvester._preserve_resource_ids(pkg_dict, pkg)
+        return pkg_dict["resources"]
+
+    def test_exact_match_carries_existing_id(self):
+        """Happy path: an incoming resource whose (name, format) matches an
+        existing active resource inherits that resource's id.
+
+        Why needed: this is the positive baseline the whole method exists for -
+        without it package_update would mint a new UUID for an unchanged resource.
+
+        Expected outcome: the incoming resource, which arrived with no id, ends up
+        with the existing resource's id.
+        """
+        existing = [self._existing("WMS", "wms", "uuid-A")]
+        incoming = [self._incoming("WMS", "wms")]
+
+        result = self._run(existing, incoming)
+
+        assert result[0]["id"] == "uuid-A"
+
+    def test_match_normalises_case_and_whitespace(self):
+        """Matching is case-insensitive and trims surrounding whitespace on both
+        the name and the format.
+
+        Why needed: source metadata frequently varies casing/whitespace (" WMS "
+        vs "wms"); a strict byte comparison would miss the match and churn the UUID.
+
+        Expected outcome: " WMS " / "WMS" on the existing side matches
+        "wms" / "wms" on the incoming side and the id is carried.
+        """
+        existing = [self._existing(" WMS ", "WMS", "uuid-A")]
+        incoming = [self._incoming("wms", "wms")]
+
+        result = self._run(existing, incoming)
+
+        assert result[0]["id"] == "uuid-A"
+
+    def test_duplicate_key_matches_one_to_one_without_reuse(self):
+        """When several existing resources share the same normalised (name,
+        format) key, each incoming resource with that key consumes a distinct
+        existing id; ids are not reused, and once the existing resources are
+        exhausted further incoming resources are left unmatched.
+
+        Why needed: duplicate (name, format) pairs are the trickiest branch -
+        the by_name_fmt list plus the ``used`` set must hand out each id exactly
+        once. sorted()==sorted() would not catch a double-assignment, so this
+        asserts one-to-one identity explicitly.
+
+        Expected outcome: two incoming resources receive uuid-A and uuid-B (one
+        each, no repeat); a third incoming resource with the same key receives no
+        carried id.
+        """
+        existing = [
+            self._existing("data", "csv", "uuid-A"),
+            self._existing("data", "csv", "uuid-B"),
+        ]
+        incoming = [
+            self._incoming("data", "csv"),
+            self._incoming("data", "csv"),
+            self._incoming("data", "csv"),
+        ]
+
+        result = self._run(existing, incoming)
+
+        carried = [r.get("id") for r in result]
+        matched_ids = [i for i in carried if i is not None]
+        assert set(matched_ids) == {"uuid-A", "uuid-B"}
+        assert len(matched_ids) == len(set(matched_ids))
+        assert carried.count(None) == 1
+
+    def test_deleted_existing_resource_is_ignored(self):
+        """A non-active (e.g. deleted) existing resource is never matched, even
+        if its (name, format) key matches an incoming resource.
+
+        Why needed: soft-deleted resources retain their key; matching one would
+        resurrect a dead UUID onto a live resource.
+
+        Expected outcome: the incoming resource does not receive the deleted
+        resource's id.
+        """
+        existing = [self._existing("data", "csv", "uuid-DELETED", state="deleted")]
+        incoming = [self._incoming("data", "csv")]
+
+        result = self._run(existing, incoming)
+
+        assert result[0].get("id") != "uuid-DELETED"
+        assert "id" not in result[0]
+
+    def test_incoming_without_match_is_left_untouched(self):
+        """An incoming resource with no matching existing (name, format) and a
+        different format is not given a carried id.
+
+        Why needed: a new format added at source must not be falsely matched to
+        an unrelated existing resource of another format.
+
+        Expected outcome: the unmatched incoming resource has no id assigned.
+        """
+        existing = [self._existing("data", "csv", "uuid-A")]
+        incoming = [self._incoming("other", "json")]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+
+    def test_empty_name_or_format_does_not_crash_or_falsely_match(self):
+        """Resources with a missing/None name or format do not raise and do not
+        spuriously match a differently-keyed resource.
+
+        Why needed: source records occasionally omit name/format; the
+        ``(x or "").strip().lower()`` guards must tolerate None without a match to
+        an unrelated resource.
+
+        Expected outcome: an incoming resource with name=None and a real format
+        does not match an existing resource with a different format; no exception.
+        """
+        existing = [self._existing("data", "csv", "uuid-A")]
+        incoming = [self._incoming(None, "json")]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+
+    def test_format_fallback_when_name_changes(self):
+        """When (name, format) no longer matches because the dataset title
+        (embedded in the resource name) changed, fall back to format alone if
+        that format is unique on both sides.
+
+        Why needed: DELWP resource names are ``"{title} {format}"``. A title
+        rename would otherwise churn every resource UUID even though the
+        download endpoints are the same formats.
+
+        Expected outcome: "Old Title SHP"/SHP → "New Title SHP"/SHP keeps
+        uuid-A via the format fallback.
+        """
+        existing = [self._existing("Old Title SHP", "SHP", "uuid-A")]
+        incoming = [self._incoming("New Title SHP", "SHP")]
+
+        result = self._run(existing, incoming)
+
+        assert result[0]["id"] == "uuid-A"
+
+    def test_format_fallback_preserves_mixed_exact_and_renamed(self):
+        """Exact (name, format) matches are preferred; format fallback only
+        applies to the remaining unmatched resources.
+
+        Why needed: a harvest may keep some resource names stable while others
+        rename with the dataset title. Exact matches must not be stolen by the
+        fallback, and renamed formats must still keep their UUID.
+
+        Expected outcome: unchanged SHP keeps uuid-SHP via exact match; renamed
+        CSV keeps uuid-CSV via format fallback.
+        """
+        existing = [
+            self._existing("Coastal SHP", "SHP", "uuid-SHP"),
+            self._existing("Coastal CSV", "CSV", "uuid-CSV"),
+        ]
+        incoming = [
+            self._incoming("Coastal SHP", "SHP"),
+            self._incoming("Coastal Updated CSV", "CSV"),
+        ]
+
+        result = self._run(existing, incoming)
+
+        assert result[0]["id"] == "uuid-SHP"
+        assert result[1]["id"] == "uuid-CSV"
+
+    def test_format_fallback_skipped_when_format_not_unique_existing(self):
+        """Format fallback must not run when more than one unused existing
+        resource shares the format.
+
+        Why needed: without the uniqueness guard, a renamed incoming SHP could
+        steal either of two existing SHP UUIDs arbitrarily.
+
+        Expected outcome: renamed incoming SHP receives no carried id.
+        """
+        existing = [
+            self._existing("Layer A SHP", "SHP", "uuid-A"),
+            self._existing("Layer B SHP", "SHP", "uuid-B"),
+        ]
+        incoming = [self._incoming("Renamed SHP", "SHP")]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+
+    def test_format_fallback_skipped_when_format_not_unique_incoming(self):
+        """Format fallback must not run when more than one unmatched incoming
+        resource shares the format.
+
+        Why needed: two renamed incoming SHPs must not both claim (or race for)
+        a single existing SHP UUID.
+
+        Expected outcome: neither incoming resource receives a carried id.
+        """
+        existing = [self._existing("Layer A SHP", "SHP", "uuid-A")]
+        incoming = [
+            self._incoming("Renamed One SHP", "SHP"),
+            self._incoming("Renamed Two SHP", "SHP"),
+        ]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+        assert "id" not in result[1]
+
+    def test_format_fallback_skips_blank_format(self):
+        """Blank/missing format is never used as a fallback key.
+
+        Why needed: empty-format resources would otherwise collapse into one
+        ambiguous bucket and risk cross-matching unrelated rows.
+
+        Expected outcome: renamed incoming with blank format gets no id.
+        """
+        existing = [self._existing("Old Title", "", "uuid-A")]
+        incoming = [self._incoming("New Title", "")]
+
+        result = self._run(existing, incoming)
+
+        assert "id" not in result[0]
+
+
+class TestChangeDetectionIntegration:
+    """Integration tests for the change-detection / idempotency behaviour.
+
+    Each test drives two full import_stage calls against a real DB so we can
+    verify the end-to-end behaviour of the hash comparison, resource-ID
+    preservation, and metadata carry-forward logic.
+    """
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_second_import_unchanged_source_returns_unchanged(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_dataset: dict,
+        delwp_config,
+    ):
+        """import_stage stores a content hash (harvester_data_hash) on the package
+        after the first import. On a subsequent run with identical source data the
+        incoming hash matches the stored one and import_stage must skip the update.
+
+        Why: unnecessary package_update calls increment the package revision, dirty
+        audit logs, and waste DB load. The hash comparison is the mechanism that
+        prevents this.
+
+        What: import_stage is called twice with the same harvest content. The second
+        call receives a harvest object with status="change" pointing at the package
+        created by the first call.
+
+        Expected: the second call returns "unchanged", raises no errors, and the
+        resource IDs on the package are identical to those from the first import.
+        """
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config),
+            source_type=harvester.info()["name"],
+        )
+        job = harvest_job_factory(source=source)
+
+        obj1 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+        )
+        result1 = harvester.import_stage(obj1)
+        assert result1 is True
+        assert obj1.errors == []
+        package_id = obj1.package_id
+        assert package_id
+
+        pkg_after_first = call_action("package_show", id=package_id)
+        resource_ids_after_first = [r["id"] for r in pkg_after_first["resources"]]
+
+        obj2 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+        result2 = harvester.import_stage(obj2)
+
+        assert result2 == "unchanged"
+        assert obj2.errors == []
+
+        pkg_after_second = call_action("package_show", id=package_id)
+        resource_ids_after_second = [r["id"] for r in pkg_after_second["resources"]]
+        assert resource_ids_after_second == resource_ids_after_first
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_metadata_change_triggers_update_resource_ids_preserved(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_dataset: dict,
+        delwp_config,
+    ):
+        """When source metadata genuinely changes, the hash comparison detects it and
+        import_stage calls package_update. _preserve_resource_ids carries the existing
+        resource UUIDs onto the incoming pkg_dict so package_update updates resources
+        in-place rather than deleting and recreating them with new IDs.
+
+        Why: recreating resources with new UUIDs breaks any external system that has
+        bookmarked a resource by its ID (e.g. a data portal, an API consumer, or a
+        syndicated copy).
+
+        What: import_stage is called first with the original content, then again with
+        content whose title has changed. The second call receives a harvest object
+        with status="change".
+
+        Expected: the second call returns True, the package title reflects the new
+        value, and the resource UUIDs after the update are identical to those from
+        the first import.
+        """
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config),
+            source_type=harvester.info()["name"],
+        )
+        job = harvest_job_factory(source=source)
+
+        obj1 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+        )
+        result1 = harvester.import_stage(obj1)
+        assert result1 is True
+        assert obj1.errors == []
+        package_id = obj1.package_id
+        assert package_id
+
+        pkg_after_first = call_action("package_show", id=package_id)
+        resource_ids_after_first = [r["id"] for r in pkg_after_first["resources"]]
+        assert resource_ids_after_first, "first import must create at least one resource"
+
+        changed_dataset = dict(delwp_dataset)
+        changed_dataset["title"] = delwp_dataset["title"] + " (updated)"
+
+        obj2 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(changed_dataset),
+            job=job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+        result2 = harvester.import_stage(obj2)
+
+        assert result2 is True
+        assert obj2.errors == []
+
+        pkg_after_second = call_action("package_show", id=package_id)
+        assert pkg_after_second["title"] == changed_dataset["title"]
+
+        # Compare a keyed {(name, format): id} mapping rather than a sorted id
+        # list: a sorted comparison would still pass if two resources swapped
+        # ids between runs, which is exactly the silent UUID churn this test
+        # guards against. Keying by (name, format) also avoids depending on the
+        # resource order returned by package_show.
+        def _res_map(pkg):
+            return {(r["name"], r["format"]): r["id"] for r in pkg["resources"]}
+
+        assert _res_map(pkg_after_second) == _res_map(pkg_after_first)
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_syndicated_id_survives_harvest_update(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_dataset: dict,
+        delwp_config,
+    ):
+        """syndicated_id is written by the syndication plugin after the first harvest,
+        not by the harvester itself. _preserve_existing_metadata reads the existing
+        package via package_show and carries forward top-level scheming fields the
+        harvester does not set, so they are not dropped when package_update is called.
+
+        Why: losing syndicated_id permanently breaks the syndication link between
+        this CKAN instance and the remote portal with no error raised.
+
+        What: after the first import, syndicated_id is patched onto the package via
+        package_patch. A second import with a changed title fires a package_update
+        via import_stage.
+
+        Expected: package_show after the update still returns
+        syndicated_id = "remote-portal-uuid-abc123".
+        """
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config),
+            source_type=harvester.info()["name"],
+        )
+        job = harvest_job_factory(source=source)
+
+        obj1 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(delwp_dataset),
+            job=job,
+        )
+        result1 = harvester.import_stage(obj1)
+        assert result1 is True
+        assert obj1.errors == []
+        package_id = obj1.package_id
+        assert package_id
+
+        expected_syndicated_id = "remote-portal-uuid-abc123"
+        sysadmin = call_action("get_site_user", ignore_auth=True)
+        call_action(
+            "package_patch",
+            {"user": sysadmin["name"]},
+            id=package_id,
+            syndicated_id=expected_syndicated_id,
+        )
+        pkg_with_syndicated = call_action("package_show", id=package_id)
+        assert pkg_with_syndicated.get("syndicated_id") == expected_syndicated_id
+
+        changed_dataset = dict(delwp_dataset)
+        changed_dataset["title"] = delwp_dataset["title"] + " (v2)"
+
+        obj2 = harvest_object_factory(
+            guid=delwp_dataset["uuid"],
+            content=json.dumps(changed_dataset),
+            job=job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+        result2 = harvester.import_stage(obj2)
+
+        assert result2 is True
+        assert obj2.errors == []
+
+        pkg_after_update = call_action("package_show", id=package_id)
+        assert pkg_after_update.get("syndicated_id") == expected_syndicated_id

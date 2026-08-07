@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import traceback
 import uuid
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
@@ -894,7 +893,7 @@ class DelwpHarvester(DataVicBaseHarvester):
             # Rollback before _save_object_error (which commits)
             model.Session.rollback()
             self._save_object_error(
-                f"Error importing dataset {pkg_dict.get('name', '')}: {e} / {traceback.format_exc()}",
+                f"Error importing dataset {pkg_dict.get('name', '')}: {e}",
                 harvest_object,
                 "Import",
             )

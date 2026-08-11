@@ -937,9 +937,11 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict["tags"] = helpers.get_tags(remote_topiccat) if remote_topiccat else []
         pkg_dict["last_updated"] = metashare_dict.get("geonet_info_changedate")
         pkg_dict["extract"] = f"{pkg_dict['notes'].split('.')[0]}..."
+        resowner = (metashare_dict.get("resowner") or "").strip()
+        data_owner = resowner.split(";")[0] if resowner else ""
         pkg_dict["owner_org"] = self._get_organisation(
             self.config.get("organisation_mapping"),
-            metashare_dict.get("resowner", "").split(";")[0],
+            data_owner,
             harvest_object,
         )
 
@@ -949,8 +951,11 @@ class DelwpHarvester(DataVicBaseHarvester):
         if uuid:
             pkg_dict["primary_purpose_of_collection"] = uuid
 
-        if metashare_dict.get("resowner"):
-            pkg_dict["data_owner"] = metashare_dict["resowner"].split(";")[0]
+        if data_owner:
+            pkg_dict["data_owner"] = data_owner
+        else:
+            source_org = tk.h.get_organization(self.source_org_id)
+            pkg_dict["data_owner"] = source_org.get("title") or self.source_org_id
 
         pkg_dict["groups"] = [
             {"id": group.get("id")} for group in self.config["default_group_dicts"]

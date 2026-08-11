@@ -904,6 +904,117 @@ class TestIsPkgPrivate:
         ) is True
 
 
+class TestDataOwnerFallback:
+    """data_owner fallback when the remote record has no resowner (DATAVIC-995)."""
+
+    def _pkg_dict(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_config: DelwpConfig,
+        delwp_dataset: dict[str, Any],
+        resowner: Any,
+    ) -> tuple[dict[str, Any], str]:
+        record = dict(delwp_dataset)
+        if resowner is None:
+            record.pop("resowner", None)
+        else:
+            record["resowner"] = resowner
+
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config), source_type=harvester.info()["name"]
+        )
+        source_pkg = call_action("package_show", id=source.id)
+        harvester.config = delwp_config
+        harvester.source_org_id = source_pkg["owner_org"]
+        harvest_object = harvest_object_factory(
+            guid=record["uuid"],
+            content=json.dumps(record),
+            job=harvest_job_factory(source=source),
+        )
+
+        with (
+            mock.patch.object(harvester, "_fetch_resources", return_value=[]),
+            mock.patch.object(
+                harvester,
+                "_get_package_name",
+                return_value=h.munge_title_to_name(record["title"]),
+            ),
+        ):
+            return harvester._get_pkg_dict(harvest_object), source_pkg["owner_org"]
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_data_owner_uses_resowner_when_present(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_config: DelwpConfig,
+        delwp_dataset: dict[str, Any],
+    ):
+        pkg_dict, _source_org_id = self._pkg_dict(
+            harvester,
+            harvest_source_factory,
+            harvest_job_factory,
+            harvest_object_factory,
+            delwp_config,
+            delwp_dataset,
+            "Department of Transport and Planning;Some Other Branch",
+        )
+
+        assert pkg_dict["data_owner"] == "Department of Transport and Planning"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_data_owner_falls_back_to_source_org_title_without_resowner(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_config: DelwpConfig,
+        delwp_dataset: dict[str, Any],
+    ):
+        pkg_dict, source_org_id = self._pkg_dict(
+            harvester,
+            harvest_source_factory,
+            harvest_job_factory,
+            harvest_object_factory,
+            delwp_config,
+            delwp_dataset,
+            None,
+        )
+        source_org = call_action("organization_show", id=source_org_id)
+
+        assert pkg_dict["data_owner"] == source_org["title"]
+        assert pkg_dict["owner_org"] == source_org_id
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_data_owner_falls_back_to_source_org_title_when_resowner_is_blank(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_config: DelwpConfig,
+        delwp_dataset: dict[str, Any],
+    ):
+        pkg_dict, source_org_id = self._pkg_dict(
+            harvester,
+            harvest_source_factory,
+            harvest_job_factory,
+            harvest_object_factory,
+            delwp_config,
+            delwp_dataset,
+            "   ",
+        )
+        source_org = call_action("organization_show", id=source_org_id)
+
+        assert pkg_dict["data_owner"] == source_org["title"]
+        assert pkg_dict["owner_org"] == source_org_id
+
 
 class TestHarvestFilestore:
     """Basic smoke tests for harvest JSON filestore (DATAVIC-822).

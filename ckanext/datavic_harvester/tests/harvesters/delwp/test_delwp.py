@@ -962,10 +962,13 @@ class TestDataOwnerFallback:
             harvest_object_factory,
             delwp_config,
             delwp_dataset,
-            "Department of Transport and Planning;Some Other Branch",
+            "Department of Environment, Land, Water & Planning;Some Other Branch",
         )
 
-        assert pkg_dict["data_owner"] == "Department of Transport and Planning"
+        assert (
+            pkg_dict["data_owner"]
+            == "Department of Environment, Land, Water & Planning"
+        )
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_data_owner_falls_back_to_source_org_title_without_resowner(
@@ -990,6 +993,78 @@ class TestDataOwnerFallback:
 
         assert pkg_dict["data_owner"] == source_org["title"]
         assert pkg_dict["owner_org"] == source_org_id
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_data_owner_fallback_returns_none_when_source_org_unresolvable(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_config: DelwpConfig,
+        delwp_dataset: dict[str, Any],
+    ):
+        record = dict(delwp_dataset)
+        record.pop("resowner", None)
+
+        source = harvest_source_factory(
+            config=json.dumps(delwp_config), source_type=harvester.info()["name"]
+        )
+        source_pkg = call_action("package_show", id=source.id)
+        harvester.config = delwp_config
+        harvester.source_org_id = source_pkg["owner_org"]
+        harvest_object = harvest_object_factory(
+            guid=record["uuid"],
+            content=json.dumps(record),
+            job=harvest_job_factory(source=source),
+        )
+
+        with (
+            mock.patch.object(harvester, "_fetch_resources", return_value=[]),
+            mock.patch.object(
+                harvester,
+                "_get_package_name",
+                return_value=h.munge_title_to_name(record["title"]),
+            ),
+            mock.patch.object(
+                harvester, "_get_source_org_title", return_value=None
+            ),
+        ):
+            pkg_dict = harvester._get_pkg_dict(harvest_object)
+
+        # No UUID or org id should ever be written to data_owner; an
+        # unresolvable source organisation must skip the record instead.
+        assert pkg_dict is None
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_data_owner_strips_whitespace_around_separator(
+        self,
+        harvester: DelwpHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        delwp_config: DelwpConfig,
+        delwp_dataset: dict[str, Any],
+    ):
+        pkg_dict, _source_org_id = self._pkg_dict(
+            harvester,
+            harvest_source_factory,
+            harvest_job_factory,
+            harvest_object_factory,
+            delwp_config,
+            delwp_dataset,
+            "Department of Environment, Land, Water & Planning ; Some Other Branch",
+        )
+        mapped_org_name = delwp_config["organisation_mapping"][0]["org-name"]
+
+        assert (
+            pkg_dict["data_owner"]
+            == "Department of Environment, Land, Water & Planning"
+        )
+        # No trailing/leading whitespace, so it matches the
+        # organisation_mapping entry rather than falling through to
+        # _create_organization with a mangled resowner.
+        assert pkg_dict["owner_org"] == mapped_org_name
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_data_owner_falls_back_to_source_org_title_when_resowner_is_blank(

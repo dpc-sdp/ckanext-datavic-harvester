@@ -6,6 +6,7 @@ from os import path
 from typing import Optional, Any
 
 from bs4 import BeautifulSoup
+from sqlalchemy.orm import joinedload
 
 from ckan import model
 from ckan.plugins import toolkit as tk
@@ -72,9 +73,14 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
             and existing_package is None
             and existing_dataset is None
         ):
+            # force_import overrides the status extra upstream, so clear it
+            # here or the re-create path below would still send id=None.
+            self.force_import = False
             self._mark_missing_package_change_as_new(harvest_object)
             status = "new"
 
+        # Source is the source of truth: restore regardless of how the
+        # package was trashed (source removal or a local admin delete).
         restoring_deleted_package = (
             status == "change"
             and existing_package is not None
@@ -121,28 +127,35 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
     def _restore_deleted_packages_for_reappeared_guids(
         self, harvest_source_id: str, object_ids: list[str]
     ) -> None:
-        """Reuse trashed DD packages when a deleted DCAT GUID reappears.
+        """Reuse a trashed DD package when its guid reappears in the source.
 
-        Upstream DCAT treats a reappeared GUID as a new harvest object because
-        the previous current object was marked non-current when the source
-        removed the dataset. For DataVic this must be a restore instead: reuse
-        the latest deleted local package_id, switch the harvest object to
-        ``change``, and let import update the package back to active. Reusing
-        the package also preserves its ``syndicated_id`` so ODP receives an
-        update for the trashed syndicated package rather than a create.
+        Upstream treats a reappeared guid as a new dataset. Reusing the
+        trashed package instead keeps its syndicated_id, so ODP gets an
+        update rather than a duplicate create.
         """
 
-        for object_id in object_ids:
-            harvest_object = HarvestObject.get(object_id)
-            if (
-                not harvest_object
-                or self._get_object_extra(harvest_object, "status") != "new"
-            ):
-                continue
+        harvest_objects = (
+            model.Session.query(HarvestObject)
+            .options(joinedload(HarvestObject.extras))
+            .filter(HarvestObject.id.in_(object_ids))
+            .all()
+        )
+        new_objects = [
+            harvest_object
+            for harvest_object in harvest_objects
+            if self._get_object_extra(harvest_object, "status") == "new"
+        ]
+        if not new_objects:
+            return
 
-            package_id = self._get_latest_deleted_package_id(
-                harvest_source_id, harvest_object.guid
-            )
+        deleted_package_ids = self._get_latest_deleted_package_ids(
+            harvest_source_id, [harvest_object.guid for harvest_object in new_objects]
+        )
+        if not deleted_package_ids:
+            return
+
+        for harvest_object in new_objects:
+            package_id = deleted_package_ids.get(harvest_object.guid)
             if not package_id:
                 continue
 
@@ -159,39 +172,50 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
                 harvest_object.guid,
             )
 
-    def _get_latest_deleted_package_id(
-        self, source_id: str, guid: str
-    ) -> Optional[str]:
-        row = (
-            model.Session.query(HarvestObject.package_id)
+    def _get_latest_deleted_package_ids(
+        self, source_id: str, guids: list[str]
+    ) -> dict[str, str]:
+        """Map each guid to the trashed local package that should be reused.
+
+        Matches on the trashed package alone, not ``report_status`` (which is
+        only set once an object clears the fetch queue, so it's NULL for
+        anything trashed another way). Batched into one query for all guids;
+        oldest-first ordering keeps the last write per guid as the latest
+        import.
+        """
+
+        if not guids:
+            return {}
+
+        rows = (
+            model.Session.query(HarvestObject.guid, HarvestObject.package_id)
             .join(model.Package, model.Package.id == HarvestObject.package_id)
             .filter(HarvestObject.harvest_source_id == source_id)
-            .filter(HarvestObject.guid == guid)
+            .filter(HarvestObject.guid.in_(guids))
             .filter(HarvestObject.package_id.isnot(None))
-            .filter(HarvestObject.report_status == "deleted")
             .filter(model.Package.state == "deleted")
-            .order_by(HarvestObject.import_finished.desc().nullslast())
-            .first()
+            .order_by(HarvestObject.import_finished.asc().nullsfirst())
+            .all()
         )
 
-        return row[0] if row else None
+        return {guid: package_id for guid, package_id in rows}
 
     def _mark_stale_harvest_objects_not_current(self, harvest_source_id: str) -> None:
         """Ignore current harvest objects whose linked package has been purged."""
 
         stale_objects = (
             model.Session.query(HarvestObject)
-            .filter(HarvestObject.current == True)
+            .outerjoin(model.Package, model.Package.id == HarvestObject.package_id)
+            .filter(HarvestObject.current == True)  # noqa: E712
             .filter(HarvestObject.harvest_source_id == harvest_source_id)
+            .filter(model.Package.id.is_(None))
             .all()
         )
 
-        for harvest_object in stale_objects:
-            if harvest_object.package_id and model.Package.get(
-                harvest_object.package_id
-            ):
-                continue
+        if not stale_objects:
+            return
 
+        for harvest_object in stale_objects:
             log.warning(
                 "Ignoring stale current harvest object for guid %s; package_id %s "
                 "does not exist",
@@ -200,7 +224,8 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
             )
             harvest_object.current = False
             model.Session.add(harvest_object)
-            model.Session.commit()
+
+        model.Session.commit()
 
     def _get_package_dict(
         self, harvest_object: HarvestObject
@@ -447,10 +472,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
             harvest_object, "status"
         )
         if status == "change":
-            # Make sure the package state is set to active,
-            # in case it was deleted and is now being restored.
-            package_dict["state"] = "active"
-
+            self._restore_package_state(package_dict, harvest_object)
             self._preserve_syndication_fields(package_dict, harvest_object)
 
         resources = package_dict["resources"]
@@ -458,6 +480,24 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
             resource["size"] = get_resource_size(resource["url"])
             resource["filesize"] = resource["size"]
         return package_dict
+
+    def _restore_package_state(
+        self, package_dict: dict[str, Any], harvest_object: HarvestObject
+    ) -> None:
+        """Reactivate a trashed package, since the source still lists it.
+
+        state is ignore_missing in the schema and dcat_to_ckan never sets it,
+        so it must be set explicitly here or the package stays trashed.
+        """
+
+        if not harvest_object.package_id:
+            return
+
+        existing_package = model.Package.get(harvest_object.package_id)
+        if existing_package is None or existing_package.state == "active":
+            return
+
+        package_dict["state"] = "active"
 
     def _preserve_syndication_fields(
         self, package_dict: dict[str, Any], harvest_object: HarvestObject

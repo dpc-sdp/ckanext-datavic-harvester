@@ -5,6 +5,7 @@ from typing import Any
 from typing_extensions import TypedDict
 from types import GeneratorType
 from datetime import datetime as dt
+from datetime import timedelta
 
 import pytest
 
@@ -76,6 +77,40 @@ class TestDcatHarvester:
 
         model.Session.refresh(stale_harvest_object)
         assert stale_harvest_object.current is False
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_gather_stage_leaves_healthy_current_object_alone(
+        self,
+        harvester: DcatHarvester,
+        harvest_job_factory,
+        harvest_source_factory,
+        harvest_object_factory,
+        dataset_factory,
+        dcat_config: DcatConfig,
+    ):
+        """A current object whose package still exists must not be flipped."""
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        datasets = json.loads(harvester._get_mocked_content())["dataset"]
+
+        package = dataset_factory()
+        healthy_harvest_object = harvest_object_factory(
+            guid=datasets[0]["identifier"],
+            content=json.dumps(datasets[0]),
+            job=harvest_job,
+            package_id=package["id"],
+            extras={"status": "change"},
+        )
+        healthy_harvest_object.current = True
+        model.Session.add(healthy_harvest_object)
+        model.Session.commit()
+
+        harvester.gather_stage(harvest_job)
+
+        model.Session.refresh(healthy_harvest_object)
+        assert healthy_harvest_object.current is True
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_gather_stage_marks_reappeared_deleted_dataset_as_change(
@@ -483,6 +518,319 @@ class TestDcatHarvester:
         assert dataset == harvester._get_existing_dataset("test")
 
         assert not harvester._get_existing_dataset("test2")
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_import_stage_reactivates_locally_trashed_package_still_in_source(
+        self,
+        monkeypatch,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        """An admin-trashed package still in the source must be restored."""
+        monkeypatch.setattr(
+            harvester,
+            "_get_mocked_content",
+            lambda: json.dumps({"dataset": [dcat_dataset]}),
+        )
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+
+        first_job = harvest_job_factory(source=source)
+        first_ids = harvester.gather_stage(first_job)
+        first_object = harvest_model.HarvestObject.get(first_ids[0])
+        assert harvester.import_stage(first_object) is True
+        self._finish_harvest_job(first_job)
+        package_id = first_object.package_id
+
+        tk.get_action("package_delete")(
+            {"user": harvester._get_user_name(), "ignore_auth": True},
+            {"id": package_id},
+        )
+        assert model.Package.get(package_id).state == "deleted"
+
+        second_job = harvest_job_factory(source=source)
+        second_ids = harvester.gather_stage(second_job)
+        second_object = harvest_model.HarvestObject.get(second_ids[0])
+        assert harvester._get_object_extra(second_object, "status") == "change"
+        assert second_object.package_id == package_id
+
+        assert harvester.import_stage(second_object) is True
+
+        assert model.Package.get(package_id).state == "active"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_source_removal_then_reappearance_restores_same_package(
+        self,
+        monkeypatch,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        """A guid removed then re-added to the source restores the same package."""
+        monkeypatch.setattr(
+            harvester,
+            "_get_mocked_content",
+            lambda: json.dumps({"dataset": [dcat_dataset]}),
+        )
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+
+        first_job = harvest_job_factory(source=source)
+        first_ids = harvester.gather_stage(first_job)
+        first_object = harvest_model.HarvestObject.get(first_ids[0])
+        assert harvester.import_stage(first_object) is True
+        self._finish_harvest_job(first_job)
+        package_id = first_object.package_id
+
+        monkeypatch.setattr(harvester, "_get_mocked_content", lambda: '{"dataset":[]}')
+        delete_job = harvest_job_factory(source=source)
+        delete_ids = harvester.gather_stage(delete_job)
+        delete_object = harvest_model.HarvestObject.get(delete_ids[0])
+        assert harvester._get_object_extra(delete_object, "status") == "delete"
+        assert harvester.import_stage(delete_object) is True
+        self._finish_harvest_job(delete_job)
+        assert model.Package.get(package_id).state == "deleted"
+
+        monkeypatch.setattr(
+            harvester,
+            "_get_mocked_content",
+            lambda: json.dumps({"dataset": [dcat_dataset]}),
+        )
+        restore_job = harvest_job_factory(source=source)
+        restore_ids = harvester.gather_stage(restore_job)
+        restore_object = harvest_model.HarvestObject.get(restore_ids[0])
+
+        assert harvester._get_object_extra(restore_object, "status") == "change"
+        assert restore_object.package_id == package_id
+
+        assert harvester.import_stage(restore_object) is True
+        assert model.Package.get(package_id).state == "active"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_modify_package_dict_leaves_state_alone_for_plain_change(
+        self,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        """state must not be sent when the package is already active."""
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        first_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+        )
+        assert harvester.import_stage(first_object) is True
+        package_id = first_object.package_id
+
+        change_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+        package_dict, dcat_dict = harvester._get_package_dict(change_object)
+        harvester.modify_package_dict(package_dict, dcat_dict, change_object)
+
+        assert "state" not in package_dict
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_modify_package_dict_sets_state_active_for_trashed_package(
+        self,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        """state must be forced back to active when the package is trashed."""
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        first_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+        )
+        assert harvester.import_stage(first_object) is True
+        package_id = first_object.package_id
+
+        tk.get_action("package_delete")(
+            {"user": harvester._get_user_name(), "ignore_auth": True},
+            {"id": package_id},
+        )
+        assert model.Package.get(package_id).state == "deleted"
+
+        change_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+        package_dict, dcat_dict = harvester._get_package_dict(change_object)
+        harvester.modify_package_dict(package_dict, dcat_dict, change_object)
+
+        assert package_dict["state"] == "active"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_gather_reuses_trashed_package_without_report_status(
+        self,
+        monkeypatch,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        """The restore lookup must not depend on report_status being set."""
+        monkeypatch.setattr(
+            harvester,
+            "_get_mocked_content",
+            lambda: json.dumps({"dataset": [dcat_dataset]}),
+        )
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+
+        first_job = harvest_job_factory(source=source)
+        first_ids = harvester.gather_stage(first_job)
+        first_object = harvest_model.HarvestObject.get(first_ids[0])
+        assert harvester.import_stage(first_object) is True
+        self._finish_harvest_job(first_job)
+        original_package_id = first_object.package_id
+
+        tk.get_action("package_delete")(
+            {"user": harvester._get_user_name(), "ignore_auth": True},
+            {"id": original_package_id},
+        )
+        model.Session.query(harvest_model.HarvestObject).filter_by(
+            guid=dcat_dataset["identifier"]
+        ).update({"current": False, "report_status": None}, False)
+        model.Session.commit()
+
+        second_job = harvest_job_factory(source=source)
+        second_ids = harvester.gather_stage(second_job)
+        second_object = harvest_model.HarvestObject.get(second_ids[0])
+
+        assert second_object.package_id == original_package_id
+        assert harvester._get_object_extra(second_object, "status") == "change"
+
+        assert harvester.import_stage(second_object) is True
+        assert model.Package.get(original_package_id).state == "active"
+        assert (
+            model.Session.query(model.Package)
+            .filter(model.Package.type == "dataset")
+            .filter(model.Package.state == "active")
+            .count()
+            == 1
+        )
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_get_latest_deleted_package_ids_picks_latest_per_guid(
+        self,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        dataset_factory,
+        dcat_config: DcatConfig,
+    ):
+        """The batched lookup keeps the "latest import wins" rule per guid."""
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        context = {"user": harvester._get_user_name(), "ignore_auth": True}
+
+        older = dataset_factory()
+        newer = dataset_factory()
+        other = dataset_factory()
+        for package in (older, newer, other):
+            tk.get_action("package_delete")(context, {"id": package["id"]})
+
+        now = dt.now()
+        for package, guid, import_finished in (
+            (older, "guid-a", now - timedelta(days=2)),
+            (newer, "guid-a", now),
+            (other, "guid-b", now - timedelta(days=1)),
+        ):
+            harvest_object = harvest_object_factory(
+                guid=guid,
+                content=None,
+                job=harvest_job,
+                package_id=package["id"],
+                extras={"status": "delete"},
+            )
+            harvest_object.current = False
+            harvest_object.import_finished = import_finished
+            model.Session.add(harvest_object)
+        model.Session.commit()
+
+        found = harvester._get_latest_deleted_package_ids(
+            source.id, ["guid-a", "guid-b"]
+        )
+
+        assert found["guid-a"] == newer["id"]
+        assert found["guid-b"] == other["id"]
+        assert harvester._get_latest_deleted_package_ids(source.id, []) == {}
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_force_import_recreates_purged_package(
+        self,
+        monkeypatch,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        """force_import against a purged package must not send id=None."""
+        monkeypatch.setattr(
+            harvester,
+            "_get_mocked_content",
+            lambda: json.dumps({"dataset": [dcat_dataset]}),
+        )
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+
+        first_job = harvest_job_factory(source=source)
+        first_ids = harvester.gather_stage(first_job)
+        first_object = harvest_model.HarvestObject.get(first_ids[0])
+        assert harvester.import_stage(first_object) is True
+        self._finish_harvest_job(first_job)
+        original_package_id = first_object.package_id
+
+        second_job = harvest_job_factory(source=source)
+        second_ids = harvester.gather_stage(second_job)
+        second_object = harvest_model.HarvestObject.get(second_ids[0])
+        assert harvester._get_object_extra(second_object, "status") == "change"
+
+        self._hard_purge_harvested_packages([original_package_id])
+        second_object = harvest_model.HarvestObject.get(second_object.id)
+        harvester.force_import = True
+
+        assert harvester.import_stage(second_object) is True
+        assert second_object.errors == []
+        assert second_object.package_id != original_package_id
+        assert model.Package.get(second_object.package_id).state == "active"
 
     def _hard_purge_harvested_packages(self, package_ids: list[str]) -> None:
         sysadmin = call_action("get_site_user", ignore_auth=True)

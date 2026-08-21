@@ -1,0 +1,2519 @@
+{
+  "datasets": [
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/access-to-public-open-spaces"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/access-to-public-open-spaces/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/access-to-public-open-spaces/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/access-to-public-open-spaces/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/access-to-public-open-spaces/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "year",
+            "annotations": {
+              "facetsort": "-count",
+              "timeserie_precision": "year"
+            },
+            "description": null,
+            "label": "﻿year",
+            "type": "date"
+          },
+          {
+            "name": "public_open_space_access",
+            "annotations": {
+              "unit": "%"
+            },
+            "description": null,
+            "label": "public_open_space_access",
+            "type": "double"
+          }
+        ],
+        "dataset_id": "access-to-public-open-spaces",
+        "dataset_uid": "da_kfzuyk",
+        "has_records": true,
+        "features": [
+          "analyze",
+          "timeserie"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": "{\"queries\":[{\"charts\":[{\"type\":\"line\",\"func\":\"AVG\",\"yAxis\":\"public_open_space_access\",\"scientificDisplay\":true,\"color\":\"#66c2a5\"}],\"xAxis\":\"year\",\"maxpoints\":\"\",\"timescale\":\"year\",\"sort\":\"\"}],\"displayLegend\":true,\"alignMonth\":true}",
+            "table_fields": null,
+            "table_default_sort_field": "year",
+            "table_default_sort_direction": null,
+            "map_disabled": false,
+            "map_marker_picto": null,
+            "map_marker_color": null,
+            "map_marker_hidemarkershape": false,
+            "map_tooltip_title": null,
+            "map_tooltip_fields": null,
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 9595,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 7336,
+            "popularity_score": 8.0,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": [
+              "world/world_au/au_40_2/au_60_20570"
+            ],
+            "geographic_reference_path_labels": [
+              "World/Australia/Victoria/Ballarat%20(C)"
+            ]
+          },
+          "processing": {
+            "processing_modified": "2020-05-28T03:50:18+00:00",
+            "security_last_modified": "2020-06-18T01:10:53+00:00",
+            "records_size": 13.0,
+            "complete": true
+          },
+          "publishing": {
+            "status": null,
+            "published": null,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "Access to Public Open Spaces",
+            "description": "<p>Percentage of domestic dwellings within 400 metres of public open space (a reserve).</p>",
+            "theme": [
+              "Sports & Recreation",
+              "Health",
+              "Council Service Performance"
+            ],
+            "keyword": [
+              "open space"
+            ],
+            "license": "CC BY 3",
+            "license_url": "https://creativecommons.org/licenses/by/3.0/au/",
+            "language": "en",
+            "metadata_languages": [
+              "en"
+            ],
+            "timezone": [
+              "Australia/Melbourne"
+            ],
+            "modified": "2020-05-28T03:50:22+00:00",
+            "modified_updates_on_metadata_change": false,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2020-05-28T03:50:22+00:00",
+            "metadata_processed": "2020-06-18T01:10:57.963000+00:00",
+            "geographic_reference": [
+              "au_60_20570"
+            ],
+            "geographic_reference_auto": true,
+            "territory": [
+              "Ballarat (C)"
+            ],
+            "geometry_types": null,
+            "bbox": null,
+            "publisher": "City of Ballarat",
+            "references": null,
+            "records_count": 1,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": false,
+            "parent_domain": "geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": null,
+            "granularity": null
+          },
+          "asset": {
+            "title": "Access to Public Open Spaces",
+            "description": "<p>Percentage of domestic dwellings within 400 metres of public open space (a reserve).</p>",
+            "themes": [
+              "Sports & Recreation",
+              "Health",
+              "Council Service Performance"
+            ],
+            "keywords": [
+              "open space"
+            ],
+            "category": "Data",
+            "created_at": "2020-05-28T03:50:18+00:00",
+            "updated_at": "2020-05-28T03:50:22+00:00",
+            "creator": "City of Ballarat",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/access-to-public-open-spaces/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": null
+          },
+          "asset_content_configuration": {
+            "facets": null,
+            "default_sorts": [
+              {
+                "field_name": "year",
+                "direction": "DESC"
+              }
+            ],
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "main_cta": "explorer"
+            },
+            "custom_views_page": null
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    },
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/population-projection"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/population-projection/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/population-projection/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/population-projection/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/population-projection/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "year",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count",
+              "timeserie_precision": "year",
+              "facet": true
+            },
+            "label": "year",
+            "type": "date"
+          },
+          {
+            "name": "vif_total",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_total",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_0_4",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_0_4",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_5_9",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_5_9",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_10_14",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_10_14",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_15_19",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_15_19",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_20_24",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_20_24",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_25_29",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_25_29",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_30_34",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_30_34",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_35_39",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_35_39",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_40_44",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_40_44",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_45_49",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_45_49",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_50_54",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_50_54",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_55_59",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_55_59",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_60_64",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_60_64",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_65_69",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_65_69",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_70_74",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_70_74",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_75_79",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_75_79",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_80_84",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_80_84",
+            "type": "int"
+          },
+          {
+            "name": "vif_males_85",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_males_85+",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_0_4",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_0_4",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_5_9",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_5_9",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_10_14",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_10_14",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_15_19",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_15_19",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_20_24",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_20_24",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_25_29",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_25_29",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_30_34",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_30_34",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_35_39",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_35_39",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_40_44",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_40_44",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_45_49",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_45_49",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_50_54",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_50_54",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_55_59",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_55_59",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_60_64",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_60_64",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_65_69",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_65_69",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_70_74",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_70_74",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_75_79",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_75_79",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_80_84",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_80_84",
+            "type": "int"
+          },
+          {
+            "name": "vif_females_85",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "vif_females_85+",
+            "type": "int"
+          },
+          {
+            "name": "id_total",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_total",
+            "type": "int"
+          },
+          {
+            "name": "id_males_0_4",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_0_4",
+            "type": "int"
+          },
+          {
+            "name": "id_males_5_9",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_5_9",
+            "type": "int"
+          },
+          {
+            "name": "id_males_10_14",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_10_14",
+            "type": "int"
+          },
+          {
+            "name": "id_males_15_19",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_15_19",
+            "type": "int"
+          },
+          {
+            "name": "id_males_20_24",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_20_24",
+            "type": "int"
+          },
+          {
+            "name": "id_males_25_29",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_25_29",
+            "type": "int"
+          },
+          {
+            "name": "id_males_30_34",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_30_34",
+            "type": "int"
+          },
+          {
+            "name": "id_males_35_39",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_35_39",
+            "type": "int"
+          },
+          {
+            "name": "id_males_40_44",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_40_44",
+            "type": "int"
+          },
+          {
+            "name": "id_males_45_49",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_45_49",
+            "type": "int"
+          },
+          {
+            "name": "id_males_50_54",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_50_54",
+            "type": "int"
+          },
+          {
+            "name": "id_males_55_59",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_55_59",
+            "type": "int"
+          },
+          {
+            "name": "id_males_60_64",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_60_64",
+            "type": "int"
+          },
+          {
+            "name": "id_males_65_69",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_65_69",
+            "type": "int"
+          },
+          {
+            "name": "id_males_70_74",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_70_74",
+            "type": "int"
+          },
+          {
+            "name": "id_males_75_79",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_75_79",
+            "type": "int"
+          },
+          {
+            "name": "id_males_80_84",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_80_84",
+            "type": "int"
+          },
+          {
+            "name": "id_males_85",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_males_85+",
+            "type": "int"
+          },
+          {
+            "name": "id_females_0_4",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_0_4",
+            "type": "int"
+          },
+          {
+            "name": "id_females_5_9",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_5_9",
+            "type": "int"
+          },
+          {
+            "name": "id_females_10_14",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_10_14",
+            "type": "int"
+          },
+          {
+            "name": "id_females_15_19",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_15_19",
+            "type": "int"
+          },
+          {
+            "name": "id_females_20_24",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_20_24",
+            "type": "int"
+          },
+          {
+            "name": "id_females_25_29",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_25_29",
+            "type": "int"
+          },
+          {
+            "name": "id_females_30_34",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_30_34",
+            "type": "int"
+          },
+          {
+            "name": "id_females_35_39",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_35_39",
+            "type": "int"
+          },
+          {
+            "name": "id_females_40_44",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_40_44",
+            "type": "int"
+          },
+          {
+            "name": "id_females_45_49",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_45_49",
+            "type": "int"
+          },
+          {
+            "name": "id_females_50_54",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_50_54",
+            "type": "int"
+          },
+          {
+            "name": "id_females_55_59",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_55_59",
+            "type": "int"
+          },
+          {
+            "name": "id_females_60_64",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_60_64",
+            "type": "int"
+          },
+          {
+            "name": "id_females_65_69",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_65_69",
+            "type": "int"
+          },
+          {
+            "name": "id_females_70_74",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_70_74",
+            "type": "int"
+          },
+          {
+            "name": "id_females_75_79",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_75_79",
+            "type": "int"
+          },
+          {
+            "name": "id_females_80_84",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_80_84",
+            "type": "int"
+          },
+          {
+            "name": "id_females_85",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "id_females_85+",
+            "type": "int"
+          }
+        ],
+        "dataset_id": "population-projection",
+        "dataset_uid": "da_8s3jrx",
+        "has_records": true,
+        "features": [
+          "analyze",
+          "timeserie"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": "{\"queries\":[{\"charts\":[{\"type\":\"line\",\"func\":\"AVG\",\"yAxis\":\"vif_total\",\"scientificDisplay\":true,\"color\":\"#1E4164\"},{\"alignMonth\":true,\"type\":\"line\",\"func\":\"AVG\",\"yAxis\":\"id_total\",\"scientificDisplay\":true,\"color\":\"#00A1E4\"}],\"xAxis\":\"year\",\"maxpoints\":null,\"timescale\":\"year\",\"sort\":\"\"}],\"displayLegend\":true,\"alignMonth\":true}",
+            "table_fields": null,
+            "table_default_sort_field": null,
+            "table_default_sort_direction": "-",
+            "map_disabled": false,
+            "map_marker_picto": null,
+            "map_marker_color": null,
+            "map_marker_hidemarkershape": false,
+            "map_tooltip_title": null,
+            "map_tooltip_fields": null,
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 456,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 7749,
+            "popularity_score": 4.0,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": [
+              "world/world_au/au_40_2/au_60_20570"
+            ],
+            "geographic_reference_path_labels": [
+              "World/Australia/Victoria/Ballarat%20"
+            ]
+          },
+          "processing": {
+            "processing_modified": "2022-07-07T03:43:28+00:00",
+            "security_last_modified": "2022-07-07T03:44:56+00:00",
+            "records_size": 1903.0,
+            "complete": true
+          },
+          "publishing": {
+            "status": null,
+            "published": null,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "Population Projection",
+            "description": "<p>Various populations projections for the Ballarat LGA.</p><p>Victoria in Future: <a href=\"https://www.planning.vic.gov.au/land-use-and-population-research/victoria-in-future\" target=\"_blank\">https://www.planning.vic.gov.au/land-use-and-population-research/victoria-in-future</a><a href=\"https://www.planning.vic.gov.au/land-use-and-population-research/victoria-in-future\" target=\"_blank\"></a></p><p>informed decisions: <a href=\"https://forecast.id.com.au/ballarat/population-age-structure\" target=\"_blank\">https://forecast.id.com.au/ballarat/population-age-structure</a></p>",
+            "theme": [
+              "Community"
+            ],
+            "keyword": [
+              "population",
+              "future",
+              "projection"
+            ],
+            "license": "CC BY 3",
+            "license_url": "https://creativecommons.org/licenses/by/3.0/au/",
+            "language": "en",
+            "metadata_languages": null,
+            "timezone": [
+              "Australia/Melbourne"
+            ],
+            "modified": "2022-07-07T03:43:30+00:00",
+            "modified_updates_on_metadata_change": false,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2022-07-07T03:43:30+00:00",
+            "metadata_processed": "2022-07-07T03:44:59.430000+00:00",
+            "geographic_reference": [
+              "au_60_20570"
+            ],
+            "geographic_reference_auto": true,
+            "territory": [
+              "Ballarat "
+            ],
+            "geometry_types": null,
+            "bbox": null,
+            "publisher": "DELWP, informed decisions (id)",
+            "references": "https://www.planning.vic.gov.au/land-use-and-population-research/victoria-in-future",
+            "records_count": 5,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": false,
+            "parent_domain": "mav-technology-geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": "infrequent",
+            "granularity": "5 years"
+          },
+          "asset": {
+            "title": "Population Projection",
+            "description": "<p>Various populations projections for the Ballarat LGA.</p><p>Victoria in Future: <a href=\"https://www.planning.vic.gov.au/land-use-and-population-research/victoria-in-future\" target=\"_blank\">https://www.planning.vic.gov.au/land-use-and-population-research/victoria-in-future</a><a href=\"https://www.planning.vic.gov.au/land-use-and-population-research/victoria-in-future\" target=\"_blank\"></a></p><p>informed decisions: <a href=\"https://forecast.id.com.au/ballarat/population-age-structure\" target=\"_blank\">https://forecast.id.com.au/ballarat/population-age-structure</a></p>",
+            "themes": [
+              "Community"
+            ],
+            "keywords": [
+              "population",
+              "future",
+              "projection"
+            ],
+            "category": "Data",
+            "created_at": "2022-07-07T02:13:57+00:00",
+            "updated_at": "2022-07-07T03:43:30+00:00",
+            "creator": "DELWP, informed decisions (id)",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/population-projection/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": null
+          },
+          "asset_content_configuration": {
+            "facets": [
+              {
+                "facetsort": "-count",
+                "field_name": "year"
+              }
+            ],
+            "default_sorts": null,
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "main_cta": "explorer"
+            },
+            "custom_views_page": null
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    },
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/labour-force-abs"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/labour-force-abs/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/labour-force-abs/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/labour-force-abs/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/labour-force-abs/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "month_year",
+            "annotations": {
+              "timeserie_precision": "month",
+              "facet": true
+            },
+            "label": "month_year",
+            "type": "date",
+            "description": null
+          },
+          {
+            "name": "value",
+            "annotations": {
+              "facet": true,
+              "sortable": true,
+              "disjunctive": true
+            },
+            "label": "State",
+            "type": "text",
+            "description": null
+          },
+          {
+            "name": "region",
+            "annotations": {
+              "facet": true,
+              "disjunctive": true
+            },
+            "label": "Region",
+            "type": "text",
+            "description": null
+          },
+          {
+            "name": "employed_total_persons",
+            "label": "employed_total_persons",
+            "type": "int",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "employed_total_males",
+            "label": "employed_total_males",
+            "type": "int",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "employed_total_females",
+            "label": "employed_total_females",
+            "type": "int",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "employment_to_population_ratio_persons",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "employment_to_population_ratio_persons",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "employment_to_population_ratio_males",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "employment_to_population_ratio_males",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "employment_to_population_ratio_females",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "employment_to_population_ratio_females",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "unemployed_total_persons",
+            "label": "unemployed_total_persons",
+            "type": "int",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "unemployed_total_males",
+            "label": "unemployed_total_males",
+            "type": "int",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "unemployed_total_females",
+            "label": "unemployed_total_females",
+            "type": "int",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "unemployment_rate_persons",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "unemployment_rate_persons",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "unemployment_rate_males",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "unemployment_rate_males",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "unemployment_rate_females",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "unemployment_rate_females",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "labour_force_total_persons",
+            "label": "labour_force_total_persons",
+            "type": "int",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "labour_force_total_males",
+            "label": "labour_force_total_males",
+            "type": "int",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "labour_force_total_females",
+            "label": "labour_force_total_females",
+            "type": "int",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "participation_rate_persons",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "participation_rate_persons",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "participation_rate_males",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "participation_rate_males",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "participation_rate_females",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "participation_rate_females",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "employed_total_persons_avg",
+            "label": "employed_total_persons_avg",
+            "type": "double",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "employed_total_males_avg",
+            "label": "employed_total_males_avg",
+            "type": "double",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "employed_total_females_avg",
+            "label": "employed_total_females_avg",
+            "type": "double",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "employment_to_population_ratio_persons_avg",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "employment_to_population_ratio_persons_avg",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "employment_to_population_ratio_males_avg",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "employment_to_population_ratio_males_avg",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "employment_to_population_ratio_females_avg",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "employment_to_population_ratio_females_avg",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "unemployed_total_persons_avg",
+            "label": "unemployed_total_persons_avg",
+            "type": "double",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "unemployed_total_males_avg",
+            "label": "unemployed_total_males_avg",
+            "type": "double",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "unemployed_total_females_avg",
+            "label": "unemployed_total_females_avg",
+            "type": "double",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "unemployment_rate_persons_avg",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "unemployment_rate_persons_avg",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "unemployment_rate_males_avg",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "unemployment_rate_males_avg",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "unemployment_rate_females_avg",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "unemployment_rate_females_avg",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "labour_force_total_persons_avg",
+            "label": "labour_force_total_persons_avg",
+            "type": "double",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "labour_force_total_males_avg",
+            "label": "labour_force_total_males_avg",
+            "type": "double",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "labour_force_total_females_avg",
+            "label": "labour_force_total_females_avg",
+            "type": "double",
+            "annotations": {},
+            "description": null
+          },
+          {
+            "name": "participation_rate_persons_avg",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "participation_rate_persons_avg",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "participation_rate_males_avg",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "participation_rate_males_avg",
+            "type": "double",
+            "description": null
+          },
+          {
+            "name": "participation_rate_females_avg",
+            "annotations": {
+              "unit": "%"
+            },
+            "label": "participation_rate_females_avg",
+            "type": "double",
+            "description": null
+          }
+        ],
+        "dataset_id": "labour-force-abs",
+        "dataset_uid": "da_wxfffh",
+        "has_records": true,
+        "features": [
+          "timeserie",
+          "analyze"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": "{\"queries\":[{\"charts\":[{\"type\":\"line\",\"func\":\"AVG\",\"yAxis\":\"employment_to_population_ratio_persons\",\"scientificDisplay\":true,\"color\":\"#4257B8\"},{\"alignMonth\":true,\"type\":\"line\",\"func\":\"AVG\",\"yAxis\":\"employment_to_population_ratio_males\",\"scientificDisplay\":true,\"color\":\"#42B8A4\"},{\"alignMonth\":true,\"type\":\"line\",\"func\":\"AVG\",\"yAxis\":\"employment_to_population_ratio_females\",\"scientificDisplay\":true,\"color\":\"#85BB24\"}],\"xAxis\":\"month_year\",\"maxpoints\":\"\",\"timescale\":\"month\",\"sort\":\"\"}],\"displayLegend\":true,\"alignMonth\":true,\"singleAxis\":true}",
+            "table_fields": null,
+            "table_default_sort_field": "month_year",
+            "table_default_sort_direction": null,
+            "map_disabled": false,
+            "map_marker_picto": null,
+            "map_marker_color": null,
+            "map_marker_hidemarkershape": false,
+            "map_tooltip_title": null,
+            "map_tooltip_fields": null,
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 497,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 13533,
+            "popularity_score": 4.9,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": null,
+            "geographic_reference_path_labels": null
+          },
+          "processing": {
+            "processing_modified": "2025-11-29T17:15:04+00:00",
+            "security_last_modified": "2023-05-05T05:40:56+00:00",
+            "records_size": 127774,
+            "complete": null
+          },
+          "publishing": {
+            "status": null,
+            "published": false,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "Labour market regions (SA4)",
+            "description": "<p style=\"font-family: Arial; color: rgb(34, 30, 31);\">Labour force status by Labour market region (ASGS) and Sex, as described by the Australian Bureau of Statistics.</p><p style=\"font-family: Arial; color: rgb(34, 30, 31);\"><a href=\"https://www.abs.gov.au/statistics/labour/employment-and-unemployment/labour-force-australia-detailed/latest-release#labour-market-regions-sa4-\" style=\"text-decoration: none; color: rgb(0, 136, 204);\" target=\"_blank\">https://www.abs.gov.au/statistics/labour/employment-and-unemployment/labour-force-australia-detailed/latest-release#labour-market-regions-sa4-</a></p>",
+            "theme": [
+              "Employment & Education",
+              "Tourism & Economy"
+            ],
+            "keyword": [
+              "ABS",
+              "Labour",
+              "Employment"
+            ],
+            "license": "Creative Commons Attribution 3.0 Australia",
+            "license_url": "http://www.opendefinition.org/licenses/cc-by/",
+            "language": "en",
+            "metadata_languages": [
+              "en"
+            ],
+            "timezone": [
+              "Australia/Sydney"
+            ],
+            "modified": "2023-10-12T02:41:00+00:00",
+            "modified_updates_on_metadata_change": true,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2026-08-15T16:15:16+00:00",
+            "metadata_processed": "2026-08-20T01:21:46.205000+00:00",
+            "geographic_reference": null,
+            "geographic_reference_auto": false,
+            "territory": null,
+            "geometry_types": null,
+            "bbox": null,
+            "publisher": "Australian Bureau of Statistics",
+            "references": "https://www.abs.gov.au/statistics/labour/employment-and-unemployment/labour-force-australia-detailed/latest-release#labour-market-regions-sa4-",
+            "records_count": 325,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": true,
+            "parent_domain": "mav-technology-geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": null,
+            "granularity": null
+          },
+          "asset": {
+            "title": "Labour market regions (SA4)",
+            "description": "<p style=\"font-family: Arial; color: rgb(34, 30, 31);\">Labour force status by Labour market region (ASGS) and Sex, as described by the Australian Bureau of Statistics.</p><p style=\"font-family: Arial; color: rgb(34, 30, 31);\"><a href=\"https://www.abs.gov.au/statistics/labour/employment-and-unemployment/labour-force-australia-detailed/latest-release#labour-market-regions-sa4-\" style=\"text-decoration: none; color: rgb(0, 136, 204);\" target=\"_blank\">https://www.abs.gov.au/statistics/labour/employment-and-unemployment/labour-force-australia-detailed/latest-release#labour-market-regions-sa4-</a></p>",
+            "themes": [
+              "Employment & Education",
+              "Tourism & Economy"
+            ],
+            "keywords": [
+              "ABS",
+              "Labour",
+              "Employment"
+            ],
+            "category": "Data",
+            "created_at": "2023-05-04T08:14:58+00:00",
+            "updated_at": "2023-10-12T02:41:00+00:00",
+            "creator": "Australian Bureau of Statistics",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/labour-force-abs/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": 0
+          },
+          "asset_content_configuration": {
+            "facets": [
+              {
+                "disjunctive": true,
+                "field_name": "region"
+              },
+              {
+                "field_name": "month_year"
+              },
+              {
+                "disjunctive": true,
+                "field_name": "value"
+              }
+            ],
+            "default_sorts": [
+              {
+                "field_name": "month_year",
+                "direction": "DESC"
+              }
+            ],
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "custom_ctas": [],
+              "blocks": [],
+              "previews": {},
+              "main_cta": "explorer"
+            },
+            "custom_views_page": {
+              "views": []
+            }
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    },
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "geo_point_2d",
+            "description": "GIS Point data",
+            "annotations": {},
+            "label": "Geo Point",
+            "type": "geo_point_2d"
+          },
+          {
+            "name": "geo_shape",
+            "description": null,
+            "annotations": {},
+            "label": "Geo Shape",
+            "type": "geo_shape"
+          },
+          {
+            "name": "name",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "name",
+            "type": "text"
+          },
+          {
+            "name": "address",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "address",
+            "type": "text"
+          },
+          {
+            "name": "description",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "description",
+            "type": "text"
+          },
+          {
+            "name": "basins",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "basins",
+            "type": "int"
+          },
+          {
+            "name": "toilets",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "toilets",
+            "type": "int"
+          },
+          {
+            "name": "urinal_troughs",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "urinal troughs",
+            "type": "int"
+          },
+          {
+            "name": "urinal_walls",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "urinal walls",
+            "type": "int"
+          },
+          {
+            "name": "male",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "male",
+            "type": "text"
+          },
+          {
+            "name": "female",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "female",
+            "type": "text"
+          },
+          {
+            "name": "unisex",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "unisex",
+            "type": "text"
+          },
+          {
+            "name": "accessible",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "accessible",
+            "type": "text"
+          },
+          {
+            "name": "ambulant",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "ambulant",
+            "type": "text"
+          }
+        ],
+        "dataset_id": "public-toilets",
+        "dataset_uid": "da_n3u0cp",
+        "has_records": true,
+        "features": [
+          "geo",
+          "analyze"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": null,
+            "table_fields": [
+              "name",
+              "address",
+              "description",
+              "basins",
+              "toilets",
+              "urinal_troughs",
+              "urinal_walls",
+              "male",
+              "female",
+              "unisex",
+              "accessible",
+              "ambulant"
+            ],
+            "table_default_sort_field": null,
+            "table_default_sort_direction": null,
+            "map_disabled": false,
+            "map_marker_picto": "dot",
+            "map_marker_color": "#0B72B5",
+            "map_marker_hidemarkershape": true,
+            "map_tooltip_title": "name",
+            "map_tooltip_fields": [
+              "description"
+            ],
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 16459,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 57935,
+            "popularity_score": 14.7,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": [
+              "world"
+            ],
+            "geographic_reference_path_labels": [
+              "World"
+            ]
+          },
+          "processing": {
+            "processing_modified": "2025-08-27T05:04:58+00:00",
+            "security_last_modified": "2020-02-28T04:40:36+00:00",
+            "records_size": 33629,
+            "complete": true
+          },
+          "publishing": {
+            "status": null,
+            "published": false,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "Public Toilets",
+            "description": "<p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">This dataset describes the location of public toilets located in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">The information was collected as the toilets were constructed.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">The intended use of the information is to inform the public of the locations of Ballarat's public toilets.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\"><br></p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">This dataset is typically updated monthly on an automated schedule.</p>",
+            "theme": [
+              "Council Service Performance",
+              "Roads & Planning"
+            ],
+            "keyword": [
+              "toilet",
+              "public toilet"
+            ],
+            "license": "CC BY 3",
+            "license_url": "https://creativecommons.org/licenses/by/3.0/au/",
+            "language": "en",
+            "metadata_languages": [
+              "en"
+            ],
+            "timezone": [
+              "Australia/Melbourne"
+            ],
+            "modified": "2025-08-27T05:05:00+00:00",
+            "modified_updates_on_metadata_change": false,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2025-08-27T05:05:00+00:00",
+            "metadata_processed": "2025-08-27T05:05:01.055000+00:00",
+            "geographic_reference": [
+              "world"
+            ],
+            "geographic_reference_auto": true,
+            "territory": [
+              "World"
+            ],
+            "geometry_types": [
+              "Point"
+            ],
+            "bbox": {
+              "type": "Feature",
+              "geometry": {
+                "coordinates": [
+                  [
+                    [
+                      179.99999991618097,
+                      89.99999995809048
+                    ],
+                    [
+                      143.6695575993508,
+                      89.99999995809048
+                    ],
+                    [
+                      143.6695575993508,
+                      -37.670273655094206
+                    ],
+                    [
+                      179.99999991618097,
+                      -37.670273655094206
+                    ],
+                    [
+                      179.99999991618097,
+                      89.99999995809048
+                    ]
+                  ]
+                ],
+                "type": "Polygon"
+              },
+              "properties": {}
+            },
+            "publisher": "City of Ballarat",
+            "references": null,
+            "records_count": 161,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": false,
+            "parent_domain": "mav-technology-geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": null,
+            "granularity": null
+          },
+          "asset": {
+            "title": "Public Toilets",
+            "description": "<p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">This dataset describes the location of public toilets located in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">The information was collected as the toilets were constructed.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">The intended use of the information is to inform the public of the locations of Ballarat's public toilets.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\"><br></p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">This dataset is typically updated monthly on an automated schedule.</p>",
+            "themes": [
+              "Council Service Performance",
+              "Roads & Planning"
+            ],
+            "keywords": [
+              "toilet",
+              "public toilet"
+            ],
+            "category": "Data",
+            "created_at": "2020-01-21T05:12:11+00:00",
+            "updated_at": "2025-08-27T05:05:00+00:00",
+            "creator": "City of Ballarat",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/public-toilets/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": 0
+          },
+          "asset_content_configuration": {
+            "facets": [
+              {
+                "field_name": "name"
+              },
+              {
+                "field_name": "address"
+              },
+              {
+                "field_name": "description"
+              },
+              {
+                "field_name": "male"
+              },
+              {
+                "field_name": "female"
+              },
+              {
+                "field_name": "unisex"
+              },
+              {
+                "field_name": "accessible"
+              },
+              {
+                "field_name": "ambulant"
+              }
+            ],
+            "default_sorts": null,
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "blocks": [],
+              "previews": {},
+              "main_cta": "explorer"
+            },
+            "custom_views_page": {
+              "main_cta": null,
+              "views": []
+            }
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    },
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/domestic-overnight-visitors"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/domestic-overnight-visitors/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/domestic-overnight-visitors/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/domestic-overnight-visitors/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/domestic-overnight-visitors/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "year",
+            "annotations": {
+              "facetsort": "-count",
+              "timeserie_precision": "year"
+            },
+            "description": null,
+            "label": "﻿year",
+            "type": "date"
+          },
+          {
+            "name": "domestic_overnight_travellers",
+            "annotations": {},
+            "description": null,
+            "label": "domestic_overnight_travellers",
+            "type": "int"
+          }
+        ],
+        "dataset_id": "domestic-overnight-visitors",
+        "dataset_uid": "da_7cky7c",
+        "has_records": true,
+        "features": [
+          "analyze",
+          "timeserie"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": "{\"queries\":[{\"charts\":[{\"type\":\"areaspline\",\"func\":\"SUM\",\"yAxis\":\"domestic_overnight_travellers\",\"scientificDisplay\":true,\"color\":\"#66c2a5\"}],\"xAxis\":\"year\",\"maxpoints\":\"\",\"timescale\":\"year\",\"sort\":\"\"}],\"displayLegend\":true,\"alignMonth\":true}",
+            "table_fields": null,
+            "table_default_sort_field": "year",
+            "table_default_sort_direction": null,
+            "map_disabled": false,
+            "map_marker_picto": null,
+            "map_marker_color": null,
+            "map_marker_hidemarkershape": false,
+            "map_tooltip_title": null,
+            "map_tooltip_fields": null,
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 815,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 6004,
+            "popularity_score": 4.0,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": [
+              "world/world_au/au_40_2/au_60_20570"
+            ],
+            "geographic_reference_path_labels": [
+              "World/Australia/Victoria/Ballarat%20(C)"
+            ]
+          },
+          "processing": {
+            "processing_modified": "2020-05-26T05:45:55+00:00",
+            "security_last_modified": "2020-06-18T01:07:45+00:00",
+            "records_size": 300.0,
+            "complete": true
+          },
+          "publishing": {
+            "status": null,
+            "published": null,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "Domestic Overnight Visitors",
+            "description": "<p>Domestic overnight visitors to Ballarat. Data provided by Tourism Research Australia <a href=\"https://www.tra.gov.au/Domestic/domestic-tourism-trends\" style='background-color: rgb(255, 255, 255); font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; font-size: 0.833rem;'>https://www.tra.gov.au/Domestic/domestic-tourism-trends</a></p>",
+            "theme": [
+              "Tourism & Economy"
+            ],
+            "keyword": [
+              "tourism",
+              "overnight",
+              "domestic"
+            ],
+            "license": "CC BY 3",
+            "license_url": "https://creativecommons.org/licenses/by/3.0/au/",
+            "language": "en",
+            "metadata_languages": [
+              "en"
+            ],
+            "timezone": [
+              "Australia/Melbourne"
+            ],
+            "modified": "2020-05-26T05:45:58+00:00",
+            "modified_updates_on_metadata_change": false,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2020-05-26T05:45:58+00:00",
+            "metadata_processed": "2020-06-18T01:07:48.626000+00:00",
+            "geographic_reference": [
+              "au_60_20570"
+            ],
+            "geographic_reference_auto": true,
+            "territory": [
+              "Ballarat (C)"
+            ],
+            "geometry_types": null,
+            "bbox": null,
+            "publisher": "Tourism Research Australia",
+            "references": "https://www.tra.gov.au/Domestic/domestic-tourism-trends",
+            "records_count": 20,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": false,
+            "parent_domain": "geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": null,
+            "granularity": null
+          },
+          "asset": {
+            "title": "Domestic Overnight Visitors",
+            "description": "<p>Domestic overnight visitors to Ballarat. Data provided by Tourism Research Australia <a href=\"https://www.tra.gov.au/Domestic/domestic-tourism-trends\" style='background-color: rgb(255, 255, 255); font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; font-size: 0.833rem;'>https://www.tra.gov.au/Domestic/domestic-tourism-trends</a></p>",
+            "themes": [
+              "Tourism & Economy"
+            ],
+            "keywords": [
+              "tourism",
+              "overnight",
+              "domestic"
+            ],
+            "category": "Data",
+            "created_at": "2020-05-26T05:45:29+00:00",
+            "updated_at": "2020-05-26T05:45:58+00:00",
+            "creator": "Tourism Research Australia",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/domestic-overnight-visitors/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": null
+          },
+          "asset_content_configuration": {
+            "facets": null,
+            "default_sorts": [
+              {
+                "field_name": "year",
+                "direction": "DESC"
+              }
+            ],
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "main_cta": "explorer"
+            },
+            "custom_views_page": null
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    }
+  ],
+  "exports": {
+    "access-to-public-open-spaces": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/access-to-public-open-spaces/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/access-to-public-open-spaces/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/access-to-public-open-spaces/exports/geojson"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/access-to-public-open-spaces/exports/xls"
+      }
+    ],
+    "population-projection": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/population-projection/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/population-projection/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/population-projection/exports/geojson"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/population-projection/exports/xls"
+      }
+    ],
+    "labour-force-abs": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/labour-force-abs/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/labour-force-abs/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/labour-force-abs/exports/geojson"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/labour-force-abs/exports/xls"
+      }
+    ],
+    "public-toilets": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/exports/geojson"
+      },
+      {
+        "rel": "kml",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/exports/kml"
+      },
+      {
+        "rel": "shp",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/exports/shp"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/public-toilets/exports/xls"
+      }
+    ],
+    "domestic-overnight-visitors": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/domestic-overnight-visitors/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/domestic-overnight-visitors/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/domestic-overnight-visitors/exports/geojson"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/domestic-overnight-visitors/exports/xls"
+      }
+    ]
+  }
+}

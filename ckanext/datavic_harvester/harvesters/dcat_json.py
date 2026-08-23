@@ -16,10 +16,22 @@ from ckanext.dcat.harvesters._json import DCATJSONHarvester
 from ckanext.harvest.model import HarvestObject
 
 from ckanext.datavic_harvester import helpers
-from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester, get_resource_size
+from ckanext.datavic_harvester.harvesters.base import (
+    DataVicBaseHarvester,
+    PRESERVE_PKG_FIELDS,
+    get_resource_size,
+)
 
 
 log = logging.getLogger(__name__)
+
+# PRESERVE_PKG_FIELDS entries stored on the core package table rather than
+# package_extra, so existing_package.extras.get(key) never sees them.
+# Verified: the other 19 PRESERVE_PKG_FIELDS entries are all package_extra
+# rows. Restricted to a known set rather than a blanket getattr fallback, to
+# avoid silently picking up an unrelated model.Package attribute if the
+# shared list grows.
+_CORE_COLUMN_FIELDS = frozenset({"maintainer_email"})
 
 
 class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
@@ -473,7 +485,7 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
         )
         if status == "change":
             self._restore_package_state(package_dict, harvest_object)
-            self._preserve_syndication_fields(package_dict, harvest_object)
+            self._preserve_existing_fields(package_dict, harvest_object)
 
         resources = package_dict["resources"]
         for resource in resources:
@@ -499,14 +511,15 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
 
         package_dict["state"] = "active"
 
-    def _preserve_syndication_fields(
+    def _preserve_existing_fields(
         self, package_dict: dict[str, Any], harvest_object: HarvestObject
     ) -> None:
-        """Keep DD-to-DV syndication fields that are not in the DCAT payload.
+        """Keep fields the DCAT harvester does not set, so package_update -
+        a full replace - does not drop them.
 
-        When a deleted DD package is restored, the existing syndicated_id must
-        survive the package_update so ckanext-syndicate updates the trashed DV
-        package instead of creating a new DV package.
+        Most importantly syndicated_id: when a deleted DD package is
+        restored, it must survive the update so ckanext-syndicate updates
+        the trashed DV package instead of creating a new one.
         """
 
         if not harvest_object.package_id:
@@ -516,8 +529,12 @@ class DataVicDCATJSONHarvester(DCATJSONHarvester, DataVicBaseHarvester):
         if not existing_package:
             return
 
-        for key in ("skip_syndication", "syndicated_id"):
+        for key in PRESERVE_PKG_FIELDS:
             value = existing_package.extras.get(key)
+
+            if value is None and key in _CORE_COLUMN_FIELDS:
+                value = getattr(existing_package, key, None)
+
             if value is None or package_dict.get(key):
                 continue
 

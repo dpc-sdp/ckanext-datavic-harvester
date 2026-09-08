@@ -42,6 +42,16 @@ jobs:
         pip install -e .
         # Replace default path to CKAN core config file with the one on the container
         sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test-ci.ini
+    - name: Apply ckanext-dcat patches
+      run: |
+        # Mirrors datavic_ckan_lagoon's Dockerfile.cli patching step. Required
+        # until DATAVIC-987's ckanext-dcat fix (returns delete object ids so
+        # they reach the fetch queue) merges upstream.
+        for patch_file in scripts/patches/ckanext-dcat/*.patch; do
+          [ -f "$patch_file" ] || continue
+          echo "Applying: $(basename "$patch_file")"
+          patch -p1 -d /srv/app/src/ckanext-dcat < "$patch_file"
+        done
     - name: Setup extension
       run: ckan -c test-ci.ini db upgrade
     - name: Run tests

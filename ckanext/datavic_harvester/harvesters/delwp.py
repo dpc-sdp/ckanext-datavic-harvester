@@ -225,6 +225,15 @@ class DelwpHarvester(DataVicBaseHarvester):
             if not self._get_organization(org_name):
                 raise ValueError(f"Organisation {org_name} not found")
 
+    def _get_source_org_title(self) -> Optional[str]:
+        """Human-readable title of the harvest source's organisation.
+
+        Returns the org title, falling back to its name (``display_name``
+        semantics). Returns None if the organisation cannot be resolved.
+        """
+        org = model.Group.get(self.source_org_id)
+        return org.display_name if org else None
+
     def _get_organization(self, org_name: str) -> model.Group | None:
         return (
             model.Session.query(model.Group)
@@ -733,6 +742,15 @@ class DelwpHarvester(DataVicBaseHarvester):
         # Validate before setting current=True to prevent orphaned harvest_objects
         pkg_dict = self._get_pkg_dict(harvest_object)
 
+        if pkg_dict is None:
+            msg = (
+                f"{self.HARVESTER}: could not build package dict for object "
+                f"{harvest_object.id}, skipping..."
+            )
+            log.info(msg)
+            self._save_object_error(msg, harvest_object, "Import")
+            return False
+
         if not pkg_dict["notes"] or not pkg_dict["owner_org"]:
             msg = "Description or organization field for package {} is missing for object {}, skipping...".format(
                 pkg_dict["title"], harvest_object.id
@@ -937,9 +955,10 @@ class DelwpHarvester(DataVicBaseHarvester):
         pkg_dict["tags"] = helpers.get_tags(remote_topiccat) if remote_topiccat else []
         pkg_dict["last_updated"] = metashare_dict.get("geonet_info_changedate")
         pkg_dict["extract"] = f"{pkg_dict['notes'].split('.')[0]}..."
+        resowner = (metashare_dict.get("resowner") or "").split(";")[0].strip()
         pkg_dict["owner_org"] = self._get_organisation(
             self.config.get("organisation_mapping"),
-            metashare_dict.get("resowner", "").split(";")[0],
+            resowner,
             harvest_object,
         )
 
@@ -949,8 +968,22 @@ class DelwpHarvester(DataVicBaseHarvester):
         if uuid:
             pkg_dict["primary_purpose_of_collection"] = uuid
 
-        if metashare_dict.get("resowner"):
-            pkg_dict["data_owner"] = metashare_dict["resowner"].split(";")[0]
+        if resowner:
+            pkg_dict["data_owner"] = resowner
+        else:
+            source_org_title = self._get_source_org_title()
+
+            if not source_org_title:
+                log.error(
+                    "%s: cannot resolve source organisation %s for data_owner "
+                    "fallback on object %s; skipping record",
+                    self.HARVESTER,
+                    self.source_org_id,
+                    harvest_object.id,
+                )
+                return None
+
+            pkg_dict["data_owner"] = source_org_title
 
         pkg_dict["groups"] = [
             {"id": group.get("id")} for group in self.config["default_group_dicts"]

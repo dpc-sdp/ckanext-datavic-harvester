@@ -751,6 +751,75 @@ class TestGatherStagePurgeMissingDb:
         model.Session.refresh(existing_object)
         assert existing_object.current is False
 
+    def test_missing_dataset_does_not_clear_current_on_other_source(
+        self,
+        harvester: DataVicODSHarvester,
+        dataset_factory,
+        harvest_source_factory,
+        harvest_job_factory,
+        purge_missing_config,
+    ):
+        """ODS guids are the raw remote dataset_id, not source-namespaced, so
+        two sources can share a guid. purge_missing on one source must not
+        flip current=False on the other source's HarvestObject for it."""
+        dataset = dataset_factory()
+        other_dataset = dataset_factory()
+        source = harvest_source_factory(
+            config=json.dumps(purge_missing_config),
+            source_type="ods",
+        )
+        other_source = harvest_source_factory(
+            config=json.dumps(purge_missing_config),
+            source_type="ods",
+        )
+
+        existing_job = harvest_job_factory(source=source)
+        existing_object = harvest_model.HarvestObject(
+            guid="shared-guid",
+            job=existing_job,
+            package_id=dataset["id"],
+            current=True,
+            content=json.dumps({"dataset_id": "shared-guid"}),
+            report_status="added",
+        )
+        existing_object.save()
+        existing_job.status = "Finished"
+        existing_job.gather_started = datetime.now(timezone.utc)
+        existing_job.gather_finished = datetime.now(timezone.utc)
+        existing_job.finished = datetime.now(timezone.utc)
+
+        other_job = harvest_job_factory(source=other_source)
+        other_object = harvest_model.HarvestObject(
+            guid="shared-guid",
+            job=other_job,
+            package_id=other_dataset["id"],
+            current=True,
+            content=json.dumps({"dataset_id": "shared-guid"}),
+            report_status="added",
+        )
+        other_object.save()
+        other_job.status = "Finished"
+        other_job.gather_started = datetime.now(timezone.utc)
+        other_job.gather_finished = datetime.now(timezone.utc)
+        other_job.finished = datetime.now(timezone.utc)
+        model.Session.commit()
+
+        new_job = harvest_model.HarvestJob(source=source)
+        model.Session.add(new_job)
+        model.Session.commit()
+
+        harvester._set_config(source.config)
+
+        with mock.patch.object(
+            BaseODSHarvester, "gather_stage", return_value=["unrelated-obj"]
+        ):
+            harvester.gather_stage(new_job)
+
+        model.Session.refresh(existing_object)
+        model.Session.refresh(other_object)
+        assert existing_object.current is False
+        assert other_object.current is True
+
     def test_dataset_still_in_source_is_not_deleted(
         self,
         harvester: DataVicODSHarvester,

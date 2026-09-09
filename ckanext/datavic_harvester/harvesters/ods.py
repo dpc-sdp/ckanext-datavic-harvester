@@ -151,9 +151,9 @@ class DataVicODSHarvester(ODSHarvester):
                 ],
             )
 
-            model.Session.query(HarvestObject).filter_by(guid=guid).update(
-                {"current": False}, False
-            )
+            model.Session.query(HarvestObject).filter_by(
+                guid=guid, harvest_source_id=harvest_job.source_id
+            ).update({"current": False}, False)
 
             obj.save()
             object_ids.append(obj.id)

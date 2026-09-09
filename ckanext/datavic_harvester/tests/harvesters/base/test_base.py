@@ -1,9 +1,12 @@
+from types import SimpleNamespace
+
 import pytest
 
 from ckan.model import State
 from ckan.tests.helpers import call_action
 
 from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester as Base
+from ckanext.datavic_harvester.harvesters.base import add_harvest_source_extras
 
 
 @pytest.fixture
@@ -46,3 +49,51 @@ class TestBaseHarvester:
 
         harvest_object = harvest_object_factory()
         assert not harvester._get_object_extra(harvest_object, "test")
+
+
+class TestAddHarvestSourceExtras:
+    """Shared by DELWP and ODS (base.py), so the harvest source listing page
+    (/harvest/<source>) does not depend on Solr reindex timing to show a
+    dataset - see base.add_harvest_source_extras docstring."""
+
+    def _source(self):
+        return SimpleNamespace(id="source-1", title="Source One", type="ods")
+
+    def test_adds_all_three_keys(self):
+        pkg_dict = {}
+
+        add_harvest_source_extras(pkg_dict, self._source())
+
+        extras = {e["key"]: e["value"] for e in pkg_dict["extras"]}
+        assert extras["harvest_source_id"] == "source-1"
+        assert extras["harvest_source_title"] == "Source One"
+        assert extras["harvest_source_type"] == "ods"
+
+    def test_creates_extras_list_when_absent(self):
+        pkg_dict = {}
+
+        add_harvest_source_extras(pkg_dict, self._source())
+
+        assert "extras" in pkg_dict
+
+    def test_appends_to_existing_extras_without_dropping_them(self):
+        pkg_dict = {"extras": [{"key": "custom_free_form", "value": "keep-me"}]}
+
+        add_harvest_source_extras(pkg_dict, self._source())
+
+        extras = {e["key"]: e["value"] for e in pkg_dict["extras"]}
+        assert extras["custom_free_form"] == "keep-me"
+        assert extras["harvest_source_id"] == "source-1"
+
+    def test_does_not_duplicate_existing_harvest_source_keys(self):
+        pkg_dict = {
+            "extras": [{"key": "harvest_source_id", "value": "stale-id"}]
+        }
+
+        add_harvest_source_extras(pkg_dict, self._source())
+
+        matching = [
+            e for e in pkg_dict["extras"] if e["key"] == "harvest_source_id"
+        ]
+        assert len(matching) == 1
+        assert matching[0]["value"] == "stale-id"

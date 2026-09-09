@@ -465,6 +465,129 @@ class TestDcatHarvester:
         assert second_harvest_object.errors == []
 
     @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_preserve_pkg_fields_widened_beyond_syndication(
+        self,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        """_preserve_existing_fields now uses the full PRESERVE_PKG_FIELDS
+        shared with DELWP/ODS (20 fields), not the old hardcoded
+        (skip_syndication, syndicated_id) tuple. dtv_preview is the field
+        with genuinely at-risk data on DCAT-harvested packages in
+        production - confirmed present on all such packages, unprotected
+        before this change."""
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        first_harvest_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+        )
+
+        assert harvester.import_stage(first_harvest_object) is True
+        package_id = first_harvest_object.package_id
+
+        sysadmin = call_action("get_site_user", ignore_auth=True)
+        call_action(
+            "package_patch",
+            {"user": sysadmin["name"]},
+            id=package_id,
+            dtv_preview=True,
+            bil_confidentiality="major",
+            role="Data Custodian",
+        )
+        assert call_action("package_show", id=package_id)["dtv_preview"] is True
+
+        # DCAT's import_stage skips the update as "unchanged" when
+        # dcat_modified matches the existing dataset, unless the package is
+        # trashed (restoring_deleted_package). Delete it first, same as
+        # test_import_stage_restores_deleted_dataset, to force the update
+        # path that exercises _preserve_existing_fields.
+        tk.get_action("package_delete")(
+            {"user": harvester._get_user_name(), "ignore_auth": True},
+            {"id": package_id},
+        )
+
+        second_harvest_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+
+        assert harvester.import_stage(second_harvest_object) is True
+        assert model.Package.get(package_id).state == "active"
+
+        updated_package = call_action("package_show", id=package_id)
+        assert updated_package["dtv_preview"] is True
+        assert updated_package["bil_confidentiality"] == "major"
+        assert updated_package["role"] == "Data Custodian"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
+    def test_preserve_pkg_fields_maintainer_email_core_column_fallback(
+        self,
+        harvester: DcatHarvester,
+        harvest_source_factory,
+        harvest_job_factory,
+        harvest_object_factory,
+        dcat_config: DcatConfig,
+        dcat_dataset: dict[str, Any],
+    ):
+        """maintainer_email is a core package column, not a package_extra
+        row, so existing_package.extras.get() never sees it. Regression
+        guard for the fallback in _preserve_existing_fields."""
+        source = harvest_source_factory(
+            config=json.dumps(dcat_config), source_type=harvester.info()["name"]
+        )
+        harvest_job = harvest_job_factory(source=source)
+        harvest_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+        )
+
+        assert harvester.import_stage(harvest_object) is True
+        package_id = harvest_object.package_id
+
+        sysadmin = call_action("get_site_user", ignore_auth=True)
+        call_action(
+            "package_patch",
+            {"user": sysadmin["name"]},
+            id=package_id,
+            maintainer_email="custodian@example.com",
+        )
+        assert (
+            call_action("package_show", id=package_id)["maintainer_email"]
+            == "custodian@example.com"
+        )
+
+        tk.get_action("package_delete")(
+            {"user": harvester._get_user_name(), "ignore_auth": True},
+            {"id": package_id},
+        )
+
+        second_harvest_object = harvest_object_factory(
+            guid=dcat_dataset["identifier"],
+            content=json.dumps(dcat_dataset),
+            job=harvest_job,
+            package_id=package_id,
+            extras={"status": "change"},
+        )
+
+        assert harvester.import_stage(second_harvest_object) is True
+        assert model.Package.get(package_id).state == "active"
+
+        updated_package = call_action("package_show", id=package_id)
+        assert updated_package["maintainer_email"] == "custodian@example.com"
+
+    @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_get_pkg_dict(
         self,
         harvester: DcatHarvester,

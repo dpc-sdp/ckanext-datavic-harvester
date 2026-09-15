@@ -5,8 +5,12 @@ import pytest
 from ckan.model import State
 from ckan.tests.helpers import call_action
 
+import ckanext.datavic_harvester.harvesters.base as base
 from ckanext.datavic_harvester.harvesters.base import DataVicBaseHarvester as Base
-from ckanext.datavic_harvester.harvesters.base import add_harvest_source_extras
+from ckanext.datavic_harvester.harvesters.base import (
+    add_harvest_source_extras,
+    get_resource_size,
+)
 
 
 @pytest.fixture
@@ -97,3 +101,43 @@ class TestAddHarvestSourceExtras:
         ]
         assert len(matching) == 1
         assert matching[0]["value"] == "stale-id"
+
+
+class TestGetResourceSize:
+    """DD sets ckanext.datavic_harvester.max_content_length = 0 to mean "no
+    limit", but the streaming-download loop was missing the
+    `MAX_CONTENT_LENGTH > 0` guard the content-length-header check already
+    had, so 0 was instead treated as the strictest possible limit - every
+    resource looked oversized, even a few bytes, and got skipped with size
+    -1 (see DATAVIC-972)."""
+
+    class _FakeResponse:
+        def __init__(self, chunks):
+            self._chunks = chunks
+            self.headers = {}
+
+        def iter_content(self, chunk_size):
+            return iter(self._chunks)
+
+        def close(self):
+            pass
+
+    def test_zero_limit_means_unlimited(self, monkeypatch):
+        monkeypatch.setattr(base, "MAX_CONTENT_LENGTH", 0)
+        monkeypatch.setattr(
+            base,
+            "_get_response",
+            lambda url, headers: self._FakeResponse([b"a" * 10, b"b" * 5]),
+        )
+
+        assert get_resource_size("https://example.com/resource.csv") == 15
+
+    def test_positive_limit_still_rejects_oversized_resource(self, monkeypatch):
+        monkeypatch.setattr(base, "MAX_CONTENT_LENGTH", 10)
+        monkeypatch.setattr(
+            base,
+            "_get_response",
+            lambda url, headers: self._FakeResponse([b"a" * 10, b"b" * 5]),
+        )
+
+        assert get_resource_size("https://example.com/resource.csv") == -1

@@ -395,7 +395,7 @@ def get_resource_size(resource_url: str) -> int:
 
         for chunk in response.iter_content(CHUNK_SIZE):
             length += len(chunk)
-            if length > MAX_CONTENT_LENGTH:
+            if length > MAX_CONTENT_LENGTH and MAX_CONTENT_LENGTH > 0:
                 response.close()
                 raise DataTooBigWarning()
 

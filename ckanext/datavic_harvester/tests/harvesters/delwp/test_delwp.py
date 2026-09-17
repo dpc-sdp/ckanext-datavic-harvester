@@ -18,6 +18,7 @@ import ckanext.harvest.model as harvest_model
 
 import ckanext.datavic_harvester.helpers as h
 from ckanext.datavic_harvester.harvesters import DelwpHarvester
+from ckanext.datavic_harvester.harvesters.base import get_existing_guids_to_package_ids
 
 
 class DelwpConfig(TypedDict):
@@ -293,8 +294,10 @@ class TestDelwpHarvester:
         records = [{"fields": {"uuid": "guid-a", "title": "t"}}]
 
         with (
-            mock.patch.object(
-                harvester, "_get_guids_to_package_ids", return_value=existing
+            mock.patch(
+                "ckanext.datavic_harvester.harvesters.delwp"
+                ".get_existing_guids_to_package_ids",
+                return_value=existing,
             ),
             mock.patch.object(
                 harvester,
@@ -355,8 +358,10 @@ class TestDelwpHarvester:
         records = [{"fields": {"uuid": "guid-a", "title": "t"}}]
 
         with (
-            mock.patch.object(
-                harvester, "_get_guids_to_package_ids", return_value=existing
+            mock.patch(
+                "ckanext.datavic_harvester.harvesters.delwp"
+                ".get_existing_guids_to_package_ids",
+                return_value=existing,
             ),
             mock.patch.object(
                 harvester,
@@ -415,8 +420,10 @@ class TestDelwpHarvester:
         records = [{"fields": {"uuid": "guid-a", "title": "t"}}]
 
         with (
-            mock.patch.object(
-                harvester, "_get_guids_to_package_ids", return_value=existing
+            mock.patch(
+                "ckanext.datavic_harvester.harvesters.delwp"
+                ".get_existing_guids_to_package_ids",
+                return_value=existing,
             ),
             mock.patch.object(
                 harvester,
@@ -471,8 +478,10 @@ class TestDelwpHarvester:
         records = [{"fields": {"uuid": "guid-a", "title": "t"}}]
 
         with (
-            mock.patch.object(
-                harvester, "_get_guids_to_package_ids", return_value=existing
+            mock.patch(
+                "ckanext.datavic_harvester.harvesters.delwp"
+                ".get_existing_guids_to_package_ids",
+                return_value=existing,
             ),
             mock.patch.object(
                 harvester,
@@ -530,8 +539,10 @@ class TestDelwpHarvester:
         ]
 
         with (
-            mock.patch.object(
-                harvester, "_get_guids_to_package_ids", return_value=existing
+            mock.patch(
+                "ckanext.datavic_harvester.harvesters.delwp"
+                ".get_existing_guids_to_package_ids",
+                return_value=existing,
             ),
             mock.patch.object(
                 harvester,
@@ -674,7 +685,7 @@ class TestGetCurrentHarvestGuids:
             "current-b",
         }
 
-        guid_map = harvester._get_guids_to_package_ids(source.id)
+        guid_map = get_existing_guids_to_package_ids(source.id, active_only=False)
         assert len(guid_map) == 3
         assert set(guid_map.keys()) == {
             "current-a",
@@ -1943,3 +1954,24 @@ class TestChangeDetectionIntegration:
 
         pkg_after_update = call_action("package_show", id=package_id)
         assert pkg_after_update.get("syndicated_id") == expected_syndicated_id
+
+
+def test_delwp_preserve_fields_is_the_shared_constant():
+    """Guards against re-divergence: DELWP must use the same list as
+    base.py, not a locally re-declared copy."""
+    from ckanext.datavic_harvester.harvesters import base as base_module
+    from ckanext.datavic_harvester.harvesters import delwp as delwp_module
+
+    assert delwp_module.PRESERVE_PKG_FIELDS is base_module.PRESERVE_PKG_FIELDS
+
+
+def test_delwp_add_harvest_source_extras_is_the_shared_function():
+    """Guards against re-divergence: DELWP must call the shared helper in
+    base.py, not a locally re-implemented copy."""
+    from ckanext.datavic_harvester.harvesters import base as base_module
+    from ckanext.datavic_harvester.harvesters import delwp as delwp_module
+
+    assert (
+        delwp_module.add_harvest_source_extras
+        is base_module.add_harvest_source_extras
+    )

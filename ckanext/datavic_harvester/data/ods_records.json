@@ -1,0 +1,1591 @@
+{
+  "datasets": [
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-council-emissions"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-council-emissions/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-council-emissions/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-council-emissions/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-council-emissions/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "year",
+            "annotations": {
+              "facetsort": "-count",
+              "timeserie_precision": "year"
+            },
+            "description": null,
+            "label": "﻿year",
+            "type": "date"
+          },
+          {
+            "name": "co2_emissions",
+            "annotations": {
+              "unit": "t"
+            },
+            "description": null,
+            "label": "co2_emissions",
+            "type": "int"
+          }
+        ],
+        "dataset_id": "fixture-council-emissions",
+        "dataset_uid": "da_an4i2f",
+        "has_records": true,
+        "features": [
+          "analyze",
+          "timeserie"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": "{\"queries\":[{\"charts\":[{\"type\":\"areaspline\",\"func\":\"SUM\",\"yAxis\":\"co2_emissions\",\"scientificDisplay\":true,\"color\":\"#66c2a5\"}],\"xAxis\":\"year\",\"maxpoints\":\"\",\"timescale\":\"year\",\"sort\":\"\"}],\"displayLegend\":true,\"alignMonth\":true}",
+            "table_fields": null,
+            "table_default_sort_field": "year",
+            "table_default_sort_direction": null,
+            "map_disabled": false,
+            "map_marker_picto": null,
+            "map_marker_color": null,
+            "map_marker_hidemarkershape": false,
+            "map_tooltip_title": null,
+            "map_tooltip_fields": null,
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 9519,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 6546,
+            "popularity_score": 7.9,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": [
+              "world/world_au/au_40_2/au_60_20570"
+            ],
+            "geographic_reference_path_labels": [
+              "World/Australia/Victoria/Ballarat%20(C)"
+            ]
+          },
+          "processing": {
+            "processing_modified": "2020-05-27T05:11:21+00:00",
+            "security_last_modified": "2020-06-18T01:10:07+00:00",
+            "records_size": 42.0,
+            "complete": true
+          },
+          "publishing": {
+            "status": null,
+            "published": null,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "fixture-Council Emissions",
+            "description": "<p>Carbon emissions from the City of Ballarat. Council has a plan to achieve zero net emissions.</p>",
+            "theme": [
+              "Environment"
+            ],
+            "keyword": [
+              "carbon dioxide",
+              "emissions"
+            ],
+            "license": "CC BY 3",
+            "license_url": "https://creativecommons.org/licenses/by/3.0/au/",
+            "language": "en",
+            "metadata_languages": [
+              "en"
+            ],
+            "timezone": [
+              "Australia/Melbourne"
+            ],
+            "modified": "2020-05-27T05:11:26+00:00",
+            "modified_updates_on_metadata_change": false,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2020-05-27T05:11:26+00:00",
+            "metadata_processed": "2020-06-18T01:10:11.267000+00:00",
+            "geographic_reference": [
+              "au_60_20570"
+            ],
+            "geographic_reference_auto": true,
+            "territory": [
+              "Ballarat (C)"
+            ],
+            "geometry_types": null,
+            "bbox": null,
+            "publisher": "City of Ballarat",
+            "references": null,
+            "records_count": 3,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": false,
+            "parent_domain": "geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": null,
+            "granularity": null
+          },
+          "asset": {
+            "title": "Council Emissions",
+            "description": "<p>Carbon emissions from the City of Ballarat. Council has a plan to achieve zero net emissions.</p>",
+            "themes": [
+              "Environment"
+            ],
+            "keywords": [
+              "carbon dioxide",
+              "emissions"
+            ],
+            "category": "Data",
+            "created_at": "2020-05-27T05:11:21+00:00",
+            "updated_at": "2020-05-27T05:11:26+00:00",
+            "creator": "City of Ballarat",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/council-emissions/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": null
+          },
+          "asset_content_configuration": {
+            "facets": null,
+            "default_sorts": [
+              {
+                "field_name": "year",
+                "direction": "DESC"
+              }
+            ],
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "main_cta": "explorer"
+            },
+            "custom_views_page": null
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    },
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-waste-properties"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-waste-properties/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-waste-properties/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-waste-properties/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-waste-properties/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "waste_type",
+            "annotations": {
+              "facet": true
+            },
+            "description": "Type of waste pickup for which the count of properties applies.",
+            "label": "waste_type",
+            "type": "text"
+          },
+          {
+            "name": "year",
+            "annotations": {
+              "facetsort": "-count",
+              "facet": true
+            },
+            "description": "Year for which the count of properties applies",
+            "label": "year",
+            "type": "text"
+          },
+          {
+            "name": "properties",
+            "annotations": {},
+            "description": "Count of properties that pay for kerbside pickup of waste in a particular year.",
+            "label": "properties",
+            "type": "int"
+          },
+          {
+            "name": "suburb",
+            "annotations": {
+              "facet": true
+            },
+            "description": "Suburb for which the count of properties applies.",
+            "label": "suburb",
+            "type": "text"
+          }
+        ],
+        "dataset_id": "fixture-kerbside-waste-properties",
+        "dataset_uid": "da_ehjkcv",
+        "has_records": true,
+        "features": [
+          "analyze"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": "{\"queries\":[{\"charts\":[{\"type\":\"spline\",\"func\":\"SUM\",\"yAxis\":\"properties\",\"scientificDisplay\":true,\"color\":\"range-Accent\"}],\"xAxis\":\"year\",\"maxpoints\":null,\"sort\":\"\",\"seriesBreakdown\":\"waste_type\"}],\"timescale\":\"\",\"displayLegend\":true,\"alignMonth\":true}",
+            "table_fields": [
+              "year",
+              "waste_type",
+              "suburb",
+              "properties"
+            ],
+            "table_default_sort_field": null,
+            "table_default_sort_direction": null,
+            "map_disabled": false,
+            "map_marker_picto": null,
+            "map_marker_color": null,
+            "map_marker_hidemarkershape": false,
+            "map_tooltip_title": null,
+            "map_tooltip_fields": null,
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 9466,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 13405,
+            "popularity_score": 9.0,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": [
+              "world/world_au/au_40_2/au_60_20570"
+            ],
+            "geographic_reference_path_labels": [
+              "World/Australia/Victoria/Ballarat%20(C)"
+            ]
+          },
+          "processing": {
+            "processing_modified": "2020-04-08T01:07:38+00:00",
+            "security_last_modified": "2020-04-21T22:53:39+00:00",
+            "records_size": 46160.0,
+            "complete": true
+          },
+          "publishing": {
+            "status": null,
+            "published": null,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "fixture-Kerbside Waste Properties",
+            "description": "<p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">This dataset describes the waste type, suburb, year and count of properties that pay for kerbside pickup of waste, located in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">The information was collected as the rates were levied.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">The intended use of the information is to inform the public of the number of kerbside waste pickup properties in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\"><br/></p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">This dataset is typically updated yearly on an manual basis.</p>",
+            "theme": [
+              "Council Service Performance",
+              "Environment",
+              "Roads & Planning"
+            ],
+            "keyword": [
+              "waste",
+              "landfill",
+              "recycling",
+              "green",
+              "kerbside collection",
+              "rubbish",
+              "tenancies"
+            ],
+            "license": "CC BY 3",
+            "license_url": "https://creativecommons.org/licenses/by/3.0/au/",
+            "language": "en",
+            "metadata_languages": [
+              "en"
+            ],
+            "timezone": [
+              "Australia/Melbourne"
+            ],
+            "modified": "2020-04-08T01:07:43+00:00",
+            "modified_updates_on_metadata_change": false,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2020-04-08T01:07:43+00:00",
+            "metadata_processed": "2020-04-21T22:57:41.966000+00:00",
+            "geographic_reference": [
+              "au_60_20570"
+            ],
+            "geographic_reference_auto": true,
+            "territory": [
+              "Ballarat (C)"
+            ],
+            "geometry_types": null,
+            "bbox": null,
+            "publisher": "City of Ballarat",
+            "references": null,
+            "records_count": 988,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": false,
+            "parent_domain": "geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": null,
+            "granularity": null
+          },
+          "asset": {
+            "title": "Kerbside Waste Properties",
+            "description": "<p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">This dataset describes the waste type, suburb, year and count of properties that pay for kerbside pickup of waste, located in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">The information was collected as the rates were levied.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">The intended use of the information is to inform the public of the number of kerbside waste pickup properties in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\"><br/></p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">This dataset is typically updated yearly on an manual basis.</p>",
+            "themes": [
+              "Council Service Performance",
+              "Environment",
+              "Roads & Planning"
+            ],
+            "keywords": [
+              "waste",
+              "landfill",
+              "recycling",
+              "green",
+              "kerbside collection",
+              "rubbish",
+              "tenancies"
+            ],
+            "category": "Data",
+            "created_at": "2020-04-08T01:07:38+00:00",
+            "updated_at": "2020-04-08T01:07:43+00:00",
+            "creator": "City of Ballarat",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/kerbside-waste-properties/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": null
+          },
+          "asset_content_configuration": {
+            "facets": [
+              {
+                "facetsort": "-count",
+                "field_name": "year"
+              },
+              {
+                "field_name": "waste_type"
+              },
+              {
+                "field_name": "suburb"
+              }
+            ],
+            "default_sorts": null,
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "main_cta": "explorer"
+            },
+            "custom_views_page": null
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    },
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-access-to-public-open-spaces"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-access-to-public-open-spaces/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-access-to-public-open-spaces/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-access-to-public-open-spaces/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-access-to-public-open-spaces/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "year",
+            "annotations": {
+              "facetsort": "-count",
+              "timeserie_precision": "year"
+            },
+            "description": null,
+            "label": "﻿year",
+            "type": "date"
+          },
+          {
+            "name": "public_open_space_access",
+            "annotations": {
+              "unit": "%"
+            },
+            "description": null,
+            "label": "public_open_space_access",
+            "type": "double"
+          }
+        ],
+        "dataset_id": "fixture-access-to-public-open-spaces",
+        "dataset_uid": "da_kfzuyk",
+        "has_records": true,
+        "features": [
+          "analyze",
+          "timeserie"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": "{\"queries\":[{\"charts\":[{\"type\":\"line\",\"func\":\"AVG\",\"yAxis\":\"public_open_space_access\",\"scientificDisplay\":true,\"color\":\"#66c2a5\"}],\"xAxis\":\"year\",\"maxpoints\":\"\",\"timescale\":\"year\",\"sort\":\"\"}],\"displayLegend\":true,\"alignMonth\":true}",
+            "table_fields": null,
+            "table_default_sort_field": "year",
+            "table_default_sort_direction": null,
+            "map_disabled": false,
+            "map_marker_picto": null,
+            "map_marker_color": null,
+            "map_marker_hidemarkershape": false,
+            "map_tooltip_title": null,
+            "map_tooltip_fields": null,
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 9634,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 7349,
+            "popularity_score": 8.0,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": [
+              "world/world_au/au_40_2/au_60_20570"
+            ],
+            "geographic_reference_path_labels": [
+              "World/Australia/Victoria/Ballarat%20(C)"
+            ]
+          },
+          "processing": {
+            "processing_modified": "2020-05-28T03:50:18+00:00",
+            "security_last_modified": "2020-06-18T01:10:53+00:00",
+            "records_size": 13.0,
+            "complete": true
+          },
+          "publishing": {
+            "status": null,
+            "published": null,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "fixture-Access to Public Open Spaces",
+            "description": "<p>Percentage of domestic dwellings within 400 metres of public open space (a reserve).</p>",
+            "theme": [
+              "Sports & Recreation",
+              "Health",
+              "Council Service Performance"
+            ],
+            "keyword": [
+              "open space"
+            ],
+            "license": "CC BY 3",
+            "license_url": "https://creativecommons.org/licenses/by/3.0/au/",
+            "language": "en",
+            "metadata_languages": [
+              "en"
+            ],
+            "timezone": [
+              "Australia/Melbourne"
+            ],
+            "modified": "2020-05-28T03:50:22+00:00",
+            "modified_updates_on_metadata_change": false,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2020-05-28T03:50:22+00:00",
+            "metadata_processed": "2020-06-18T01:10:57.963000+00:00",
+            "geographic_reference": [
+              "au_60_20570"
+            ],
+            "geographic_reference_auto": true,
+            "territory": [
+              "Ballarat (C)"
+            ],
+            "geometry_types": null,
+            "bbox": null,
+            "publisher": "City of Ballarat",
+            "references": null,
+            "records_count": 1,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": false,
+            "parent_domain": "geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": null,
+            "granularity": null
+          },
+          "asset": {
+            "title": "Access to Public Open Spaces",
+            "description": "<p>Percentage of domestic dwellings within 400 metres of public open space (a reserve).</p>",
+            "themes": [
+              "Sports & Recreation",
+              "Health",
+              "Council Service Performance"
+            ],
+            "keywords": [
+              "open space"
+            ],
+            "category": "Data",
+            "created_at": "2020-05-28T03:50:18+00:00",
+            "updated_at": "2020-05-28T03:50:22+00:00",
+            "creator": "City of Ballarat",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/access-to-public-open-spaces/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": null
+          },
+          "asset_content_configuration": {
+            "facets": null,
+            "default_sorts": [
+              {
+                "field_name": "year",
+                "direction": "DESC"
+              }
+            ],
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "main_cta": "explorer"
+            },
+            "custom_views_page": null
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    },
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "geo_point_2d",
+            "description": "GIS Point data",
+            "annotations": {},
+            "label": "Geo Point",
+            "type": "geo_point_2d"
+          },
+          {
+            "name": "geo_shape",
+            "description": null,
+            "annotations": {},
+            "label": "Geo Shape",
+            "type": "geo_shape"
+          },
+          {
+            "name": "name",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "name",
+            "type": "text"
+          },
+          {
+            "name": "address",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "address",
+            "type": "text"
+          },
+          {
+            "name": "description",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "description",
+            "type": "text"
+          },
+          {
+            "name": "basins",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "basins",
+            "type": "int"
+          },
+          {
+            "name": "toilets",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "toilets",
+            "type": "int"
+          },
+          {
+            "name": "urinal_troughs",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "urinal troughs",
+            "type": "int"
+          },
+          {
+            "name": "urinal_walls",
+            "description": null,
+            "annotations": {
+              "facetsort": "-count"
+            },
+            "label": "urinal walls",
+            "type": "int"
+          },
+          {
+            "name": "male",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "male",
+            "type": "text"
+          },
+          {
+            "name": "female",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "female",
+            "type": "text"
+          },
+          {
+            "name": "unisex",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "unisex",
+            "type": "text"
+          },
+          {
+            "name": "accessible",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "accessible",
+            "type": "text"
+          },
+          {
+            "name": "ambulant",
+            "description": null,
+            "annotations": {
+              "facet": true
+            },
+            "label": "ambulant",
+            "type": "text"
+          }
+        ],
+        "dataset_id": "fixture-public-toilets",
+        "dataset_uid": "da_n3u0cp",
+        "has_records": true,
+        "features": [
+          "geo",
+          "analyze"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": null,
+            "table_fields": [
+              "name",
+              "address",
+              "description",
+              "basins",
+              "toilets",
+              "urinal_troughs",
+              "urinal_walls",
+              "male",
+              "female",
+              "unisex",
+              "accessible",
+              "ambulant"
+            ],
+            "table_default_sort_field": null,
+            "table_default_sort_direction": null,
+            "map_disabled": false,
+            "map_marker_picto": "dot",
+            "map_marker_color": "#0B72B5",
+            "map_marker_hidemarkershape": true,
+            "map_tooltip_title": "name",
+            "map_tooltip_fields": [
+              "description"
+            ],
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 16519,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 58128,
+            "popularity_score": 14.7,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": [
+              "world"
+            ],
+            "geographic_reference_path_labels": [
+              "World"
+            ]
+          },
+          "processing": {
+            "processing_modified": "2025-08-27T05:04:58+00:00",
+            "security_last_modified": "2020-02-28T04:40:36+00:00",
+            "records_size": 33629,
+            "complete": true
+          },
+          "publishing": {
+            "status": null,
+            "published": false,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "fixture-Public Toilets",
+            "description": "<p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">This dataset describes the location of public toilets located in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">The information was collected as the toilets were constructed.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">The intended use of the information is to inform the public of the locations of Ballarat's public toilets.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\"><br></p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">This dataset is typically updated monthly on an automated schedule.</p>",
+            "theme": [
+              "Council Service Performance",
+              "Roads & Planning"
+            ],
+            "keyword": [
+              "toilet",
+              "public toilet"
+            ],
+            "license": "CC BY 3",
+            "license_url": "https://creativecommons.org/licenses/by/3.0/au/",
+            "language": "en",
+            "metadata_languages": [
+              "en"
+            ],
+            "timezone": [
+              "Australia/Melbourne"
+            ],
+            "modified": "2025-08-27T05:05:00+00:00",
+            "modified_updates_on_metadata_change": false,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2025-08-27T05:05:00+00:00",
+            "metadata_processed": "2025-08-27T05:05:01.055000+00:00",
+            "geographic_reference": [
+              "world"
+            ],
+            "geographic_reference_auto": true,
+            "territory": [
+              "World"
+            ],
+            "geometry_types": [
+              "Point"
+            ],
+            "bbox": {
+              "type": "Feature",
+              "geometry": {
+                "coordinates": [
+                  [
+                    [
+                      179.99999991618097,
+                      89.99999995809048
+                    ],
+                    [
+                      143.6695575993508,
+                      89.99999995809048
+                    ],
+                    [
+                      143.6695575993508,
+                      -37.670273655094206
+                    ],
+                    [
+                      179.99999991618097,
+                      -37.670273655094206
+                    ],
+                    [
+                      179.99999991618097,
+                      89.99999995809048
+                    ]
+                  ]
+                ],
+                "type": "Polygon"
+              },
+              "properties": {}
+            },
+            "publisher": "City of Ballarat",
+            "references": null,
+            "records_count": 161,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": false,
+            "parent_domain": "mav-technology-geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": null,
+            "granularity": null
+          },
+          "asset": {
+            "title": "Public Toilets",
+            "description": "<p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">This dataset describes the location of public toilets located in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">The information was collected as the toilets were constructed.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">The intended use of the information is to inform the public of the locations of Ballarat's public toilets.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\"><br></p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">This dataset is typically updated monthly on an automated schedule.</p>",
+            "themes": [
+              "Council Service Performance",
+              "Roads & Planning"
+            ],
+            "keywords": [
+              "toilet",
+              "public toilet"
+            ],
+            "category": "Data",
+            "created_at": "2020-01-21T05:12:11+00:00",
+            "updated_at": "2025-08-27T05:05:00+00:00",
+            "creator": "City of Ballarat",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/public-toilets/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": 0
+          },
+          "asset_content_configuration": {
+            "facets": [
+              {
+                "field_name": "name"
+              },
+              {
+                "field_name": "address"
+              },
+              {
+                "field_name": "description"
+              },
+              {
+                "field_name": "male"
+              },
+              {
+                "field_name": "female"
+              },
+              {
+                "field_name": "unisex"
+              },
+              {
+                "field_name": "accessible"
+              },
+              {
+                "field_name": "ambulant"
+              }
+            ],
+            "default_sorts": null,
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "blocks": [],
+              "previews": {},
+              "main_cta": "explorer"
+            },
+            "custom_views_page": {
+              "main_cta": null,
+              "views": []
+            }
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    },
+    {
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-landfill-deliveries"
+        },
+        {
+          "rel": "datasets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets"
+        },
+        {
+          "rel": "records",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-landfill-deliveries/records"
+        },
+        {
+          "rel": "exports",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-landfill-deliveries/exports"
+        },
+        {
+          "rel": "facets",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-landfill-deliveries/facets"
+        },
+        {
+          "rel": "reuses",
+          "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-landfill-deliveries/reuses"
+        }
+      ],
+      "dataset": {
+        "domain": "ballarat-geelongvic",
+        "visibility": "domain",
+        "fields": [
+          {
+            "name": "date",
+            "description": "Date the load of waste was delivered to landfill.",
+            "annotations": {},
+            "label": "date",
+            "type": "date"
+          },
+          {
+            "name": "weight",
+            "description": "Net weight of load delivered to landfill in metric tons.",
+            "annotations": {
+              "unit": "t"
+            },
+            "label": "weight",
+            "type": "double"
+          },
+          {
+            "name": "vehicle",
+            "description": "Unique key for kerbside waste trucks. This is the same key used in Ballarat Kerbside Bin Collections - https://data.ballarat.vic.gov.au/explore/dataset/ballarat-kerbside-bin-collections",
+            "annotations": {},
+            "label": "vehicle",
+            "type": "int"
+          }
+        ],
+        "dataset_id": "fixture-kerbside-landfill-deliveries",
+        "dataset_uid": "da_makwcj",
+        "has_records": true,
+        "features": [
+          "analyze",
+          "timeserie"
+        ],
+        "attachments": [],
+        "alternative_exports": [],
+        "data_visible": true,
+        "metas": {
+          "exporters": {
+            "gpx_namefield": null,
+            "gpx_includedfields": null,
+            "ov2_includedfields": null,
+            "additional_projections": null,
+            "export_sort": null
+          },
+          "visualization": {
+            "analyze_disabled": false,
+            "analyze_default": "{\"queries\":[{\"charts\":[{\"type\":\"column\",\"func\":\"SUM\",\"yAxis\":\"weight\",\"scientificDisplay\":true,\"color\":\"range-Accent\"}],\"xAxis\":\"date\",\"maxpoints\":\"\",\"timescale\":\"month\",\"sort\":\"\",\"seriesBreakdown\":\"vehicle\",\"stacked\":\"normal\"}],\"displayLegend\":true,\"alignMonth\":true}",
+            "table_fields": null,
+            "table_default_sort_field": null,
+            "table_default_sort_direction": null,
+            "map_disabled": false,
+            "map_marker_picto": null,
+            "map_marker_color": null,
+            "map_marker_hidemarkershape": false,
+            "map_tooltip_title": null,
+            "map_tooltip_fields": null,
+            "map_tooltip_disabled": false,
+            "map_tooltip_html_enabled": false,
+            "map_tooltip_html": null,
+            "map_tooltip_sort_field": null,
+            "map_tooltip_sort_direction": null,
+            "map_basemap": null,
+            "images_disabled": false,
+            "media_gallery_fields": null,
+            "image_title": null,
+            "image_fields": null,
+            "image_tooltip_html_enabled": false,
+            "image_tooltip_html": null,
+            "calendar_enabled": false,
+            "calendar_event_title": null,
+            "calendar_event_start": null,
+            "calendar_event_end": null,
+            "calendar_tooltip_html_enabled": false,
+            "calendar_tooltip_html": null,
+            "calendar_tooltip_fields": null,
+            "calendar_event_color": null,
+            "calendar_available_views": null,
+            "calendar_default_view": null,
+            "custom_view_enabled": false,
+            "custom_view_html": null,
+            "custom_view_css": null,
+            "custom_view_icon": null,
+            "custom_view_title": null,
+            "custom_view_slug": null
+          },
+          "explore": {
+            "reuse_count": 0,
+            "download_count": 9669,
+            "attachment_download_count": 0,
+            "file_field_download_count": 0,
+            "api_call_count": 15383,
+            "popularity_score": 9.3,
+            "feed_titlefield": null,
+            "feed_descriptionfield": null,
+            "feed_fieldslist": null,
+            "feedback_enabled": false,
+            "swagger_specifications": null,
+            "geographic_reference_path": [
+              "world/world_au/au_40_2/au_60_20570"
+            ],
+            "geographic_reference_path_labels": [
+              "World/Australia/Victoria/Ballarat%20"
+            ]
+          },
+          "processing": {
+            "processing_modified": "2020-07-03T05:01:45+00:00",
+            "security_last_modified": "2020-04-08T00:29:52+00:00",
+            "records_size": 779129.0,
+            "complete": true
+          },
+          "publishing": {
+            "status": null,
+            "published": null,
+            "error_message": null,
+            "last_modified": null,
+            "last_modified_user": null,
+            "properties": null,
+            "extractors": null,
+            "harvester": null,
+            "joined_datasets": null,
+            "datasource_types": null
+          },
+          "default": {
+            "title": "fixture-Kerbside Landfill Deliveries",
+            "description": "<p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">This dataset describes the date, vehicle and weight of landfill delivered to landfill in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">The information was collected as the deliveries were made.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">The intended use of the information is to inform the public of the number and weight of landfill deliveries for Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\"><br/></p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">This dataset is typically updated yearly on an manual basis.</p>",
+            "theme": [
+              "Council Service Performance",
+              "Environment"
+            ],
+            "keyword": [
+              "landfill",
+              "waste",
+              "rubbish"
+            ],
+            "license": "CC BY 3",
+            "license_url": "https://creativecommons.org/licenses/by/3.0/au/",
+            "language": "en",
+            "metadata_languages": [
+              "en"
+            ],
+            "timezone": [
+              "Australia/Melbourne"
+            ],
+            "modified": "2020-07-03T05:02:36+00:00",
+            "modified_updates_on_metadata_change": false,
+            "modified_updates_on_data_change": true,
+            "data_processed": "2020-07-03T05:02:36+00:00",
+            "metadata_processed": "2022-06-24T05:11:22.452000+00:00",
+            "geographic_reference": [
+              "au_60_20570"
+            ],
+            "geographic_reference_auto": true,
+            "territory": [
+              "Ballarat "
+            ],
+            "geometry_types": null,
+            "bbox": null,
+            "publisher": "City of Ballarat",
+            "references": null,
+            "records_count": 35512,
+            "attributions": null,
+            "source_domain": null,
+            "source_domain_title": null,
+            "source_domain_address": null,
+            "source_dataset": null,
+            "shared_catalog": null,
+            "federated": false,
+            "parent_domain": "mav-technology-geelongvic",
+            "update_frequency": null
+          },
+          "custom": {
+            "source-url": null,
+            "update-frequency": "irregular",
+            "granularity": "year, month, day, vehicle, delivery"
+          },
+          "asset": {
+            "title": "Kerbside Landfill Deliveries",
+            "description": "<p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">This dataset describes the date, vehicle and weight of landfill delivered to landfill in Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 1em; color: rgb(34, 30, 31); font-size: 14px;\">The information was collected as the deliveries were made.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">The intended use of the information is to inform the public of the number and weight of landfill deliveries for Ballarat.</p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\"><br/></p><p style=\"font-family: Arial; margin-bottom: 0px; color: rgb(34, 30, 31); font-size: 14px;\">This dataset is typically updated yearly on an manual basis.</p>",
+            "themes": [
+              "Council Service Performance",
+              "Environment"
+            ],
+            "keywords": [
+              "landfill",
+              "waste",
+              "rubbish"
+            ],
+            "category": "Data",
+            "created_at": "2020-04-07T00:36:45+00:00",
+            "updated_at": "2020-07-03T05:02:36+00:00",
+            "creator": "City of Ballarat",
+            "is_showcase": false,
+            "content_link": "/explore/dataset/kerbside-landfill-deliveries/",
+            "contact_name": null,
+            "contact_email": null,
+            "update_frequency": null,
+            "thumbnail": null,
+            "is_excluded_from_catalog": false,
+            "is_access_request_disabled": false,
+            "metadata_languages": [
+              "en"
+            ],
+            "total_bookmarks": null
+          },
+          "asset_content_configuration": {
+            "facets": null,
+            "default_sorts": null,
+            "fields_displayed_in_specific_languages": null,
+            "records_search_boosts": null,
+            "is_explore_data_with_ai_disabled": false
+          },
+          "asset_frontoffice_configuration": {
+            "product_page": {
+              "main_cta": "explorer"
+            },
+            "custom_views_page": null
+          },
+          "asset_management_properties": {
+            "last_modified": null,
+            "harvested_by": null,
+            "is_published": null,
+            "is_federated": null,
+            "is_scheduled": null
+          }
+        }
+      }
+    }
+  ],
+  "exports": {
+    "fixture-council-emissions": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-council-emissions/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-council-emissions/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-council-emissions/exports/geojson"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-council-emissions/exports/xls"
+      }
+    ],
+    "fixture-kerbside-waste-properties": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-waste-properties/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-waste-properties/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-waste-properties/exports/geojson"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-waste-properties/exports/xls"
+      }
+    ],
+    "fixture-access-to-public-open-spaces": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-access-to-public-open-spaces/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-access-to-public-open-spaces/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-access-to-public-open-spaces/exports/geojson"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-access-to-public-open-spaces/exports/xls"
+      }
+    ],
+    "fixture-public-toilets": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/exports/geojson"
+      },
+      {
+        "rel": "kml",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/exports/kml"
+      },
+      {
+        "rel": "shp",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/exports/shp"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-public-toilets/exports/xls"
+      }
+    ],
+    "fixture-kerbside-landfill-deliveries": [
+      {
+        "rel": "csv",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-landfill-deliveries/exports/csv"
+      },
+      {
+        "rel": "json",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-landfill-deliveries/exports/json"
+      },
+      {
+        "rel": "geojson",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-landfill-deliveries/exports/geojson"
+      },
+      {
+        "rel": "xls",
+        "href": "https://data.ballarat.vic.gov.au/api/v2/catalog/datasets/fixture-kerbside-landfill-deliveries/exports/xls"
+      }
+    ]
+  }
+}

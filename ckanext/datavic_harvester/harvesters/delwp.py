@@ -11,7 +11,6 @@ from typing import Iterator, Optional, Any
 
 from bs4 import BeautifulSoup, Tag
 import requests
-from sqlalchemy import and_, or_
 
 from ckan import model
 from ckan.plugins import toolkit as tk
@@ -23,6 +22,9 @@ from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestObjectExtra
 import ckanext.datavic_harvester.helpers as helpers
 from ckanext.datavic_harvester.harvesters.base import (
     DataVicBaseHarvester,
+    PRESERVE_PKG_FIELDS,
+    add_harvest_source_extras,
+    get_existing_guids_to_package_ids,
     get_resource_size,
 )
 
@@ -61,33 +63,6 @@ HASH_RESOURCE_FIELDS = frozenset(
     }
 )
 
-# Below are the fields that are preserved on the update path (package_update)
-# so that they are not overwritten by the harvester.
-# This list need to be kept in sync with the iar_ckan_dataset.yml schema.
-PRESERVE_PKG_FIELDS = frozenset(
-    {
-        "alias",
-        "agency_program_domain",
-        "custom_licence_text",
-        "custom_licence_link",
-        "dtv_preview",
-        "bil_confidentiality",
-        "bil_confidentiality_description",
-        "bil_availability",
-        "bil_availability_description",
-        "bil_integrity",
-        "bil_integrity_description",
-        "source_ict_system",
-        "record_disposal_category",
-        "disposal_category",
-        "disposal_class",
-        "workflow_status_notes",
-        "role",
-        "maintainer_email",
-        "skip_syndication",
-        "syndicated_id",
-    }
-)
 
 
 class DelwpHarvester(DataVicBaseHarvester):
@@ -355,10 +330,14 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         harvest_object_ids = []
         # guid_to_package_id includes soft-deleted rows so reappearing guids can
-        # reuse their original package_id — see _get_guids_to_package_ids.
-        # current_guids is the active set only, used for deletion detection so we
-        # don't re-delete guids that were already deleted in a prior run.
-        guid_to_package_id = self._get_guids_to_package_ids(harvest_job.source.id)
+        # reuse their original package_id (active_only=False - see
+        # get_existing_guids_to_package_ids docstring for why DELWP needs this).
+        # current_guids is the active set only, used for
+        # deletion detection so we don't re-delete guids that were already
+        # deleted in a prior run.
+        guid_to_package_id = get_existing_guids_to_package_ids(
+            harvest_job.source.id, active_only=False
+        )
         current_guids = self._get_current_harvest_guids(harvest_job.source.id)
         guids_in_source: list[str] = []
 
@@ -625,37 +604,6 @@ class DelwpHarvester(DataVicBaseHarvester):
             .all()
         )
         return {row[0] for row in rows}
-
-    def _get_guids_to_package_ids(self, source_id: str) -> dict[str, str]:
-        # A dataset may be soft-deleted in one harvest (current=False, package kept)
-        # and then reappear in a later harvest. Include those deleted rows so the
-        # original package_id can be reused instead of creating a new suffixed package.
-        # The ordering is intentional: the dict comprehension keeps the last row seen
-        # for each guid, so current rows win over deleted ones, and otherwise the most
-        # recently gathered deleted row wins.
-        query = (
-            model.Session.query(HarvestObject.guid, HarvestObject.package_id)
-            .filter(HarvestObject.harvest_source_id == source_id)
-            .filter(
-                or_(
-                    HarvestObject.current == True,
-                    and_(
-                        HarvestObject.current == False,
-                        HarvestObject.package_id.isnot(None),
-                        HarvestObject.report_status == "deleted",
-                    ),
-                )
-            )
-            .order_by(
-                HarvestObject.guid.asc(),
-                HarvestObject.current.asc(),
-                HarvestObject.gathered.asc(),
-            )
-        )
-
-        return {
-            harvest_object.guid: harvest_object.package_id for harvest_object in query
-        }
 
     def _fetch_records(
         self, url: str, page: int, records_per_page: int = 100
@@ -1027,14 +975,12 @@ class DelwpHarvester(DataVicBaseHarvester):
         elif full_metadata_url:
             pkg_dict["full_metadata_url"] = full_metadata_url
 
-        for key, value in [
-            ("harvest_source_id", harvest_object.source.id),
-            ("harvest_source_title", harvest_object.source.title),
-            ("harvest_source_type", harvest_object.source.type),
-            ("delwp_restricted", pkg_dict["private"]),
-        ]:
-            pkg_dict.setdefault("extras", [])
-            pkg_dict["extras"].append({"key": key, "value": value})
+        add_harvest_source_extras(pkg_dict, harvest_object.source)
+
+        pkg_dict.setdefault("extras", [])
+        pkg_dict["extras"].append(
+            {"key": "delwp_restricted", "value": pkg_dict["private"]}
+        )
 
         return pkg_dict
 

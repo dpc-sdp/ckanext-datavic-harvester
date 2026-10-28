@@ -31,6 +31,7 @@ from ckanext.datavic_harvester.harvesters.base import (
 
 log = logging.getLogger(__name__)
 HASH_FIELD = "harvester_data_hash"
+DEFAULT_CONTACT_POINT = "https://datashare.maps.vic.gov.au/contact-us"
 
 # Change-detection hash whitelist. Only fields genuinely derived from the remote
 # source metadata are hashed; everything the harvester injects (static literals,
@@ -40,6 +41,7 @@ HASH_FIELD = "harvester_data_hash"
 HASH_PKG_FIELDS = frozenset(
     {
         "title",
+        "contact_point",
         "notes",
         "extract",
         "tags",
@@ -892,7 +894,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         self.pkg_dict = pkg_dict = {}
 
-        pkg_dict["contact_point"] = "https://datashare.maps.vic.gov.au/contact-us"
+        pkg_dict["contact_point"] = self._get_contact_point(metashare_dict)
         pkg_dict["personal_information"] = "no"
         pkg_dict["protective_marking"] = "official"
         pkg_dict["access"] = "yes"
@@ -983,6 +985,38 @@ class DelwpHarvester(DataVicBaseHarvester):
         )
 
         return pkg_dict
+
+    def _get_contact_point(self, metashare_dict: dict[str, Any]) -> str:
+        """Map `responsibleparty` to `contact_point`.
+
+        Uses the same email/URL checks as the `url_email_validator` applied
+        to `contact_point` in the dataset schema. Falls back to
+        DEFAULT_CONTACT_POINT when the value is missing, blank or invalid.
+        """
+        value = metashare_dict.get("responsibleparty")
+
+        if not isinstance(value, str) or not value.strip():
+            return DEFAULT_CONTACT_POINT
+
+        value = value.strip()
+
+        # Keep in sync with ckanext-datavicmain url_email_validator.
+        try:
+            tk.get_validator("email_validator")(value, {})
+            return value
+        except tk.Invalid:
+            pass
+
+        if tk.h.is_url(value):
+            return value
+
+        log.info(
+            "%s: invalid responsibleparty %r for record %s, using default contact_point",
+            self.HARVESTER,
+            value,
+            metashare_dict.get("_uuid") or metashare_dict.get("uuid"),
+        )
+        return DEFAULT_CONTACT_POINT
 
     def _preserve_resource_ids(self, pkg_dict: dict[str, Any], pkg) -> None:
         """Carry existing resource IDs onto matching incoming resources so

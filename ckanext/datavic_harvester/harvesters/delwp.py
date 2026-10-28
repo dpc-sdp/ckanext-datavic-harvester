@@ -1000,6 +1000,7 @@ class DelwpHarvester(DataVicBaseHarvester):
 
         value = value.strip()
 
+        # Keep in sync with ckanext-datavicmain url_email_validator.
         try:
             tk.get_validator("email_validator")(value, {})
             return value
@@ -1009,7 +1010,7 @@ class DelwpHarvester(DataVicBaseHarvester):
         if tk.h.is_url(value):
             return value
 
-        log.warning(
+        log.info(
             "%s: invalid responsibleparty %r for record %s, using default contact_point",
             self.HARVESTER,
             value,

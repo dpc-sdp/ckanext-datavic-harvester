@@ -19,6 +19,7 @@ import ckanext.harvest.model as harvest_model
 import ckanext.datavic_harvester.helpers as h
 from ckanext.datavic_harvester.harvesters import DelwpHarvester
 from ckanext.datavic_harvester.harvesters.base import get_existing_guids_to_package_ids
+from ckanext.datavic_harvester.harvesters.delwp import DEFAULT_CONTACT_POINT
 
 
 class DelwpConfig(TypedDict):
@@ -183,6 +184,7 @@ class TestDelwpHarvester:
         assert dt.fromisoformat(pkg_dict["date_created_data_asset"])
         assert dt.fromisoformat(pkg_dict["date_modified_data_asset"])
 
+        assert pkg_dict["contact_point"] == delwp_dataset["responsibleparty"].strip()
         assert pkg_dict["personal_information"] == "no"
         assert pkg_dict["protective_marking"] == "official"
         assert pkg_dict["access"] == "yes"
@@ -1428,6 +1430,21 @@ class TestCalculateHashForDataDict:
 
         assert hash_a != hash_b
 
+    def test_hash_changes_on_contact_point(self):
+        """contact_point is derived from the source responsibleparty field, so a
+        change to it must produce a different hash and trigger a package_update."""
+        harvester = DelwpHarvester()
+
+        pkg_a = self._base_pkg_dict()
+        pkg_b = self._base_pkg_dict()
+        pkg_a["contact_point"] = DEFAULT_CONTACT_POINT
+        pkg_b["contact_point"] = "someone@example.vic.gov.au"
+
+        hash_a = harvester._calculate_hash_for_data_dict(pkg_a)
+        hash_b = harvester._calculate_hash_for_data_dict(pkg_b)
+
+        assert hash_a != hash_b
+
     def test_hash_stable_across_resource_ordering(self):
         """The remote API does not guarantee a stable ordering of resources between
         calls. The hash must be order-independent so that a reordering in the API
@@ -1975,3 +1992,67 @@ def test_delwp_add_harvest_source_extras_is_the_shared_function():
         delwp_module.add_harvest_source_extras
         is base_module.add_harvest_source_extras
     )
+
+
+@pytest.mark.usefixtures("with_plugins")
+class TestContactPoint:
+    """responsibleparty is mapped to contact_point. Missing, blank or
+    invalid values (failing the email/URL check used by contact_point's
+    url_email_validator) fall back to DEFAULT_CONTACT_POINT."""
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("contact@example.com", "contact@example.com"),
+            ("  someone@example.vic.gov.au  ", "someone@example.vic.gov.au"),
+            ("https://example.vic.gov.au/contact", "https://example.vic.gov.au/contact"),
+        ],
+    )
+    def test_valid_value_is_mapped(self, value, expected):
+        harvester = DelwpHarvester()
+        assert harvester._get_contact_point({"responsibleparty": value}) == expected
+
+    def test_missing_uses_default(self):
+        harvester = DelwpHarvester()
+        assert harvester._get_contact_point({}) == DEFAULT_CONTACT_POINT
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            None,
+            "",
+            "   ",
+            123,
+            ["a@b.com"],
+            "Jane Citizen",
+            "not-an-email@",
+            "ftp//bad",
+            "a@b@c",
+        ],
+    )
+    def test_blank_non_string_or_invalid_uses_default(self, value):
+        harvester = DelwpHarvester()
+        assert (
+            harvester._get_contact_point({"responsibleparty": value})
+            == DEFAULT_CONTACT_POINT
+        )
+
+    @pytest.mark.usefixtures("clean_db")
+    def test_get_pkg_dict_without_responsibleparty_uses_default(
+        self,
+        harvester: DelwpHarvester,
+        harvest_object_factory,
+        delwp_config: DelwpConfig,
+        delwp_dataset: dict[str, Any],
+    ):
+        record = dict(delwp_dataset)
+        record.pop("responsibleparty", None)
+        harvester.config = delwp_config
+        harvest_object = harvest_object_factory(
+            guid=record["uuid"], content=json.dumps(record)
+        )
+
+        with mock.patch.object(harvester, "_fetch_resources", return_value=[]):
+            pkg_dict = harvester._get_pkg_dict(harvest_object)
+
+        assert pkg_dict["contact_point"] == DEFAULT_CONTACT_POINT

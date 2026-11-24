@@ -116,6 +116,27 @@ class TestDataVicODPHarvester:
         assert mutated_dataset["access"] == "yes"
         imp.assert_called_once_with(harvest_object)
 
+    def test_import_drops_remote_datastore_state(self, harvester: DataVicODPHarvester, odp_source_config):
+        remote = {
+            "name": "remote-dataset",
+            "resources": [{
+                "id": "res-1", "url": "https://dv.example/file.csv", "hash": "abc",
+                "datastore_active": True, "datastore_contains_all_records_of_source_file": True,
+            }],
+        }
+        harvest_object = SimpleNamespace(
+            content=json.dumps(remote),
+            source=SimpleNamespace(config=json.dumps(odp_source_config)),
+        )
+        with mock.patch(
+            "ckanext.datavic_harvester.harvesters.datavic_odp.CKANHarvester.import_stage",
+            return_value=True,
+        ), mock.patch.object(harvester, "transmute_data"):
+            assert harvester.import_stage(harvest_object) is True
+
+        resource = json.loads(harvest_object.content)["resources"][0]
+        assert resource == {"id": "res-1", "url": "https://dv.example/file.csv"}
+
     @pytest.mark.usefixtures("with_plugins", "clean_db")
     def test_purge_missing(
         self,

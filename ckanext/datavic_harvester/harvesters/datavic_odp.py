@@ -24,6 +24,8 @@ log = logging.getLogger(__name__)
 
 _DELETE_MARKER = "status"
 _DELETE_VALUE = "delete"
+# DV's DataStore state. Kept, DD's xloader sees a matching hash and never loads DD's own DataStore.
+_REMOTE_DATASTORE_FIELDS = ("hash", "datastore_active", "datastore_contains_all_records_of_source_file")
 
 
 class DataVicODPHarvester(CKANHarvester, BasketBasicHarvester):
@@ -140,6 +142,9 @@ class DataVicODPHarvester(CKANHarvester, BasketBasicHarvester):
 
         try:
             package_dict = json.loads(harvest_object.content)
+            for resource in package_dict.get("resources", []):
+                for field in _REMOTE_DATASTORE_FIELDS:
+                    resource.pop(field, None)
             self._set_config(harvest_object.source.config)
             self._transmute_content(package_dict)
             harvest_object.content = json.dumps(package_dict)
